@@ -1,6 +1,6 @@
 # BREAKR — handoff for Claude Code
 
-Open-source (GPL-3.0) **breakbeat slicer firmware for the M-VAVE FM-1**, by Omnipotard (GitHub: Guizmoh).
+Open-source (GPL-3.0) **breakbeat slicer firmware for the M-VAVE FM-1**, by Omnipotard (GitHub: Omnipotard — repo https://github.com/Omnipotard/Breakr).
 User request (FR): « découpeur de breakbeat avec génération de slices et lecture aléatoire si on le souhaite,
 interface soignée, workflow accessible, import de samples, FX type PO-33 / Akai Flex Beat, page GitHub dédiée ».
 Talk to the user in French.
@@ -41,7 +41,7 @@ Firmware engine + UI + store + SysEx; `web/brk.js` (IMA encoder, STFT onsets, cl
 3. Root `index.html` (GitHub Pages landing, FR/EN, like KAWA's), `README.md` + `README.fr.md`, manual,
    `LICENSING.md` (credits: Dinghy/zvenson, Felucca/Hügelton, SLOOP/isod89, KAWA, Inter OFL), `fmhub.json`, `source/BUILDING.md`.
 4. `.github/workflows/`: host tests + wasm + pages deploy; release via `zvenson/fm1-build` (copy KAWA's).
-5. Create GitHub repo `Guizmoh/BREAKR-FM1` (ask user), push, enable Pages, tag v0.1 for a first CI build.
+5. Repo https://github.com/Omnipotard/Breakr exists (pushed). Enable Pages, tag v0.1 for a first CI build.
 6. After a real build: check image size/RAM from build.py output; hardware test with the user.
 
 Known limits: on-device AUTO slicing recall ~81%, class accuracy ~65% (editor's STFT slicer is better);

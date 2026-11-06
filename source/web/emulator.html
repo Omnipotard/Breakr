@@ -1,0 +1,1128 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BREAKR Emulator</title>
+<meta name="description" content="BREAKR by Omnipotard: a breakbeat slicer firmware for the M-VAVE FM-1, running in the browser.">
+<meta name="theme-color" content="#131316">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2334313b'/%3E%3Crect x='5' y='7' width='22' height='12' rx='2' fill='%230a0b0e'/%3E%3Cpath d='M7 13h2l1-4 2 8 1-6 2 4 1-2h2l1-3 2 6 1-3h2' fill='none' stroke='%23ff8a1e' stroke-width='1.6'/%3E%3Ccircle cx='10' cy='25' r='2.4' fill='%23FF5454'/%3E%3Ccircle cx='16' cy='25' r='2.4' fill='%23FFCE3C'/%3E%3Ccircle cx='22' cy='25' r='2.4' fill='%2350DC78'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: the FM-1 lies on a dark desk; its panel is laid out as the real one (left knobs, screen,
+   right knobs and buttons, the keybed below) and restacks on a phone, the screen first. One dark look.
+   Below it: the breaks, the saved projects, the guide, a word from the author. */
+:root {
+  --desk: #131316;
+  --desk-2: #1c1c21;
+  --desk-3: #25252c;
+  --body: #34313b;
+  --body-hi: #45414e;
+  --bezel: #09080c;
+  --label: #b4adc4;
+  --ink: #f1ecfb;
+  --muted: #8d86a0;
+  --text-2: #d9d3e6;
+  --hot: #ff8a1e;
+  --amber: #ffb03a;
+  --cyan: #3ed8ff;
+  --green: #7ef0a8;
+  --led-off: #2a2731;
+  --k1: #FF5C5C;
+  --k2: #FFCC40;
+  --k3: #5CE274;
+  --k4: #54A4FF;
+  --display: "Silkscreen", "Courier New", monospace;
+  --text: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { background: var(--desk); color: var(--ink); }
+body { margin: 0; font-family: var(--text); font-size: 15px; line-height: 1.5; padding-inline: 16px; padding-block: 20px 40px; overflow-x: hidden; }
+.wrap { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+.vh { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+a { color: var(--cyan); }
+a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+/* ---- the header, the beta */
+header.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 18px; }
+.brand { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+h1 { font-family: var(--display); font-weight: 700; font-size: clamp(30px, 6vw, 46px); letter-spacing: 0.04em; margin: 0; line-height: 1; color: var(--ink); }
+h1 span { color: var(--hot); }
+.beta { font-family: var(--mono); font-weight: 600; font-size: 12px; letter-spacing: 0.12em; line-height: 1; color: #1a1026; background: var(--amber); border-radius: 999px; padding: 6px 10px 5px; white-space: nowrap; }
+.tag { font-family: var(--mono); font-size: 13px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+.langs { display: flex; gap: 4px; background: var(--desk-2); border-radius: 10px; padding: 3px; }
+.langs button { appearance: none; border: 0; background: none; color: var(--muted); font-family: var(--mono); font-weight: 600; font-size: 13px; letter-spacing: 0.08em; padding: 5px 10px; border-radius: 7px; cursor: pointer; }
+.langs button[aria-pressed="true"] { background: var(--hot); color: #1a1026; }
+.note { display: flex; gap: 12px; align-items: flex-start; margin: 0; padding: 12px 16px; border-radius: 14px; color: #ece6f6; font-size: 14.5px;
+  background: linear-gradient(90deg, rgba(255,176,58,.14), rgba(255,176,58,.04)); border: 1px solid rgba(255,176,58,.38); }
+.note svg { flex: none; width: 22px; height: 22px; color: var(--amber); margin-top: 1px; }
+.note b { color: var(--amber); }
+
+/* ---- the device */
+.device {
+  position: relative;
+  background: linear-gradient(170deg, var(--body-hi), var(--body) 38%, #2b2831);
+  border-radius: 26px;
+  padding: 26px 26px 22px;
+  box-shadow: 0 30px 60px -20px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.08), inset 0 -2px 0 rgba(0,0,0,.35);
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 330px;
+  grid-template-areas: "left screen right" "keys keys keys";
+  gap: 22px 26px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+.zone-left { grid-area: left; display: flex; flex-direction: column; gap: 16px; }
+.zone-screen { grid-area: screen; display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; }
+.zone-right { grid-area: right; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.zone-keys { grid-area: keys; }
+.knobs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 10px; }
+.knobs.row { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 6px; }
+.knob { --ring: #4b4756; display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: ns-resize; touch-action: none; min-width: 0; border-radius: 12px; }
+.knob .lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; color: var(--label); text-transform: uppercase; white-space: nowrap; }
+.knob .fn { font-family: var(--mono); font-size: 10px; color: var(--amber); letter-spacing: 0.05em; min-height: 1.25em; text-align: center; line-height: 1.25; }
+.knob .fn.live { color: var(--ring); min-height: 2.5em; max-width: 100%; white-space: pre-line; overflow-wrap: anywhere; font-weight: 600; }
+.ring { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; border: 3px solid var(--ring); transition: box-shadow .15s, border-color .15s; }
+.knob.col .ring { box-shadow: 0 0 10px -4px var(--ring), inset 0 0 6px -3px var(--ring); }
+.knob.col .lbl { color: var(--ring); }
+.knob.hot .ring { box-shadow: 0 0 18px 0 var(--ring), inset 0 0 8px -2px var(--ring); }
+.cap {
+  --a: 0deg;
+  width: 54px; height: 54px; border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, #5b5765 0 44%, transparent 45%),
+    repeating-conic-gradient(from 0deg, #23212a 0 6deg, #3c3944 6deg 12deg);
+  box-shadow: 0 6px 10px rgba(0,0,0,.55), inset 0 2px 2px rgba(255,255,255,.12);
+  position: relative;
+  transform: rotate(var(--a));
+  transition: transform .06s linear;
+}
+.cap::after { content: ""; position: absolute; left: 50%; top: 7px; width: 3px; height: 13px; margin-left: -1.5px; border-radius: 2px; background: var(--ink); }
+.knob:focus-visible { outline: none; }
+.knob:focus-visible .ring { outline: 2px solid var(--cyan); outline-offset: 3px; }
+.btn:focus-visible, .key:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+
+.btns { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px 8px; align-items: start; }
+.oct { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.btn {
+  appearance: none; border: 0; cursor: pointer; color: var(--label); border-radius: 9px;
+  display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 0; background: none;
+  font: inherit; min-width: 0;
+}
+.btn .face {
+  width: 100%; height: 30px; border-radius: 9px;
+  background: linear-gradient(180deg, #2a2730, #1f1d24);
+  box-shadow: 0 3px 0 #121016, inset 0 1px 0 rgba(255,255,255,.07);
+  display: grid; place-items: center;
+  font-family: var(--mono); font-weight: 600; font-size: 11px; letter-spacing: 0.06em; color: var(--label);
+  transition: transform .04s, box-shadow .04s, background .12s, color .12s;
+}
+.btn .fn { font-family: var(--mono); font-size: 9.5px; color: var(--amber); letter-spacing: 0.03em; text-align: center; line-height: 1.2; margin-top: 2px; }
+.btn .alt { font-family: var(--mono); font-size: 8.5px; color: var(--muted); letter-spacing: 0.02em; text-align: center; line-height: 1.15; }
+.btn.on .face { box-shadow: 0 3px 0 #121016, 0 0 14px -2px var(--glow, var(--hot)), inset 0 0 0 1px var(--glow, var(--hot)); color: var(--ink); }
+.btn.dim .face { color: #d6d0e3; box-shadow: 0 3px 0 #121016, inset 0 0 0 1px rgba(255,138,30,.28); }
+.btn.down .face { transform: translateY(2px); box-shadow: 0 1px 0 #121016; }
+.btn[data-id="12"] { --glow: #60ff96; }
+.btn[data-id="13"] { --glow: #ff4060; }
+
+.bezel {
+  background: var(--bezel); border-radius: 18px; padding: 16px;
+  box-shadow: inset 0 0 0 2px #000, 0 1px 0 rgba(255,255,255,.08);
+  width: min(100%, 392px);
+  position: relative;
+}
+.glass { position: relative; aspect-ratio: 1; width: 100%; border-radius: 6px; overflow: hidden; background: #0a0b0e; }
+.glass canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+.glass::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,255,255,.07), transparent 40%), repeating-linear-gradient(0deg, rgba(0,0,0,.08) 0 1px, transparent 1px 3px); }
+.power {
+  position: absolute; inset: 16px; border-radius: 6px; display: grid; place-items: center; align-content: center; gap: 14px;
+  background: radial-gradient(circle at 50% 38%, #2a2016, #0a0b0e 70%); text-align: center; padding: 18px;
+}
+.power p { margin: 0; color: var(--label); font-size: 14px; max-width: 26ch; }
+.power button {
+  font-family: var(--display); font-size: 17px; letter-spacing: 0.06em; color: #1a1026; background: var(--hot);
+  border: 0; border-radius: 12px; padding: 12px 20px; cursor: pointer; box-shadow: 0 4px 0 #a5520c;
+}
+.power button:active { transform: translateY(2px); box-shadow: 0 2px 0 #a5520c; }
+.power button:disabled { opacity: .7; cursor: progress; }
+.power .err { color: var(--amber); font-size: 13px; }
+.scrinfo { width: min(100%, 392px); display: flex; justify-content: space-between; align-items: center; gap: 10px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--muted); min-height: 26px; }
+.scrinfo .pg { --acc: var(--hot); color: var(--ink); background: #1f1b27; border-radius: 8px; padding: 3px 10px; border-left: 3px solid var(--acc); font-weight: 600; white-space: nowrap; }
+.scrinfo .pg:empty { visibility: hidden; }
+.scrinfo .trk { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* the keybed: 16 white keys, 11 black, F3 to G5 */
+.keybed { position: relative; height: 150px; background: #24212a; border-radius: 16px; padding: 10px; box-shadow: inset 0 2px 6px rgba(0,0,0,.6); }
+.keys { position: relative; height: 100%; }
+.key { position: absolute; bottom: 0; border-radius: 10px; cursor: pointer; touch-action: none; display: flex; justify-content: center; }
+.key.w { top: 52px; background: linear-gradient(180deg, #3d3945, #302d36); box-shadow: 0 3px 0 #17151b, inset 0 1px 0 rgba(255,255,255,.06); }
+.key.b { top: 0; height: 64px; background: linear-gradient(180deg, #34313a, #29262e); box-shadow: 0 3px 0 #141217, inset 0 1px 0 rgba(255,255,255,.05); z-index: 2; }
+.key::before { content: ""; position: absolute; top: 12px; width: 4px; height: 34%; border-radius: 3px; background: var(--led-off); transition: background .08s, box-shadow .08s; }
+.key.w::before { top: 18px; }
+.key.dim::before { background: #7a4a1e; }
+.key.on::before { background: var(--hot); box-shadow: 0 0 10px var(--hot); }
+.key.down { filter: brightness(1.25); transform: translateY(2px); }
+.key .kn { position: absolute; bottom: 6px; font-family: var(--mono); font-size: 9px; color: var(--muted); }
+
+/* ---- panels: the breaks, the projects */
+.panel { background: var(--desk-2); border-radius: 16px; padding: 18px 20px; min-width: 0; }
+.panel h2, .guide h2 { font-family: var(--display); font-size: 16px; letter-spacing: 0.05em; margin: 0 0 10px; font-weight: 400; }
+.panel p { margin: 0 0 8px; color: var(--text-2); font-size: 14.5px; max-width: 86ch; }
+.breaks h2 { color: var(--cyan); }
+.slots { list-style: none; margin: 14px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.slot { position: relative; background: var(--desk-3); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; border: 1px dashed transparent; transition: border-color .12s, background .12s; }
+body.dragging .slot { border-color: rgba(62,216,255,.45); }
+.slot.over { border-color: var(--cyan); background: #262838; }
+.slot .shead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.slot .sid { font-family: var(--mono); font-weight: 600; font-size: 12px; letter-spacing: 0.1em; color: var(--hot); }
+.slot .smeta { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+.slot .sname { font-family: var(--display); font-size: 15px; letter-spacing: 0.03em; color: var(--ink); overflow-wrap: anywhere; min-height: 1.5em; line-height: 1.5; }
+.slot.empty .sname { color: var(--muted); }
+.slot .sacts { display: grid; gap: 6px; }
+.sbtn { appearance: none; border: 0; cursor: pointer; font: 600 12px/1.25 var(--mono); letter-spacing: 0.03em; color: var(--ink); background: #37314b; border-radius: 9px; padding: 8px 10px; text-align: center; display: block; width: 100%; transition: background .12s; }
+.sbtn:hover { background: #443d5d; }
+.sbtn.hot { background: var(--cyan); color: #0c1a22; }
+.sbtn.hot:hover { background: #6fe3ff; }
+.sbtn:disabled { opacity: .42; cursor: default; background: #37314b; color: var(--ink); }
+label.sbtn:focus-within { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.slot progress { width: 100%; height: 6px; appearance: none; -webkit-appearance: none; border: 0; border-radius: 3px; background: #15111d; overflow: hidden; }
+.slot progress::-webkit-progress-bar { background: #15111d; border-radius: 3px; }
+.slot progress::-webkit-progress-value { background: var(--cyan); border-radius: 3px; }
+.slot progress::-moz-progress-bar { background: var(--cyan); border-radius: 3px; }
+.slot .smsg { font-size: 12.5px; color: #cfc8dc; line-height: 1.35; }
+.slot .smsg:empty { display: none; }
+.smsg.err, .pmsg.err { color: var(--amber); }
+.smsg.ok, .pmsg.ok { color: var(--green); }
+.midi-pick { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; }
+.midi-pick label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--label); min-width: 0; max-width: 100%; }
+select { font: 13px var(--mono); background: var(--desk-3); color: var(--ink); border: 1px solid #4a4458; border-radius: 8px; padding: 6px 8px; max-width: 100%; }
+.projects h2 { color: var(--hot); }
+.proj { display: flex; flex-wrap: wrap; gap: 12px 22px; align-items: center; justify-content: space-between; }
+.proj > div:first-child { flex: 1 1 380px; min-width: 0; }
+.proj .acts { display: flex; gap: 10px; flex-wrap: wrap; }
+.proj .sbtn { width: auto; padding: 9px 14px; }
+.pmsg { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+.pmsg:empty { display: none; }
+
+/* ---- the guide */
+.guide { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.guide section { background: var(--desk-2); border-radius: 16px; padding: 18px 20px; min-width: 0; }
+.guide h2 { color: var(--hot); }
+.guide section:nth-child(2) h2 { color: var(--amber); }
+.guide section:nth-child(3) h2 { color: var(--cyan); }
+.guide li { color: var(--text-2); font-size: 14.5px; }
+.guide ul { margin: 0; padding-left: 18px; display: grid; gap: 7px; }
+.guide b { color: var(--ink); }
+kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-radius: 5px; padding: 1px 6px; color: var(--ink); white-space: nowrap; }
+.k1 { color: var(--k1); } .k2 { color: var(--k2); } .k3 { color: var(--k3); } .k4 { color: var(--k4); }
+
+/* ---- a word from the author */
+.donate {
+  border-radius: 18px; padding: 22px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 28px;
+  background: radial-gradient(circle at 8% 0%, rgba(255,138,30,.20), transparent 55%), radial-gradient(circle at 100% 100%, rgba(255,176,58,.18), transparent 50%), var(--desk-2);
+  border: 1px solid rgba(255,176,58,.22);
+}
+.donate > div { flex: 1 1 320px; min-width: 0; }
+.donate h2 { font-family: var(--display); font-weight: 400; font-size: 20px; letter-spacing: 0.04em; margin: 0 0 6px; color: var(--amber); }
+.donate p { margin: 0; color: #ebe4f6; font-size: 15.5px; max-width: 56ch; }
+.donate .sig { color: var(--muted); font-size: 13.5px; margin-top: 6px; }
+.kofi { display: inline-flex; align-items: center; gap: 10px; background: var(--amber); color: #1a1026; font: 700 15.5px/1.2 var(--text); text-decoration: none; padding: 13px 22px; border-radius: 999px; box-shadow: 0 4px 0 #a5660c; transition: filter .12s; }
+.kofi:hover { filter: brightness(1.07); }
+.kofi:active { transform: translateY(2px); box-shadow: 0 2px 0 #a5660c; }
+.kofi:focus-visible { outline: 2px solid var(--cyan); outline-offset: 4px; }
+.kofi svg { width: 24px; height: 24px; flex: none; }
+.foot { color: var(--muted); font-size: 13.5px; max-width: 86ch; margin: 0; }
+
+@media (max-width: 940px) {
+  .device { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "screen screen" "right right" "left left" "keys keys"; padding: 18px; }
+  .zone-left { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: end; gap: 14px; }
+  .zone-left .knobs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .guide { grid-template-columns: minmax(0, 1fr); }
+  .slots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  body { padding-block: 14px 32px; }
+  .device { padding: 14px; border-radius: 20px; gap: 16px; }
+  .ring { width: 52px; height: 52px; }
+  .cap { width: 42px; height: 42px; }
+  .cap::after { top: 5px; height: 10px; }
+  .knob .lbl { font-size: 9.5px; letter-spacing: 0.04em; }
+  .knob .fn { font-size: 9.5px; }
+  .btns { gap: 8px 5px; }
+  .btn .face { font-size: 10px; height: 28px; }
+  .btn .fn { font-size: 8.5px; letter-spacing: 0; }
+  .btn .alt { font-size: 8px; letter-spacing: 0; }
+  .zone-left { grid-template-columns: minmax(0, 1fr); }
+  .keybed { height: 128px; padding: 6px; }
+  .key.w { top: 44px; }
+  .key.b { height: 54px; }
+  .key .kn { display: none; }
+  .panel, .guide section { padding: 16px; }
+  .slots { gap: 10px; }
+  .slot { padding: 10px; }
+  .donate { padding: 18px; }
+}
+@media (prefers-reduced-motion: reduce) { .cap, .btn .face, .key::before, .ring, .slot, .sbtn { transition: none; } }
+.slots.eight { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.slot .scls { display: flex; gap: 2px; height: 6px; border-radius: 3px; overflow: hidden; background: #15151a; }
+.slot .scls i { flex: 1; }
+.bacts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.bacts .sbtn { width: auto; padding: 9px 14px; }
+.bacts a.sbtn { text-decoration: none; }
+</style>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>BREA<span>KR</span></h1>
+      <span class="beta" id="beta-badge">__BREAKR_VER__ BETA</span>
+    </div>
+    <div class="tag" data-t="tag"></div>
+    <div class="langs" role="group" data-ta="langs" aria-label="Language">
+      <button type="button" data-lang="en" lang="en">EN</button><button type="button" data-lang="fr" lang="fr">FR</button>
+    </div>
+  </header>
+
+  <p class="note" role="note">
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 10v4.5"/><path d="M12 17.4v.1"/></svg>
+    <span data-t="beta"></span>
+  </p>
+
+  <div class="device" id="device" data-page="-1">
+    <div class="zone-left">
+      <div class="knobs" id="knobs-left"></div>
+      <div class="oct" id="oct"></div>
+    </div>
+    <div class="zone-screen">
+      <div class="bezel">
+        <div class="glass"><canvas id="screen" width="240" height="240" role="img" data-ta="screen" aria-label="The FM-1's screen"></canvas></div>
+        <div class="power" id="power">
+          <p data-t="power"></p>
+          <button id="power-btn" type="button" data-t="powerBtn"></button>
+          <div class="err" id="power-err" role="alert" hidden></div>
+        </div>
+      </div>
+      <div class="scrinfo" aria-live="polite"><span class="pg" id="pg-name"></span><span class="trk" id="brk-name"></span></div>
+    </div>
+    <div class="zone-right">
+      <div class="knobs row" id="knobs-right"></div>
+      <div class="btns" id="btns"></div>
+    </div>
+    <div class="zone-keys"><div class="keybed"><div class="keys" id="keys"></div></div></div>
+  </div>
+
+  <section class="panel breaks" id="breaks" aria-labelledby="brk-h">
+    <h2 id="brk-h" data-t="b.h"></h2>
+    <p data-t="b.how"></p>
+    <ol class="slots eight" id="slots"></ol>
+    <p class="pmsg" id="bank-msg" role="status"></p>
+    <div class="bacts">
+      <a class="sbtn hot" href="../editor/" data-t="b.editor"></a>
+      <label class="sbtn"><span data-t="b.load"></span><input type="file" class="vh" id="bank-file" accept=".brkbank,application/octet-stream"></label>
+      <button type="button" class="sbtn" id="bank-erase" data-t="b.erase"></button>
+    </div>
+  </section>
+
+  <section class="panel projects" aria-labelledby="prj-h">
+    <div class="proj">
+      <div>
+        <h2 id="prj-h" data-t="p.h"></h2>
+        <p data-t="p.how"></p>
+        <p class="pmsg" id="prj-msg" role="status"></p>
+      </div>
+      <div class="acts">
+        <button type="button" class="sbtn" id="prj-export" data-t="p.exp"></button>
+        <label class="sbtn"><span data-t="p.imp"></span><input type="file" class="vh" id="prj-import" accept=".breakr,application/octet-stream"></label>
+      </div>
+    </div>
+  </section>
+
+  <div class="guide">
+    <section><h2 data-t="g1"></h2><ul data-t="g1l"></ul></section>
+    <section><h2 data-t="g2"></h2><ul data-t="g2l"></ul></section>
+    <section><h2 data-t="g3"></h2><ul data-t="g3l"></ul></section>
+  </div>
+
+  <section class="donate" aria-labelledby="don-h">
+    <div>
+      <h2 id="don-h" data-t="d.h"></h2>
+      <p data-t="d.p"></p>
+      <p class="sig" data-t="d.sig"></p>
+    </div>
+    <a class="kofi" href="https://ko-fi.com/omnipotard" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M5 8h10v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8Z"/><path d="M15 10h2.5a2.5 2.5 0 0 1 0 5H15"/><path d="M5 8a2.5 2.5 0 0 1 2.5-4.2A3 3 0 0 1 12.6 3a2.6 2.6 0 0 1 2.4 3.1V8"/><path d="M8.5 12v5.5M11.5 12v5.5"/></svg>
+      <span data-t="d.btn"></span><span class="vh" data-t="d.new"></span>
+    </a>
+  </section>
+  <p class="foot" data-t="foot"></p>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const WASM_B64 = "__BREAKR_WASM__";
+  const BRK_SRC = __BREAKR_BRKJS__;               /* web/brk.js: here and in the worklet */
+  new Function(BRK_SRC)();
+  const BRK = globalThis.BRK;
+  const BTN = {OCTD: 0, OCTU: 1, FX: 2, SCL: 3, ENV: 4, LFO: 5, EDIT: 6, GLO: 7, HOME: 8, SAVE: 9, ARP: 10, SEQ: 11, PLAY: 12, REC: 13};
+  const ENC = {SELECT: 0, ALGORITHM: 1, K1: 2, K2: 3, K3: 4, K4: 5, PRESETS: 6};
+  const KNOB_COL = ["#FF5454", "#FFCE3C", "#50DC78", "#4696FF"];   /* the firmware's KNOB_C */
+  const THEME_ACC = ["#ff961e", "#aaff28", "#28d2ff", "#ff50aa"];   /* AMBER, ACID, CYAN, PINK */
+  const CLS_COL = ["#aaaab9", "#ff6e50", "#ffc846", "#5ac8ff"];    /* other, kick, snare, hat */
+  const SECTOR = 4096, SLOTS_LEN = 4 * 0x3000;                      /* the project slots: the start of the store */
+  const LS_STORE = "breakr-store-v1", LS_LANG = "breakr-lang", LS_PENDING = "breakr-bank-pending";
+
+  /* ---- the engine, the same in the worklet and on the main thread. It reads the screen, the LEDs, the
+     knobs' labels, the page and the store about 30 times a second and posts what changed (emit). The
+     breaks go in over the firmware's own SysEx (web/brk.js, as to a real FM-1). */
+  const ENGINE_SRC = `
+  class BreakrEngine {
+    constructor(bytes, rate, boot) {
+      const x = this.ex = new WebAssembly.Instance(new WebAssembly.Module(bytes), {}).exports;
+      x.breakr_init();
+      this.buf = null; this.pos = 512; this.ratio = 44100 / rate; this.frac = 0;
+      this.pl = 0; this.pr = 0; this.cl = 0; this.cr = 0;
+      this.frames = 0; this.emit = function () {};
+      this.sg = -1; this.ledKey = ""; this.uiKey = "";
+      this.storeAt = -1e9; this.storeDue = false;
+      boot = boot || {};
+      if (boot.lang !== undefined) x.breakr_lang(boot.lang | 0);
+      if (boot.store) this.putStore(boot.store);
+      this.storeGen = x.breakr_store_gen();
+      this.tr = BRK.emulatorTransport(x);
+    }
+    u8(p, n) { return new Uint8Array(this.ex.memory.buffer, p, n); }
+    str(p, max) {
+      const u = new Uint8Array(this.ex.memory.buffer);
+      let s = "";
+      for (let i = 0; i < max && u[p + i]; i++) s += String.fromCharCode(u[p + i]);
+      return s;
+    }
+    putStore(b) {
+      const x = this.ex, n = x.breakr_store_size(), m = this.u8(x.breakr_store(), n);
+      m.fill(255);
+      m.set(b.length > n ? b.subarray(0, n) : b);
+      x.breakr_store_loaded();
+      this.storeGen = x.breakr_store_gen();
+    }
+    putProjects(b) {                             /* the four slots only: the bank stays */
+      const x = this.ex, n = x.breakr_store_size(), m = this.u8(x.breakr_store(), n);
+      m.fill(255, 0, ${SLOTS_LEN});
+      m.set(b.subarray(0, Math.min(b.length, ${SLOTS_LEN})));
+      x.breakr_store_loaded();
+      this.storeDue = true;
+    }
+    sendStore(asked) {
+      const x = this.ex, b = this.u8(x.breakr_store(), x.breakr_store_size()).slice();
+      this.storeAt = this.frames; this.storeDue = false;
+      this.emit({t: "store", data: b, asked: !!asked}, [b.buffer]);
+    }
+    async bankList() {
+      try { this.emit({t: "list", list: await BRK.list(this.tr)}); } catch (e) {}
+    }
+    async putBank(file) {                        /* a .brkbank, sent as the editor sends it to an FM-1 */
+      try {
+        const breaks = BRK.readBankFile(file);
+        await BRK.upload(this.tr, BRK.buildBank(breaks));
+        this.emit({t: "bank", ok: true, n: breaks.length});
+      } catch (e) { this.emit({t: "bank", ok: false, msg: String(e && e.message || e)}); }
+      this.bankList();
+    }
+    async eraseBank() {
+      try { await BRK.erase(this.tr); this.emit({t: "bank", ok: true, n: 0}); }
+      catch (e) { this.emit({t: "bank", ok: false, msg: String(e && e.message || e)}); }
+      this.bankList();
+    }
+    msg(d) {
+      const x = this.ex;
+      if (d.t === "keys") x.breakr_keys(d.mask >>> 0);
+      else if (d.t === "btn") x.breakr_button(d.id, d.down ? 1 : 0);
+      else if (d.t === "turn") x.breakr_turn(d.enc, d.steps | 0);
+      else if (d.t === "master") x.breakr_master(d.v | 0);
+      else if (d.t === "midi") x.breakr_midi(d.st, d.d1, d.d2);
+      else if (d.t === "lang") x.breakr_lang(d.v | 0);
+      else if (d.t === "bank") this.putBank(d.data);
+      else if (d.t === "erase") this.eraseBank();
+      else if (d.t === "projects") this.putProjects(d.data);
+      else if (d.t === "getstore") this.sendStore(true);
+    }
+    hello() { this.emit({t: "ready"}); this.bankList(); }
+    poll() {
+      const x = this.ex;
+      const g = x.breakr_screen_gen();
+      if (g !== this.sg) {
+        this.sg = g;
+        const fb = new Uint16Array(x.memory.buffer, x.breakr_screen(), 57600).slice();
+        this.emit({t: "screen", fb}, [fb.buffer]);
+      }
+      const leds = this.u8(x.breakr_leds(), 41), lk = String.fromCharCode.apply(null, leds);
+      if (lk !== this.ledKey) { this.ledKey = lk; this.emit({t: "leds", leds: leds.slice()}); }
+      const labels = [0, 1, 2, 3].map((i) => this.str(x.breakr_knob_label(i), 24));
+      const page = x.breakr_page(), theme = x.breakr_theme(), sgen = x.breakr_store_gen();
+      const uk = page + "|" + theme + "|" + labels.join("|");
+      if (uk !== this.uiKey) { this.uiKey = uk; this.emit({t: "ui", page, theme, labels}); }
+      if (sgen !== this.storeGen) { this.storeGen = sgen; this.storeDue = true; }
+      if (this.storeDue && this.frames - this.storeAt >= 2 * 44100) this.sendStore(false);   /* at most every 2 s */
+    }
+    frame() {
+      if (this.pos >= 512) {
+        const p = this.ex.breakr_audio();
+        this.buf = new Float32Array(this.ex.memory.buffer, p, 512);
+        this.pos = 0;
+        this.frames += 256;
+        this.ex.breakr_step();
+      }
+      this.cl = this.buf[this.pos]; this.cr = this.buf[this.pos + 1]; this.pos += 2;
+    }
+    fill(L, R) {
+      const n = L.length;
+      if (this.ratio === 1) {
+        for (let i = 0; i < n; i++) { this.frame(); L[i] = this.cl; R[i] = this.cr; }
+        return;
+      }
+      for (let i = 0; i < n; i++) {
+        this.frac += this.ratio;
+        while (this.frac >= 1) { this.pl = this.cl; this.pr = this.cr; this.frame(); this.frac -= 1; }
+        L[i] = this.pl + (this.cl - this.pl) * this.frac;
+        R[i] = this.pr + (this.cr - this.pr) * this.frac;
+      }
+    }
+  }`;
+  const WORKLET_SRC = BRK_SRC + ";\nconst BRK = globalThis.BRK;\n" + ENGINE_SRC + `
+  class BreakrProc extends AudioWorkletProcessor {
+    constructor(o) {
+      super();
+      const op = o.processorOptions;
+      this.e = new BreakrEngine(op.bytes, sampleRate, op.boot);
+      this.e.emit = (m, tr) => this.port.postMessage(m, tr || []);
+      this.e.hello();
+      this.t = 0; this.last = -1e9;
+      this.port.onmessage = (ev) => this.e.msg(ev.data);
+    }
+    process(inputs, outputs) {
+      const out = outputs[0];
+      this.e.fill(out[0], out[1] || out[0]);
+      this.t += out[0].length;
+      if (this.t - this.last >= sampleRate / 30) { this.last = this.t; this.e.poll(); }
+      return true;
+    }
+  }
+  registerProcessor("breakr", BreakrProc);`;
+
+  const $ = (id) => document.getElementById(id);
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  /* ---- the page in two languages (the FM-1's screen follows: breakr_lang) */
+  const I18N = {
+    en: {
+      tag: "Breakbeat slicer by Omnipotard · firmware for the M-VAVE FM-1",
+      langs: "Language",
+      beta: "<b>This is a beta.</b> BREAKR has not been tested on a real FM-1 yet. Read the safety section of the manual before you install it. The official firmware can always be reinstalled with M-UPGRADE; never unplug the FM-1 while an update runs.",
+      screen: "The FM-1's screen",
+      power: "The firmware runs here as it is, compiled to WebAssembly. Turn the sound on, power up, then press a white key.",
+      powerBtn: "POWER ON",
+      err: "Sound could not start in this browser. Try a recent Chrome, Edge or Firefox.",
+      pages: ["PLAY", "STEPS", "SLICE", "CHOP", "AMP", "DICE", "FLEX", "FX", "GLOBAL", "SAVE"],
+      "k.master": "VOLUME", "k.select": "BREAK / SLICE", "k.presets": "PATTERN", "k.algo": "TEMPO", "k.unused": "unused",
+      "b.octd": "SLICES 1-16", "b.octd.alt": "CHOP: JOIN", "b.octu": "SLICES 17-32", "b.octu.alt": "CHOP: SPLIT", "b.fx": "FX", "b.scl": "SLICE", "b.env": "AMP", "b.lfo": "DICE", "b.edit": "CHOP", "b.glo": "GLOBAL",
+      "b.home": "PLAY", "b.home.alt": "HOLD: HELP", "b.save": "SAVE", "b.arp": "FLEX", "b.seq": "STEPS", "b.play": "PLAY", "b.rec": "REC",
+      colours: ["red", "yellow", "green", "blue"],
+      "tt.MASTER": "MASTER: the volume of this page (wheel, drag, or the arrow keys when it has the focus).",
+      "tt.SELECT": "SELECT picks the break on PLAY and SLICE, the slice to put on STEPS, the slice to edit on CHOP, the project slot on SAVE.",
+      "tt.PRESETS": "PRESETS picks the pattern (16 per project).",
+      "tt.ALGORITHM": "ALGORITHM sets the tempo.",
+      "tt.K": "KNOB {n} ({c}): what it does on this page is written under it and on the screen's knob bar.",
+      "tt.0": "OCT−: the slices (or steps) before; on CHOP it joins the slice to the one before; on DICE and SAVE it undoes.",
+      "tt.1": "OCT+: slices 17-32 (or the next steps); on CHOP it splits the slice in two; on GLOBAL it taps the tempo.",
+      "tt.2": "FX: filter, resonance, drive, crush; again: delay, feedback, mix, punch.",
+      "tt.3": "SCL opens SLICE: how the break is cut (as is, a grid, its hits), its bars and its tempo.",
+      "tt.4": "ENV opens AMP: attack, decay, length, choke.",
+      "tt.5": "LFO opens DICE: random slices, backwards, rolls, skips, jumps; LOCK repeats the random; again: generate a pattern (8 styles).",
+      "tt.6": "EDIT opens CHOP: one slice, its start, pitch, gain, backwards and class (kick, snare, hat).",
+      "tt.7": "GLO opens GLOBAL: tempo, swing, tempo mode (CHOP keeps the pitch, VARI follows the tempo), metronome; again: clock, language, theme, volume.",
+      "tt.8": "HOME opens PLAY: the slices on the white keys, the punch effects on the black ones. Hold it for the help of the page. HOME + PLAY stops everything.",
+      "tt.9": "SAVE: 4 project slots, the patterns and their chain. It saves itself when stopped.",
+      "tt.10": "ARP opens FLEX: 16 flex patterns on the white keys (half time, tape stop, gates, juggles...).",
+      "tt.11": "SEQ opens STEPS: the pattern, 16 steps on the white keys; hold a step and turn the knobs to edit it.",
+      "tt.12": "PLAY starts and stops the pattern.",
+      "tt.13": "REC records what you play on the keys into the pattern.",
+      "b.h": "The breaks",
+      "b.how": "Eight factory breaks are built in. Your own (up to 8, about 22 seconds in all) are made in the <b>break editor</b>: import a loop, cut it, then send the bank to your FM-1 or open it here. They are kept in this browser with your projects.",
+      "b.editor": "Open the break editor",
+      "b.load": "Load a bank (.brkbank)",
+      "b.erase": "Remove my breaks",
+      "b.empty": "empty",
+      "b.factory": "factory",
+      "b.my": "MY {n}",
+      "b.slices": "{n} slices",
+      "b.off": "Power on to load a bank.",
+      "b.sent": "{n} breaks loaded.",
+      "b.none": "Your breaks are removed.",
+      "b.busy": "Stop the pattern first (PLAY), then load again.",
+      "b.bad": "This is not a BREAKR bank: {m}",
+      "p.h": "Your projects",
+      "p.how": "The four SAVE slots live in this browser. Export them to keep them, or to carry them to another computer.",
+      "p.exp": "Export my projects",
+      "p.imp": "Import projects",
+      "p.none": "No project saved yet: SAVE on the FM-1 first.",
+      "p.saved": "Kept in this browser at {t}.",
+      "p.full": "This browser's storage is full: export your projects.",
+      "p.exported": "Saved as {f}.",
+      "p.bad": "This file is not a BREAKR projects file.",
+      "p.done": "Projects imported.",
+      "p.later": "Projects imported: they load when you power on.",
+      g1: "Play", g1l: "<li><b>White keys</b>: the slices 1-16 of the break; <b>OCT+</b> for 17-32.</li><li><b>Black keys</b>: 11 punch effects, held.</li><li><b>SELECT</b> picks the break, <b>ALGORITHM</b> the tempo.</li><li><b>HOME</b> held: the help of the page.</li>",
+      g2: "Make a beat", g2l: "<li><b>SEQ</b>: the 16 steps on the white keys, 64 with OCT.</li><li>In order, the pattern plays the break as it was, with its own groove.</li><li><b>LFO</b>: DICE, the random; LOCK it to repeat; GENERATE a pattern.</li><li><b>ARP</b>: FLEX, 16 patterns on the white keys.</li>",
+      g3: "Computer keyboard", g3l: "<li><kbd>Z</kbd> … <kbd>/</kbd> and <kbd>Q</kbd> … <kbd>O</kbd>: the keys (by position, AZERTY too).</li><li><kbd>Space</kbd> PLAY · <kbd>Enter</kbd> REC · <kbd>Esc</kbd> HOME · <kbd>-</kbd> <kbd>=</kbd> OCT · <kbd>Shift</kbd> FX.</li><li><kbd>↑</kbd> <kbd>↓</kbd> SELECT · <kbd>←</kbd> <kbd>→</kbd> ALGORITHM · <kbd>PgUp</kbd> <kbd>PgDn</kbd> PRESETS · <kbd>F1</kbd> help.</li><li>The mouse wheel on a knob, or drag it up and down.</li>",
+      "d.h": "Buy me a beer?",
+      "d.p": "If you like what I do, think about supporting me! Every little gesture means a lot!",
+      "d.sig": "Omnipotard, who made BREAKR",
+      "d.btn": "Buy me a beer on Ko-fi",
+      "d.new": " (opens a new tab)",
+      foot: "BREAKR is free software (GPL-3.0), built on Dinghy and Felucca, the FM-1 community's open platform, as KAWA. The factory breaks are fully synthesized. The firmware goes onto the FM-1 over USB at your own risk: keep the official V15 firmware and M-UPGRADE at hand to go back."
+    },
+    fr: {
+      tag: "Découpeur de breaks par Omnipotard · firmware pour le M-VAVE FM-1",
+      langs: "Langue",
+      beta: "<b>Version bêta.</b> BREAKR n’a pas encore été testé sur un vrai FM-1. Lis la partie sécurité du manuel avant de l’installer. Le firmware officiel se réinstalle toujours avec M-UPGRADE ; ne débranche jamais le FM-1 pendant une mise à jour.",
+      screen: "L’écran du FM-1",
+      power: "Le firmware tourne ici tel quel, compilé en WebAssembly. Monte le son, allume, puis appuie sur une touche blanche.",
+      powerBtn: "ALLUMER",
+      err: "Le son n’a pas pu démarrer dans ce navigateur. Essaie un Chrome, Edge ou Firefox récent.",
+      pages: ["PLAY", "PAS", "DÉCOUPE", "CHOP", "AMP", "DÉS", "FLEX", "FX", "GLOBAL", "SAUVER"],
+      "k.master": "VOLUME", "k.select": "BREAK / TRANCHE", "k.presets": "PATTERN", "k.algo": "TEMPO", "k.unused": "inutilisé",
+      "b.octd": "TRANCHES 1-16", "b.octd.alt": "CHOP : JOINDRE", "b.octu": "TRANCHES 17-32", "b.octu.alt": "CHOP : COUPER", "b.fx": "FX", "b.scl": "DÉCOUPE", "b.env": "AMP", "b.lfo": "DÉS", "b.edit": "CHOP", "b.glo": "GLOBAL",
+      "b.home": "PLAY", "b.home.alt": "TENU : AIDE", "b.save": "SAUVER", "b.arp": "FLEX", "b.seq": "PAS", "b.play": "LECTURE", "b.rec": "ENREG.",
+      colours: ["rouge", "jaune", "vert", "bleu"],
+      "tt.MASTER": "MASTER : le volume de cette page (molette, glisser, ou les flèches quand il a le focus).",
+      "tt.SELECT": "SELECT choisit le break sur PLAY et DÉCOUPE, la tranche à poser sur PAS, la tranche à éditer sur CHOP, l’emplacement sur SAUVER.",
+      "tt.PRESETS": "PRESETS choisit le pattern (16 par projet).",
+      "tt.ALGORITHM": "ALGORITHM règle le tempo.",
+      "tt.K": "KNOB {n} ({c}) : ce qu’il fait sur cette page est écrit dessous et dans la barre des knobs de l’écran.",
+      "tt.0": "OCT− : les tranches (ou les pas) d’avant ; sur CHOP, joint la tranche à la précédente ; sur DÉS et SAUVER, annule.",
+      "tt.1": "OCT+ : les tranches 17-32 (ou les pas suivants) ; sur CHOP, coupe la tranche en deux ; sur GLOBAL, tape le tempo.",
+      "tt.2": "FX : filtre, résonance, drive, crush ; encore : delay, feedback, mix, punch.",
+      "tt.3": "SCL ouvre DÉCOUPE : comment le break est coupé (tel quel, grille, ses frappes), ses mesures et son tempo.",
+      "tt.4": "ENV ouvre AMP : attaque, decay, longueur, choke.",
+      "tt.5": "LFO ouvre DÉS : tranches au hasard, envers, rolls, sauts ; LOCK répète le hasard ; encore : générer un pattern (8 styles).",
+      "tt.6": "EDIT ouvre CHOP : une tranche, son début, sa hauteur, son gain, l’envers et son genre (kick, caisse claire, charleston).",
+      "tt.7": "GLO ouvre GLOBAL : tempo, swing, mode de tempo (CHOP garde la hauteur, VARI suit le tempo), métronome ; encore : horloge, langue, thème, volume.",
+      "tt.8": "HOME ouvre PLAY : les tranches sur les touches blanches, les effets punch sur les noires. Maintiens-le pour l’aide de la page. HOME + PLAY arrête tout.",
+      "tt.9": "SAVE : 4 emplacements de projet, les patterns et leur chaîne. Il sauve tout seul à l’arrêt.",
+      "tt.10": "ARP ouvre FLEX : 16 patterns flex sur les touches blanches (half time, tape stop, gates, juggles…).",
+      "tt.11": "SEQ ouvre PAS : le pattern, 16 pas sur les touches blanches ; tiens un pas et tourne les knobs pour l’éditer.",
+      "tt.12": "PLAY lance et arrête le pattern.",
+      "tt.13": "REC enregistre dans le pattern ce que tu joues sur les touches.",
+      "b.h": "Les breaks",
+      "b.how": "Huit breaks d’usine sont intégrés. Les tiens (8 au plus, environ 22 secondes en tout) se font dans l’<b>éditeur de breaks</b> : importe une boucle, découpe-la, puis envoie la banque à ton FM-1 ou ouvre-la ici. Ils sont gardés dans ce navigateur avec tes projets.",
+      "b.editor": "Ouvrir l’éditeur de breaks",
+      "b.load": "Charger une banque (.brkbank)",
+      "b.erase": "Retirer mes breaks",
+      "b.empty": "vide",
+      "b.factory": "usine",
+      "b.my": "MON {n}",
+      "b.slices": "{n} tranches",
+      "b.off": "Allume d’abord pour charger une banque.",
+      "b.sent": "{n} breaks chargés.",
+      "b.none": "Tes breaks sont retirés.",
+      "b.busy": "Arrête d’abord le pattern (PLAY), puis recharge.",
+      "b.bad": "Ce n’est pas une banque BREAKR : {m}",
+      "p.h": "Tes projets",
+      "p.how": "Les quatre emplacements de SAUVER vivent dans ce navigateur. Exporte-les pour les garder, ou pour les emporter sur un autre ordinateur.",
+      "p.exp": "Exporter mes projets",
+      "p.imp": "Importer des projets",
+      "p.none": "Aucun projet sauvé : fais d’abord SAVE sur le FM-1.",
+      "p.saved": "Gardé dans ce navigateur à {t}.",
+      "p.full": "Le stockage de ce navigateur est plein : exporte tes projets.",
+      "p.exported": "Enregistré sous {f}.",
+      "p.bad": "Ce fichier n’est pas un fichier de projets BREAKR.",
+      "p.done": "Projets importés.",
+      "p.later": "Projets importés : ils se chargent à l’allumage.",
+      g1: "Jouer", g1l: "<li><b>Touches blanches</b> : les tranches 1-16 du break ; <b>OCT+</b> pour 17-32.</li><li><b>Touches noires</b> : 11 effets punch, tenus.</li><li><b>SELECT</b> choisit le break, <b>ALGORITHM</b> le tempo.</li><li><b>HOME</b> tenu : l’aide de la page.</li>",
+      g2: "Faire un beat", g2l: "<li><b>SEQ</b> : les 16 pas sur les touches blanches, 64 avec OCT.</li><li>Dans l’ordre, le pattern rejoue le break d’origine, avec son groove.</li><li><b>LFO</b> : DÉS, le hasard ; LOCK pour le répéter ; GÉNÉRER un pattern.</li><li><b>ARP</b> : FLEX, 16 patterns sur les touches blanches.</li>",
+      g3: "Clavier de l’ordinateur", g3l: "<li><kbd>W</kbd> … <kbd>!</kbd> et <kbd>A</kbd> … <kbd>O</kbd> : les touches (par position, QWERTY aussi).</li><li><kbd>Espace</kbd> PLAY · <kbd>Entrée</kbd> REC · <kbd>Échap</kbd> HOME · <kbd>)</kbd> <kbd>=</kbd> OCT · <kbd>Maj</kbd> FX.</li><li><kbd>↑</kbd> <kbd>↓</kbd> SELECT · <kbd>←</kbd> <kbd>→</kbd> ALGORITHM · <kbd>PgUp</kbd> <kbd>PgDn</kbd> PRESETS · <kbd>F1</kbd> aide.</li><li>La molette sur un knob, ou glisse-le vers le haut et le bas.</li>",
+      "d.h": "Tu m’offres une bière ?",
+      "d.p": "Si tu aimes ce que je fais, pense à me soutenir ! Chaque petit geste compte énormément !",
+      "d.sig": "Omnipotard, qui a fait BREAKR",
+      "d.btn": "Offre-moi une bière sur Ko-fi",
+      "d.new": " (ouvre un nouvel onglet)",
+      foot: "BREAKR est un logiciel libre (GPL-3.0), construit sur Dinghy et Felucca, la plateforme ouverte de la communauté FM-1, comme KAWA. Les breaks d’usine sont entièrement synthétisés. Le firmware s’installe sur le FM-1 par USB à tes risques : garde le firmware officiel V15 et M-UPGRADE sous la main pour revenir en arrière."
+    }
+  };
+  const LANG_ID = {fr: 0, en: 1};
+  let lang = "en";
+  const T = (k, v) => {
+    let s = (I18N[lang] && k in I18N[lang]) ? I18N[lang][k] : (k in I18N.en ? I18N.en[k] : "");
+    if (v && typeof s === "string") s = s.replace(/\{(\w+)\}/g, (m, n) => (n in v ? String(v[n]) : m));
+    return s;
+  };
+  const ls = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } },
+    del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+  };
+
+  const canvas = $("screen"), ctx2d = canvas.getContext("2d"), img = ctx2d.createImageData(240, 240);
+  const device = $("device");
+  let send = () => {};
+  let audio = null, running = false;
+  const ui = {page: -1, theme: 0, labels: ["", "", "", ""], leds: null, list: null};
+
+  function drawScreen(fb) {
+    const d = img.data;
+    for (let i = 0, j = 0; i < 57600; i++, j += 4) {
+      const c = fb[i];
+      d[j] = ((c >> 11) & 31) * 255 / 31; d[j + 1] = ((c >> 5) & 63) * 255 / 63; d[j + 2] = (c & 31) * 255 / 31; d[j + 3] = 255;
+    }
+    ctx2d.putImageData(img, 0, 0);
+  }
+
+  /* ---- the buttons: each one held by any number of hands (pointer, keys, shortcuts); it goes down
+     with the first and up with the last */
+  const btnEls = [], keyEls = [], knobEls = {};
+  const holders = Array.from({length: 14}, () => new Set());
+  function hold(id, src, on) {
+    const h = holders[id], was = h.size > 0;
+    if (on) h.add(src); else h.delete(src);
+    const now = h.size > 0;
+    if (now === was) return;
+    if (btnEls[id]) btnEls[id].classList.toggle("down", now);
+    send({t: "btn", id, down: now ? 1 : 0});
+  }
+  function releaseAll(prefix) {
+    holders.forEach((h, id) => { [...h].forEach((s) => { if (!prefix || s.startsWith(prefix)) hold(id, s, false); }); });
+  }
+  async function tapA(id, ms) { hold(id, "seq", true); await sleep(ms || 60); hold(id, "seq", false); }
+  function tap(id, ms) { const s = "tap" + Math.random(); hold(id, s, true); setTimeout(() => hold(id, s, false), ms || 60); }
+
+  /* ---- the panel */
+  const FN_KEY = {MASTER: "k.master", SELECT: "k.select", PRESETS: "k.presets", ALGORITHM: "k.algo"};
+  let master = 0.72;
+  function makeKnob(parent, label, enc) {
+    const ki = ["K1", "K2", "K3", "K4"].indexOf(enc);
+    const k = document.createElement("div");
+    k.className = "knob" + (ki >= 0 ? " col" : "");
+    k.tabIndex = 0;
+    k.setAttribute("role", "slider");
+    k.setAttribute("aria-label", label);
+    k.dataset.enc = enc;
+    if (ki >= 0) k.style.setProperty("--ring", KNOB_COL[ki]);
+    k.innerHTML = '<span class="lbl" aria-hidden="true">' + label + '</span><div class="ring"><div class="cap"></div></div>' +
+      (ki >= 0 ? '<span class="fn live" id="klab-' + ki + '" aria-hidden="true"></span>' : '<span class="fn" aria-hidden="true" data-t="' + FN_KEY[enc] + '"></span>');
+    parent.appendChild(k);
+    knobEls[enc] = k;
+    const cap = k.querySelector(".cap");
+    let angle = 0;
+    const setMaster = () => {
+      k.setAttribute("aria-valuemin", "0"); k.setAttribute("aria-valuemax", "100"); k.setAttribute("aria-valuenow", String(Math.round(master * 100)));
+      cap.style.setProperty("--a", (-135 + master * 270) + "deg");
+    };
+    const turn = (steps) => {
+      if (!steps) return;
+      if (enc === "MASTER") {
+        master = Math.min(1, Math.max(0, master + steps * 0.04));
+        setMaster();
+        send({t: "master", v: Math.round(master * master * 6000)});
+        return;
+      }
+      angle += steps * 18;
+      cap.style.setProperty("--a", angle + "deg");
+      send({t: "turn", enc: ENC[enc], steps});
+    };
+    if (enc === "MASTER") setMaster();
+    k.addEventListener("wheel", (e) => { e.preventDefault(); turn(e.deltaY < 0 ? 1 : -1); }, {passive: false});
+    let dragY = null, acc = 0;
+    k.addEventListener("pointerdown", (e) => { dragY = e.clientY; acc = 0; k.setPointerCapture(e.pointerId); });
+    k.addEventListener("pointermove", (e) => {
+      if (dragY === null) return;
+      acc += dragY - e.clientY; dragY = e.clientY;
+      while (acc >= 10) { turn(1); acc -= 10; }
+      while (acc <= -10) { turn(-1); acc += 10; }
+    });
+    const end = () => { dragY = null; };
+    k.addEventListener("pointerup", end); k.addEventListener("pointercancel", end);
+    k.addEventListener("keydown", (e) => {
+      const s = {ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 4, PageDown: -4}[e.key];
+      if (s) { turn(s); e.preventDefault(); e.stopPropagation(); }
+    });
+  }
+  const BTN_FN = ["b.octd", "b.octu", "b.fx", "b.scl", "b.env", "b.lfo", "b.edit", "b.glo", "b.home", "b.save", "b.arp", "b.seq", "b.play", "b.rec"];
+  function makeBtn(parent, label, id) {
+    const b = document.createElement("button");
+    const fn = BTN_FN[id], alt = (fn + ".alt") in I18N.en;
+    b.type = "button"; b.className = "btn"; b.dataset.id = id;
+    b.innerHTML = '<span class="face">' + label + '</span><span class="fn" data-t="' + fn + '"></span>' + (alt ? '<span class="alt" data-t="' + fn + '.alt"></span>' : "");
+    parent.appendChild(b);
+    btnEls[id] = b;
+    b.addEventListener("pointerdown", (e) => { e.preventDefault(); b.setPointerCapture(e.pointerId); hold(id, "ptr", true); });
+    const up = () => hold(id, "ptr", false);
+    b.addEventListener("pointerup", up); b.addEventListener("pointercancel", up); b.addEventListener("lostpointercapture", up);
+    b.addEventListener("keydown", (e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.stopPropagation(); e.preventDefault(); hold(id, "focus", true); } });
+    b.addEventListener("keyup", (e) => { if (e.key === " " || e.key === "Enter") { e.stopPropagation(); hold(id, "focus", false); } });
+    b.addEventListener("blur", () => hold(id, "focus", false));
+  }
+
+  [["MASTER", "MASTER"], ["SELECT", "SELECT"], ["PRESETS", "PRESETS"], ["ALGORITHM", "ALGORITHM"]].forEach(([l, e]) => makeKnob($("knobs-left"), l, e));
+  [["KNOB 1", "K1"], ["KNOB 2", "K2"], ["KNOB 3", "K3"], ["KNOB 4", "K4"]].forEach(([l, e]) => makeKnob($("knobs-right"), l, e));
+  makeBtn($("oct"), "OCT-", BTN.OCTD);
+  makeBtn($("oct"), "OCT+", BTN.OCTU);
+  [["FX", BTN.FX], ["SCL", BTN.SCL], ["ENV", BTN.ENV], ["LFO", BTN.LFO], ["EDIT", BTN.EDIT], ["GLO", BTN.GLO],
+   ["HOME", BTN.HOME], ["SAVE", BTN.SAVE], ["ARP", BTN.ARP], ["SEQ", BTN.SEQ], ["PLAY", BTN.PLAY], ["REC", BTN.REC]]
+    .forEach(([l, id]) => makeBtn($("btns"), l, id));
+
+  /* keys: F3 .. G5 */
+  const NAMES = ["F", "F#", "G", "G#", "A", "A#", "B", "C", "C#", "D", "D#", "E"];
+  let keyMask = 0;
+  const setKey = (k, on) => {
+    const m = on ? (keyMask | (1 << k)) : (keyMask & ~(1 << k));
+    if (m === keyMask) return;
+    keyMask = m;
+    keyEls[k].classList.toggle("down", on);
+    send({t: "keys", mask: keyMask});
+  };
+  (function layoutKeys() {
+    const wrap = $("keys");
+    for (let k = 0; k < 27; k++) {
+      const name = NAMES[k % 12], black = name.length > 1;
+      const el = document.createElement("div");
+      el.className = "key " + (black ? "b" : "w");
+      el.setAttribute("aria-label", name + (3 + Math.floor((k + 5) / 12)));
+      if (!black && name === "C") el.innerHTML = `<span class="kn">C${3 + Math.floor((k + 5) / 12)}</span>`;
+      wrap.appendChild(el);
+      keyEls[k] = el;
+      el.addEventListener("pointerdown", (e) => { e.preventDefault(); el.setPointerCapture(e.pointerId); setKey(k, true); });
+      const up = () => setKey(k, false);
+      el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up); el.addEventListener("lostpointercapture", up);
+    }
+    const W = 100 / 16;
+    let w = 0;
+    for (let k = 0; k < 27; k++) {
+      const el = keyEls[k];
+      if (el.classList.contains("w")) { el.style.left = `calc(${w * W}% + 2px)`; el.style.width = `calc(${W}% - 4px)`; w++; }
+      else { el.style.left = `calc(${w * W - W * 0.32}% + 1px)`; el.style.width = `calc(${W * 0.64}% - 2px)`; }
+    }
+  })();
+
+  /* ---- the computer keyboard (by position: AZERTY and QWERTY alike) */
+  const LOW = ["KeyZ", "KeyS", "KeyX", "KeyD", "KeyC", "KeyF", "KeyV", "KeyB", "KeyH", "KeyN", "KeyJ", "KeyM", "Comma", "KeyL", "Period", "Semicolon", "Slash"];
+  const HIGH = ["KeyQ", "Digit2", "KeyW", "Digit3", "KeyE", "Digit4", "KeyR", "KeyT", "Digit6", "KeyY", "Digit7", "KeyU", "KeyI", "Digit9", "KeyO"];
+  const CODE_KEY = {};
+  LOW.forEach((c, i) => CODE_KEY[c] = i);
+  HIGH.forEach((c, i) => CODE_KEY[c] = 12 + i);
+  const CODE_BTN = {Space: BTN.PLAY, Enter: BTN.REC, NumpadEnter: BTN.REC, Escape: BTN.HOME, Minus: BTN.OCTD, Equal: BTN.OCTU};
+  const CODE_ENC = {ArrowUp: [ENC.SELECT, -1], ArrowDown: [ENC.SELECT, 1], ArrowLeft: [ENC.ALGORITHM, -1], ArrowRight: [ENC.ALGORITHM, 1], PageUp: [ENC.PRESETS, 1], PageDown: [ENC.PRESETS, -1]};
+  const typing = (e) => e.target && e.target.closest && e.target.closest("input, textarea, select, [contenteditable]");
+  const onControl = (e) => e.target && e.target.closest && e.target.closest("a, button:not(.btn), label");
+
+  /* Shift is FX, but "?" needs Shift too: FX goes down a moment later, or with the next key */
+  let shiftTimer = 0, shiftFx = false, shiftUsed = false, helpCode = null;
+  function flushShift() { if (!shiftTimer) return; clearTimeout(shiftTimer); shiftTimer = 0; shiftFx = true; hold(BTN.FX, "shift", true); }
+  function shiftDown() { if (shiftTimer || shiftFx) return; shiftUsed = false; shiftTimer = setTimeout(flushShift, 220); }
+  function cancelShift() { if (shiftTimer) { clearTimeout(shiftTimer); shiftTimer = 0; shiftUsed = true; } }
+  function shiftUp() {
+    if (shiftTimer) { clearTimeout(shiftTimer); shiftTimer = 0; if (!shiftUsed) tap(BTN.FX, 60); }
+    else if (shiftFx) { shiftFx = false; hold(BTN.FX, "shift", false); }
+    shiftUsed = false;
+  }
+
+  window.addEventListener("keydown", (e) => {
+    if (typing(e)) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) { cancelShift(); return; }
+    if (onControl(e) && (e.code === "Space" || e.code === "Enter" || e.code === "NumpadEnter")) return;
+    if (e.code === "F1" || (e.key === "?" && !shiftFx)) {
+      e.preventDefault();
+      if (!e.repeat && !helpCode) { cancelShift(); helpCode = e.code; hold(BTN.HOME, "help", true); }
+      return;
+    }
+    if (e.code === "ShiftLeft" || e.code === "ShiftRight") { if (!e.repeat) shiftDown(); return; }
+    if (e.code in CODE_KEY) { e.preventDefault(); flushShift(); if (!e.repeat) setKey(CODE_KEY[e.code], true); return; }
+    if (e.code in CODE_BTN) { e.preventDefault(); flushShift(); if (!e.repeat) hold(CODE_BTN[e.code], "kbd:" + e.code, true); return; }
+    if (e.code in CODE_ENC) { e.preventDefault(); flushShift(); const [enc, s] = CODE_ENC[e.code]; send({t: "turn", enc, steps: s}); }
+  });
+  window.addEventListener("keyup", (e) => {
+    if (helpCode && e.code === helpCode) { helpCode = null; hold(BTN.HOME, "help", false); return; }
+    if (e.code === "ShiftLeft" || e.code === "ShiftRight") { shiftUp(); return; }
+    if (e.code in CODE_KEY) { setKey(CODE_KEY[e.code], false); return; }
+    if (e.code in CODE_BTN) hold(CODE_BTN[e.code], "kbd:" + e.code, false);
+  });
+  window.addEventListener("blur", () => {
+    for (let k = 0; k < 27; k++) setKey(k, false);
+    if (shiftTimer) { clearTimeout(shiftTimer); shiftTimer = 0; }
+    shiftFx = false; helpCode = null;
+    releaseAll("kbd:"); releaseAll("shift"); releaseAll("help"); releaseAll("focus");
+  });
+
+  /* ---- what the engine says */
+  function showLeds(leds) {
+    ui.leds = leds;
+    for (let i = 0; i < 14; i++) {
+      const b = btnEls[i]; if (!b) continue;
+      b.classList.toggle("on", leds[i] === 2); b.classList.toggle("dim", leds[i] === 1);
+    }
+    for (let k = 0; k < 27; k++) {
+      const v = leds[14 + k];
+      keyEls[k].classList.toggle("on", v === 2); keyEls[k].classList.toggle("dim", v === 1);
+    }
+  }
+  const hotTimers = [0, 0, 0, 0];
+  function showUi(d) {
+    const pageChanged = d.page !== ui.page;
+    for (let i = 0; i < 4; i++) {
+      if (!pageChanged && d.labels[i] !== ui.labels[i] && ui.page >= 0) {
+        const el = knobEls["K" + (i + 1)];
+        el.classList.add("hot");
+        clearTimeout(hotTimers[i]);
+        hotTimers[i] = setTimeout(() => el.classList.remove("hot"), 700);
+      }
+    }
+    Object.assign(ui, {page: d.page, theme: d.theme, labels: d.labels});
+    device.dataset.page = String(d.page);
+    renderUi();
+  }
+  function renderUi() {
+    for (let i = 0; i < 4; i++) {
+      const lab = ui.labels[i] || "";
+      $("klab-" + i).textContent = lab;
+      knobEls["K" + (i + 1)].setAttribute("aria-valuetext", lab.replace("\n", " ") || T("k.unused"));
+    }
+    const pg = $("pg-name"), names = T("pages");
+    pg.textContent = ui.page >= 0 && ui.page < names.length ? names[ui.page] : "";
+    pg.style.setProperty("--acc", THEME_ACC[ui.theme] || THEME_ACC[0]);
+    document.documentElement.style.setProperty("--hot", THEME_ACC[ui.theme] || THEME_ACC[0]);
+  }
+  function onEngine(d) {
+    if (d.t === "screen") { drawScreen(d.fb); if (!device.dataset.drawn) device.dataset.drawn = "1"; }
+    else if (d.t === "leds") showLeds(d.leds);
+    else if (d.t === "ui") showUi(d);
+    else if (d.t === "store") onStore(d.data, d.asked);
+    else if (d.t === "list") { ui.list = d.list; renderSlots(); }
+    else if (d.t === "bank") onBank(d);
+  }
+
+  /* ---- bytes */
+  function b64enc(u8) {
+    let s = "";
+    for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+    return btoa(s);
+  }
+  function b64dec(s) {
+    const bin = atob(s), u = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    return u;
+  }
+
+  /* ---- the store (the projects and the bank): kept in localStorage by 4 KB sectors, the erased ones
+     (all FF) left out; the projects exported and imported as the raw slots (.breakr) */
+  const hasProject = (u8) => { for (let o = 0; o + 4 <= Math.min(u8.length, SLOTS_LEN); o += 0x3000) if (u8[o] === 0x42 && u8[o + 1] === 0x52 && u8[o + 2] === 0x4B && u8[o + 3] === 0x53) return true; return false; };
+  function saveStore(u8) {
+    const sec = {};
+    for (let o = 0; o < u8.length; o += SECTOR) {
+      const s = u8.subarray(o, o + SECTOR);
+      let n = s.length;
+      while (n && s[n - 1] === 255) n--;
+      if (n) sec[o / SECTOR] = b64enc(s.subarray(0, n));
+    }
+    return ls.set(LS_STORE, JSON.stringify({v: 1, size: u8.length, sec}));
+  }
+  function loadStore() {
+    try {
+      const j = JSON.parse(ls.get(LS_STORE) || "null");
+      if (!j || !j.sec) return null;
+      const u = new Uint8Array(j.size).fill(255);
+      for (const k in j.sec) { const b = b64dec(j.sec[k]); u.set(b.subarray(0, Math.min(b.length, SECTOR)), (+k) * SECTOR); }
+      return u;
+    } catch (e) { return null; }
+  }
+  const hhmm = () => { const d = new Date(); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+  function projMsg(text, cls) { const m = $("prj-msg"); m.textContent = text; m.className = "pmsg" + (cls ? " " + cls : ""); }
+  function bankMsg(text, cls) { const m = $("bank-msg"); m.textContent = text; m.className = "pmsg" + (cls ? " " + cls : ""); }
+  function onStore(u8, asked) {
+    if (asked) { if (hasProject(u8)) download(u8.slice(0, SLOTS_LEN)); else projMsg(T("p.none")); }
+    if (!saveStore(u8)) projMsg(T("p.full"), "err");
+    else if (!asked && hasProject(u8)) projMsg(T("p.saved", {t: hhmm()}));
+  }
+  function download(u8) {
+    const d = new Date(), p2 = (n) => String(n).padStart(2, "0");
+    const f = "breakr-projects-" + d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate()) + ".breakr";
+    const url = URL.createObjectURL(new Blob([u8], {type: "application/octet-stream"}));
+    const a = document.createElement("a");
+    a.href = url; a.download = f; a.hidden = true;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    projMsg(T("p.exported", {f}), "ok");
+  }
+  $("prj-export").addEventListener("click", () => {
+    if (running) { send({t: "getstore"}); return; }
+    const u = loadStore();
+    if (u && hasProject(u)) download(u.slice(0, SLOTS_LEN)); else projMsg(T("p.none"));
+  });
+  async function stopFirst() { if (ui.leds && ui.leds[BTN.PLAY] === 2) { tap(BTN.HOME, 200); tap(BTN.PLAY, 200); await sleep(260); } }
+  async function importProjects(file) {
+    let u;
+    try { u = new Uint8Array(await file.arrayBuffer()); } catch (e) { projMsg(T("p.bad"), "err"); return; }
+    if (u.length < 16 || u.length > SLOTS_LEN || !hasProject(u)) { projMsg(T("p.bad"), "err"); return; }
+    const slots = new Uint8Array(SLOTS_LEN).fill(255);
+    slots.set(u);
+    if (running) { await stopFirst(); send({t: "projects", data: slots}); projMsg(T("p.done"), "ok"); return; }
+    const st = loadStore() || new Uint8Array(0xE0000 - 0x97000).fill(255);
+    st.set(slots, 0);
+    projMsg(saveStore(st) ? T("p.later") : T("p.full"), "ok");
+  }
+  $("prj-import").addEventListener("change", (e) => { const f = e.target.files && e.target.files[0]; if (f) importProjects(f); e.target.value = ""; });
+
+  /* ---- the breaks: the bank in the engine, listed with LIST; a .brkbank goes in as over USB */
+  const slotEls = [];
+  function buildSlots() {
+    const ol = $("slots");
+    for (let k = 0; k < 8; k++) {
+      const li = document.createElement("li");
+      li.className = "slot empty";
+      li.innerHTML = '<div class="shead"><span class="sid"></span><span class="smeta"></span></div><div class="sname"></div><div class="scls" aria-hidden="true"></div>';
+      ol.appendChild(li);
+      slotEls.push(li);
+    }
+  }
+  function renderSlots() {
+    const list = ui.list || [];
+    slotEls.forEach((li, k) => {
+      const b = list.find((x) => x.slot === k);
+      li.classList.toggle("empty", !b);
+      li.querySelector(".sid").textContent = T("b.my", {n: k + 1});
+      li.querySelector(".smeta").textContent = b ? T("b.slices", {n: b.slices}) : "";
+      li.querySelector(".sname").textContent = b ? b.name : (ui.list ? T("b.empty") : "—");
+      const bar = li.querySelector(".scls");
+      bar.innerHTML = "";
+      if (b) for (let i = 0; i < Math.min(16, b.slices); i++) { const s = document.createElement("i"); s.style.background = KNOB_COL[i & 3] + "88"; bar.appendChild(s); }
+    });
+  }
+  function onBank(d) {
+    if (d.ok) bankMsg(d.n ? T("b.sent", {n: d.n}) : T("b.none"), "ok");
+    else bankMsg(/busy/.test(d.msg) ? T("b.busy") : T("b.bad", {m: d.msg}), "err");
+  }
+  async function loadBank(u8) {
+    if (!running) { ls.set(LS_PENDING, b64enc(u8)); bankMsg(T("b.off")); return; }
+    try { BRK.readBankFile(u8); } catch (e) { bankMsg(T("b.bad", {m: e.message}), "err"); return; }
+    await stopFirst();
+    send({t: "bank", data: u8});
+  }
+  $("bank-file").addEventListener("change", async (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (f) loadBank(new Uint8Array(await f.arrayBuffer()));
+  });
+  $("bank-erase").addEventListener("click", async () => { if (!running) { bankMsg(T("b.off")); return; } await stopFirst(); send({t: "erase"}); });
+
+  /* drag and drop: a .brkbank (the breaks) or a .breakr (the projects), anywhere */
+  const hasFiles = (e) => e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], "Files") >= 0;
+  window.addEventListener("dragover", (e) => { if (hasFiles(e)) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } });
+  window.addEventListener("drop", async (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!f) return;
+    if (/\.breakr$/i.test(f.name)) importProjects(f);
+    else loadBank(new Uint8Array(await f.arrayBuffer()));
+  });
+
+  /* ---- the languages */
+  function applyLang(l) {
+    if (!I18N[l]) l = "en";
+    lang = l;
+    document.documentElement.lang = l;
+    document.querySelectorAll("[data-t]").forEach((el) => { el.innerHTML = T(el.dataset.t); });
+    document.querySelectorAll("[data-ta]").forEach((el) => el.setAttribute("aria-label", T(el.dataset.ta)));
+    document.querySelectorAll(".langs button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.lang === l ? "true" : "false"));
+    ["MASTER", "SELECT", "PRESETS", "ALGORITHM"].forEach((e) => {
+      knobEls[e].title = T("tt." + e);
+      if (e !== "MASTER") knobEls[e].setAttribute("aria-valuetext", T(FN_KEY[e]));
+    });
+    for (let i = 0; i < 4; i++) knobEls["K" + (i + 1)].title = T("tt.K", {n: i + 1, c: T("colours")[i]});
+    btnEls.forEach((b, id) => { b.title = T("tt." + id); });
+    ls.set(LS_LANG, l);
+    send({t: "lang", v: LANG_ID[l]});
+    renderUi();
+    renderSlots();
+  }
+  function firstLang() {
+    const h = (location.hash || "").slice(1).toLowerCase();
+    if (I18N[h]) return h;
+    const s = ls.get(LS_LANG);
+    if (I18N[s]) return s;
+    return /^fr/i.test(navigator.language || "") ? "fr" : "en";
+  }
+  buildSlots();
+  document.querySelectorAll(".langs button").forEach((b) => b.addEventListener("click", () => applyLang(b.dataset.lang)));
+  applyLang(firstLang());
+
+  /* ---- power on: the store goes in before the first step; a bank the editor left is sent then */
+  function wasmBytes() { return b64dec(WASM_B64); }
+  function bootData() { return {lang: LANG_ID[lang], store: loadStore()}; }
+  function mainThreadEngine(wasm) {                  /* older browsers: the engine on the page itself */
+    const Engine = new Function("BRK", ENGINE_SRC + "; return BreakrEngine;")(BRK);
+    const eng = new Engine(wasm, audio.sampleRate, bootData());
+    eng.emit = (m) => onEngine(m);
+    eng.hello();
+    const sp = audio.createScriptProcessor(1024, 0, 2);
+    sp.onaudioprocess = (ev) => eng.fill(ev.outputBuffer.getChannelData(0), ev.outputBuffer.getChannelData(1));
+    sp.connect(audio.destination);
+    send = (m) => eng.msg(m);
+    let last = 0;
+    const loop = (t) => { if (t - last >= 30) { last = t; eng.poll(); } requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+  }
+  async function powerOn() {
+    const btn = $("power-btn"), err = $("power-err");
+    btn.disabled = true;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      audio = new AC({sampleRate: 44100, latencyHint: "interactive"});
+      const wasm = wasmBytes();
+      let ok = false;
+      if (audio.audioWorklet && window.AudioWorkletNode) {
+        try {
+          const url = URL.createObjectURL(new Blob([WORKLET_SRC], {type: "application/javascript"}));
+          await audio.audioWorklet.addModule(url);
+          const node = new AudioWorkletNode(audio, "breakr", {numberOfInputs: 0, outputChannelCount: [2], processorOptions: {bytes: wasm, boot: bootData()}});
+          node.port.onmessage = (ev) => onEngine(ev.data);
+          node.onprocessorerror = (ev) => { console.error("BREAKR engine stopped", ev); err.hidden = false; err.textContent = T("err"); $("power").hidden = false; };
+          node.connect(audio.destination);
+          send = (m) => node.port.postMessage(m);
+          ok = true;
+        } catch (e) { console.warn("worklet:", e); }
+      }
+      if (!ok) mainThreadEngine(wasm);
+      running = true;
+      device.dataset.running = "1";
+      send({t: "master", v: Math.round(master * master * 6000)});
+      send({t: "lang", v: LANG_ID[lang]});
+      $("power").hidden = true;
+      audio.resume().catch(() => {});
+      const pend = ls.get(LS_PENDING);
+      if (pend) { ls.del(LS_PENDING); try { send({t: "bank", data: b64dec(pend)}); } catch (e) {} }
+      if (navigator.requestMIDIAccess) {          /* a MIDI keyboard plays the slices */
+        navigator.requestMIDIAccess().then((m) => {
+          const hook = (i) => { i.onmidimessage = (ev) => { const [st, d1, d2] = ev.data; if (st >= 0x80 && st < 0xA0) send({t: "midi", st, d1, d2: d2 || 0}); }; };
+          m.inputs.forEach(hook);
+          m.onstatechange = (ev) => { if (ev.port.type === "input" && ev.port.state === "connected") hook(ev.port); };
+        }).catch(() => {});
+      }
+    } catch (e) {
+      btn.disabled = false;
+      err.hidden = false;
+      err.textContent = T("err");
+      console.error(e);
+    }
+  }
+  $("power-btn").addEventListener("click", powerOn);
+  if (ls.get(LS_PENDING)) bankMsg(T("b.off"));
+
+  ctx2d.fillStyle = "#0a0b0e";
+  ctx2d.fillRect(0, 0, 240, 240);
+})();
+</script>

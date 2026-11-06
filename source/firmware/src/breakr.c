@@ -26,7 +26,7 @@
  * Rules of the chip (Dinghy's docs/RULES.md): integers only, no 64-bit division, the audio interrupt short. */
 #define APP_NAME "BREAKR"
 #ifndef FELUCCA_ID
-#define FELUCCA_ID "FM-1_940"                   /* BREAKR's identity (tools/build.py passes the same) */
+#define FELUCCA_ID "FM-1_2002"                   /* BREAKR's identity (tools/build.py passes the same) */
 #endif
 #if !defined(DINGHY_HOST) && !defined(FM1_WASM)  /* (the host builds keep the store in memory) */
 #ifndef STORE_LO

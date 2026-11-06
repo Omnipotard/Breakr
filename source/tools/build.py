@@ -59,10 +59,10 @@ SDK_SHA256 = {
     "cfg/eq_cfg_hw.bin": "41167491bffed4651750719c973d2758adeb9021a5670d02d6a53c85ed80ea7d",
 }
 
-# Package identity (the .fwsc marker, the handshake answer): BREAKR's own, FM-1_940, the same for every version (as
+# Package identity (the .fwsc marker, the handshake answer): BREAKR's own, FM-1_2002, the same for every version (as
 # The Firmware Hub asks: one identity per firmware, no other firmware uses it; the version is in the text and the file
-# name). The installers want FM-1_9NN. (KAWA is 95N / 96N, K-WASUB 97N, Dinghy 99N.)
-PRODUCT = "FM-1_940"
+# name). The installers take any NAME_NUMBER. (KAWA is 95N / 96N, K-WASUB 97N, Dinghy 99N, BREAKR 2002.)
+PRODUCT = "FM-1_2002"
 VERSION = None                      # APP_VER for release builds
 
 
@@ -378,7 +378,7 @@ def mmio_check():
 def main():
     global PRODUCT, VERSION
     ap = argparse.ArgumentParser()
-    ap.add_argument("--release", metavar="X.Y", help="release build: version string X.Y (the identity stays FM-1_940)")
+    ap.add_argument("--release", metavar="X.Y", help="release build: version string X.Y (the identity stays FM-1_2002)")
     ap.add_argument("--sdk", type=Path, help="JieLi AC79 SDK checkout (default: $AC79_SDK)")
     a = ap.parse_args()
     name = "breakr.fwsc"

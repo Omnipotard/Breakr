@@ -189,6 +189,13 @@ static uint64_t fp(const int32_t *o, uint32_t from, uint32_t to)
     return h;
 }
 
+static uint8_t brk_named(const char *name)       /* a factory break by its name (pattern b plays break b) */
+{
+    uint32_t b;
+    for (b = 0; b < NFACT; b++) if (!strcmp(brk[b].name, name)) return (uint8_t)b;
+    return 0;
+}
+
 static void t_dice(void)
 {
     /* LOCK 1 bar: what plays in bars 2, 3 and 4 is the same (slices, backwards, rolls, when); FREE: not */
@@ -197,7 +204,7 @@ static void t_dice(void)
         uint32_t i, same = 1, nb[5] = {0}, first[5];
         int32_t *o;
         boot();
-        prj.cur_pat = 1;                        /* FUNK, 16 steps, one bar */
+        prj.cur_pat = brk_named("FUNK 100");    /* 16 steps, one bar */
         bpm10_set(1700);
         prj.p.d_chance = 60; prj.p.d_rev = 30; prj.p.d_roll = 30; prj.p.d_skip = 10; prj.p.d_seed = 7;
         prj.p.d_lock = (uint8_t)(lock ? 1u : 0u);

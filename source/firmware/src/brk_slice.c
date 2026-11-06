@@ -2,10 +2,10 @@
 /* BREAKR: looking at a break (main loop, a few blocks at a time): the waveform for the screen, and per hop of
  * 256 samples three energies in a log scale (all, the lows under ~110 Hz, the highs over ~1.7 kHz). From them:
  *   GRID   COUNT equal slices
- *   AUTO   the transients (the rise of the energy and of the highs, local peaks, at least 50 ms apart; SENS
+ *   AUTO   the transients (the rise of the energy and of the highs, local peaks, at least 45 ms or half a sixteenth apart; SENS
  *          sets how small a rise counts), each found again to the sample in the audio
- * and the class of every slice from its first 70 ms: lows over highs = a kick, highs alone = a hat, both = a
- * snare, quiet = other. The dice and the generators keep a kick where a kick was. */
+ * and the class of every slice from its first hops (an_class): lows leading = a kick, mids and highs = a
+ * snare, highs = a hat. The dice and the generators keep a kick where a kick was. */
 
 #define AN_HOP 128u
 #define AN_MAXF 8192u                           /* hops: 47 s at 22050 Hz */
@@ -135,21 +135,27 @@ static uint32_t an_poll(uint32_t blocks)
     return an.done;
 }
 
-/* the class of a slice that starts at frame s: what rose at its start, against what rang before */
+/* the class of a slice that starts at frame s: what rose at its start (against what rang before; at most
+ * 24 steps, ~9 dB, so a hit out of silence does not count more than one over a groove) and how loud each band
+ * is then. Lows over mids and highs far under them: a kick; the highs and the mids rising, or mids over the
+ * lows: a snare; the highs: a hat. (Tuned on the factory breaks, the recorded ones too.) */
 static uint32_t an_class(uint32_t s, uint32_t e)
 {
-    uint32_t h = s / AN_HOP + 1u, mx = 0, k;
-    int32_t dlo, dmid, dhi;
+    uint32_t h = s / AN_HOP + 1u, k;
+    int32_t dlo, dmid, dhi, llo = 0, lmid = 0, lhi = 0;
     (void)e;
     if (h >= an.nf) return CL_X;
-    for (k = 0; k < an.nf; k++) if (an.le[k] > mx) mx = an.le[k];
-    dlo = an_rise(an.llo, h);
-    dmid = an_rise(an.lmid, h);
-    dhi = an_rise(an.lhi, h);
-    (void)mx;
-    if (dlo >= 14 && dlo * 3 >= dhi * 4) return CL_K;   /* the lows rose most: a kick */
-    if (dhi >= 10 && dmid >= 14) return CL_S;           /* the mids and the highs: a snare */
-    if (dhi >= 4) return CL_H;                          /* the highs alone: a hat */
+    dlo = an_rise(an.llo, h); dlo = dlo > 24 ? 24 : dlo;
+    dmid = an_rise(an.lmid, h); dmid = dmid > 24 ? 24 : dmid;
+    dhi = an_rise(an.lhi, h); dhi = dhi > 24 ? 24 : dhi;
+    for (k = h; k < h + 4u && k < an.nf; k++) {
+        if (an.llo[k] > llo) llo = an.llo[k];
+        if (an.lmid[k] > lmid) lmid = an.lmid[k];
+        if (an.lhi[k] > lhi) lhi = an.lhi[k];
+    }
+    if (dlo >= 10 && llo >= lmid && lhi + 60 < llo) return CL_K;   /* the lows rose, and they lead */
+    if ((dhi >= 8 && dmid >= 20) || (lmid >= llo + 5 && dmid >= 10)) return CL_S;
+    if (dhi >= 2) return CL_H;
     return dlo > dhi ? CL_K : CL_H;
 }
 
@@ -199,7 +205,11 @@ static uint32_t an_slices(uint32_t mode, uint32_t count, uint32_t sens, uint32_t
         if (sens < 1u) sens = 1u;
         if (sens > 10u) sens = 10u;
         thr = 24u - 2u * sens;                  /* SENS 1: a rise of 8 dB .. SENS 10: 1.5 dB */
-        gap = bb->rate / 22u / AN_HOP + 1u;     /* ~45 ms */
+        gap = bb->rate / 22u / AN_HOP + 1u;     /* ~45 ms, or half a sixteenth if longer (slow breaks ring) */
+        if (bb->bpm10 >= 300u) {
+            uint32_t half16 = bb->rate * 75u / bb->bpm10 / AN_HOP;   /* rate x 60 / (bpm x 8) */
+            if (half16 > gap) gap = half16;
+        }
         for (i = 0; i < nf; i++) if (an.le[i] > mx) mx = an.le[i];
         pos[0] = 0;
         str[0] = 255;

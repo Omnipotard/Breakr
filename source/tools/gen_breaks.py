@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""BREAKR's eight factory breaks, synthesised (no recording is used: sines, noise, filters, a small room),
-played in classic break rhythms with a human feel, then 4-bit IMA ADPCM like the firmware reads it.
+"""BREAKR's eight factory breaks, then 4-bit IMA ADPCM like the firmware reads it. Two kinds:
+  - recorded: assets/breaks/*.wav, drums played and recorded by Omnipotard, given to the public domain (CC0,
+    assets/breaks/README.md). Their hits are found here (spectral flux, one per sixteenth at most, each start
+    found again to the sample) and classed from what rose (lows: kick, mids and noise: snare, highs: hat);
+  - synthesised (sines, noise, filters, a small room), played in classic break rhythms with a human feel.
 
   tools/gen_breaks.py                 -> firmware/gen/brk_breaks.h
   tools/gen_breaks.py --wav DIR       also writes each break as a WAV (to listen)
   tools/gen_breaks.py --json FILE     also the slices and classes (tests)
 
-Every hit is known, so the slices are exact: one at each sixteenth that has a hit, its class from what
-plays there (K kick, S snare, H hat, - other). Needs numpy.
+A synthesised break's hits are known, so its slices are exact: one at each sixteenth that has a hit, its
+class from what plays there (K kick, S snare, H hat, - other). Needs numpy.
 """
 import argparse
 import json
@@ -249,6 +252,10 @@ def room(x, mix=0.12, size=1.0):
 # H closed hat, h soft hat, O open hat, R ride, B bongo high, b bongo low; '.' nothing.
 # Each line is one instrument over the bars (one character a sixteenth).
 BREAKS = [
+    dict(name="OMNI 142 A", wav="omni142a.wav", bpm=142, bars=2),
+    dict(name="OMNI 142 B", wav="omni142b.wav", bpm=142, bars=2),
+    dict(name="OMNI 72 A", wav="omni72a.wav", bpm=72, bars=1),
+    dict(name="OMNI 72 B", wav="omni72b.wav", bpm=72, bars=1),
     dict(name="JUNGLE 170", bpm=170, bars=2, seed=11, swing=0.0,
          kit=dict(kick_f=(170, 52), kick_tau=0.18, snare_tune=215, snare_tau=0.13, hat_tau=0.04),
          lines=["K.K.......KK....K.K.......K.....",
@@ -265,6 +272,15 @@ BREAKS = [
          lines=["K.........K.....",
                 "....S.g.....S...",
                 "H.HhH.HhH.HhH.O."]),
+    dict(name="BONGO 118", bpm=118, bars=1, seed=17, swing=0.06,
+         kit=dict(kick_f=(160, 48), kick_tau=0.22, snare_tune=195, snare_tau=0.15),
+         lines=["K.......K.......",
+                "....S.......S...",
+                "B.bB.bB.B.bB.bBb",
+                "..h...h...h...h."]),
+]
+# kept for later (the factory set holds 8): synthesised breaks out of the set
+SPARE = [
     dict(name="BOOMBAP 90", bpm=90, bars=1, seed=14, swing=0.16,
          kit=dict(kick_f=(140, 44), kick_tau=0.3, snare_tune=175, snare_tau=0.2, tone=0.9),
          lines=["K......K..K.....",
@@ -281,12 +297,6 @@ BREAKS = [
          lines=["K.........KK....",
                 "...g....S.....g.",
                 "H.HhH.HhH.HhH.Hh"]),
-    dict(name="BONGO 118", bpm=118, bars=1, seed=17, swing=0.06,
-         kit=dict(kick_f=(160, 48), kick_tau=0.22, snare_tune=195, snare_tau=0.15),
-         lines=["K.......K.......",
-                "....S.......S...",
-                "B.bB.bB.B.bB.bBb",
-                "..h...h...h...h."]),
     dict(name="DUSTY 80", bpm=80, bars=1, seed=18, swing=0.18, rate=16000, dust=1,
          kit=dict(kick_f=(130, 45), kick_tau=0.28, snare_tune=180, snare_tau=0.19, tone=0.8),
          lines=["K.....K..K......",
@@ -299,7 +309,77 @@ CLS = {"K": 1, "k": 1, "S": 2, "g": 2, "H": 3, "h": 3, "O": 3, "R": 3, "B": 0, "
 PRIO = {1: 3, 2: 2, 3: 1, 0: 0}
 
 
+ASSETS = SRC / "assets" / "breaks"
+
+
+def read_wav(path):
+    with wave.open(str(path), "rb") as w:
+        assert w.getsampwidth() == 2 and w.getnchannels() == 1 and w.getframerate() == SR, path
+        return np.frombuffer(w.readframes(w.getnframes()), "<i2").astype(np.float64) / 32768.0
+
+
+def stft_bands(y, n=1024, hop=128):
+    """magnitudes in three bands per frame: lows (<150 Hz), mids and noise (150 Hz..6 kHz), highs (>6 kHz)"""
+    win = np.hanning(n)
+    pad = np.concatenate([np.zeros(n // 2), y, np.zeros(n)])
+    frames = (len(y) + hop - 1) // hop
+    f = np.fft.rfftfreq(n, 1 / SR)
+    lo, mid, hi = f < 150, (f >= 150) & (f < 6000), f >= 6000
+    out = np.zeros((frames, 3))
+    for t in range(frames):
+        m = np.abs(np.fft.rfft(pad[t * hop:t * hop + n] * win))
+        out[t] = [m[lo].sum(), m[mid].sum(), m[hi].sum()]
+    return out, hop
+
+
+def onset_at(y, at):
+    """the sample a hit starts at, near at: where the energy (32-sample blocks) jumps the most"""
+    lo, hi = max(64, at - 1024), min(len(y) - 64, at + 768)
+    e = np.convolve(y * y, np.ones(32), mode="same") + 1e-12
+    n = np.arange(lo, hi)
+    jump = np.log(e[n + 32]) - np.log(e[n - 32])
+    return int(n[int(np.argmax(jump))])
+
+
+def detect(y, bpm, bars):
+    """the hits of a recorded loop: (sixteenth, class, start in samples, '?') as render() gives them. Each
+    sixteenth is looked at near its place (the drummer's timing kept): a hit where a band jumps (x2.5) to a
+    real level; its start found again to the sample (onset_at); its class from the bands: lows rising (kick), mids over
+    highs (snare), highs (hat)"""
+    b, hop = stft_bands(y)
+    bmax = b.max(axis=0) + 1e-9
+    lb = np.log1p(b / bmax * 100)
+    nov = np.maximum(0, np.diff(lb, axis=0, prepend=lb[:1])).sum(axis=1)
+    six = 60.0 / bpm / 4 * SR
+    env = np.abs(y)
+    hits = []
+    for i in range(16 * bars):
+        lo_t = max(0, int((i * six - 0.3 * six) / hop))
+        hi_t = min(len(nov) - 1, int((i * six + 0.45 * six) / hop))
+        t = lo_t + int(np.argmax(nov[lo_t:hi_t + 1])) if i else 0
+        after = b[t:t + 10].mean(axis=0)
+        before = b[max(0, t - 10):max(1, t - 2)].mean(axis=0) + 1e-9
+        real = after > 0.08 * bmax
+        jump = (after / before) * real
+        if i and (not (jump >= 2.5).any() or int(round(t * hop / six)) != i):
+            continue                            # (a hit nearer another sixteenth is that one's)
+        start = 0 if i == 0 else onset_at(y, t * hop)
+        tot = after.sum() + 1e-9
+        if after[0] / tot > 0.3 and (i == 0 or jump[0] >= 3):
+            cl = 1
+        elif after[1] > 1.3 * after[2]:
+            cl = 2
+        else:
+            cl = 3
+        hits.append((i, cl, start, "?"))
+    return hits
+
+
 def render(spec):
+    if "wav" in spec:
+        y = read_wav(ASSETS / spec["wav"])
+        y = y / (np.max(np.abs(y)) + 1e-9) * 0.89
+        return y, detect(y, spec["bpm"], spec["bars"]), len(y)
     kit = Kit(spec["seed"], **spec["kit"])
     rng = np.random.default_rng(spec["seed"] + 100)
     bpm, bars = spec["bpm"], spec["bars"]
@@ -371,12 +451,14 @@ def main():
     ap.add_argument("--json", type=Path)
     a = ap.parse_args()
     out = ["/* SPDX-License-Identifier: GPL-3.0-only */",
-           "/* BREAKR's factory breaks: made by tools/gen_breaks.py (synthesised, no recording). Do not edit. */",
+           "/* BREAKR's factory breaks: made by tools/gen_breaks.py (4 recorded by Omnipotard, CC0; 4 synthesised). Do not edit. */",
            "typedef struct { const char *name; const uint8_t *data; uint32_t frames, rate, bpm10; uint8_t bars, nsl;",
            "                 uint32_t sl[32]; uint8_t cls[32]; } fact_t;"]
     table, meta, total = [], [], 0
     for k, spec in enumerate(BREAKS):
         y, hits, loop = render(spec)
+        if "wav" in spec:
+            print(f"{spec['name']:12s} hits " + " ".join(f"{i}{'-KSH'[c]}" for i, c, _, _ in hits), file=sys.stderr)
         rate = spec.get("rate", 22050)
         z = resample(y, rate)
         pcm = np.clip(np.round(z * 32767), -32768, 32767).astype(np.int32)

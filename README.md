@@ -2,7 +2,7 @@
 
 Open-source (GPL-3.0) firmware on the Dinghy / Felucca platform (same base as KAWA).
 
-**Done:** 8 synthesized factory breaks (IMA 4-bit), slicing (as-is / grid / auto transients + kick/snare/hat classes),
+**Done:** 8 factory breaks (IMA 4-bit): 4 played by Omnipotard (CC0, `source/assets/breaks/`), 4 synthesized; slicing (as-is / grid / auto transients + kick/snare/hat classes),
 64-step sequencer with groove-preserving micro-timing, dice (random slice / reverse / roll / skip / pitch, FREE or LOCKed),
 pattern generators (8 styles), 11 PO-33-style punch FX on the black keys, 16 Flex-Beat-style patterns, master FX
 (filter, drive, crush, delay, punch), 10-page anti-aliased UI, project slots, user break bank over USB SysEx,

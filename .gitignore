@@ -1,0 +1,3 @@
+source/build/
+install/.venv/
+__pycache__/

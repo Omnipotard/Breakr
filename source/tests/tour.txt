@@ -1,0 +1,56 @@
+# A tour of BREAKR: every page, the transport, a punch effect, the dice, a flex pattern.
+# T keys MASK | T press ID | T release ID | T btn ID | T enc ID STEPS | T lang L | T shot NAME | T end
+# buttons: 0 OCT- 1 OCT+ 2 FX 3 SEL 4 ENV 5 LFO 6 EDIT 7 GLO 8 HOME 9 SAVE 10 ARP 11 SEQ 12 PLAY 13 REC
+# encoders: 0 SELECT 1 ALGORITHM 2..5 KNOB 1..4 6 PRESETS; keys: bit 0 = F3 (white), 1 = F#3 (black) ...
+300 shot 00-splash
+1900 shot 01-play
+2000 btn 12
+2600 shot 02-play-running
+2700 keys 0x2
+3300 shot 03-repeat-held
+3400 keys 0
+3500 keys 0x1
+3560 keys 0
+3700 btn 11
+4300 shot 04-steps
+4400 btn 3
+5200 shot 05-slice
+5300 btn 6
+5400 keys 0x10
+5460 keys 0
+5800 shot 06-chop
+5900 btn 4
+6300 shot 07-amp
+6400 btn 5
+6500 enc 2 20
+6600 enc 3 10
+6700 enc 4 15
+7000 shot 08-dice
+7100 btn 5
+7400 shot 09-lock
+7500 btn 5
+7600 enc 3 3
+8000 shot 10-generate
+8100 btn 10
+8200 keys 0x1
+8260 keys 0
+9300 shot 11-flex
+9400 btn 2
+9500 enc 2 -20
+9800 shot 12-fx-tone
+9900 btn 2
+10300 shot 13-fx-space
+10400 btn 7
+10800 shot 14-global
+10900 btn 7
+11300 shot 15-system
+11400 btn 9
+11800 shot 16-save
+11900 press 8
+12500 shot 17-help
+12600 release 8
+12700 lang 0
+13000 btn 8
+13400 shot 18-play-fr
+13500 btn 12
+14000 end

@@ -1,0 +1,401 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<!-- BREAKR in the browser: the firmware itself, compiled to WebAssembly (web/make_emulator.sh), hosted in an
+     AudioWorklet as KAWA's emulator does. Drop a WAV / MP3 on it: it becomes one of your breaks, sliced. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BREAKR — emulator</title>
+<meta name="description" content="BREAKR, a breakbeat slicer firmware for the M-VAVE FM-1, running in the browser.">
+<meta name="theme-color" content="#0b0c10">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b0c10'/%3E%3Crect x='5' y='9' width='4' height='14' fill='%23ff961e'/%3E%3Crect x='11' y='13' width='4' height='10' fill='%23ffd678'/%3E%3Crect x='17' y='6' width='4' height='17' fill='%23ff961e'/%3E%3Crect x='23' y='15' width='4' height='8' fill='%23ffd678'/%3E%3C/svg%3E">
+<style>
+:root{--desk:#0b0c10;--desk2:#14161c;--body:#23252d;--body2:#2f323c;--edge:#3a3e4a;--ink:#eef0f4;--muted:#9097a6;--acc:#ff961e;--acc2:#ffd678;
+--k1:#ff5454;--k2:#ffce3c;--k3:#50dc78;--k4:#4696ff;--led:#ff961e;--font:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:ui-monospace,Menlo,Consolas,monospace;color-scheme:dark}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#1b1d26,var(--desk));color:var(--ink);font:15px/1.5 var(--font);padding:18px 14px 50px}
+a{color:var(--acc2)}
+.wrap{max-width:1060px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between}
+h1{margin:0;font-size:clamp(28px,5vw,40px);letter-spacing:.02em;font-weight:900}h1 b{color:var(--acc)}
+.sub{color:var(--muted);font-size:14px}
+.langs button,.pill{appearance:none;border:1px solid var(--edge);background:var(--desk2);color:var(--muted);border-radius:999px;padding:5px 12px;font:600 13px var(--font);cursor:pointer}
+.langs button[aria-pressed=true]{background:var(--acc);color:#1a1206;border-color:var(--acc)}
+.device{position:relative;background:linear-gradient(170deg,var(--body2),var(--body) 45%,#1d1f26);border-radius:24px;padding:22px;display:grid;
+grid-template-columns:150px minmax(0,1fr) 300px;grid-template-areas:"left screen right" "keys keys keys";gap:20px 24px;user-select:none;-webkit-user-select:none;touch-action:manipulation;
+box-shadow:0 30px 60px -25px #000,inset 0 1px 0 #ffffff14}
+.left{grid-area:left;display:flex;flex-direction:column;gap:16px;align-items:center;justify-content:center}
+.scr{grid-area:screen;display:flex;flex-direction:column;align-items:center;gap:12px}
+.right{grid-area:right;display:flex;flex-direction:column;gap:14px}
+.bezel{background:#050507;border-radius:14px;padding:10px;box-shadow:inset 0 2px 8px #000}
+canvas#lcd{display:block;width:min(100%,360px);aspect-ratio:1;image-rendering:pixelated;border-radius:4px;background:#0a0b0e}
+.knobs4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:min(100%,380px)}
+.knob{display:flex;flex-direction:column;align-items:center;gap:4px;font:600 11px var(--font);color:var(--muted);text-transform:uppercase;letter-spacing:.04em;cursor:ns-resize;touch-action:none}
+.dial{width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#4a4e5a,#202228 70%);box-shadow:0 4px 10px #000a,inset 0 1px 0 #ffffff22;position:relative}
+.dial::after{content:"";position:absolute;left:50%;top:5px;width:3px;height:12px;margin-left:-1.5px;border-radius:2px;background:var(--c,#ddd);transform-origin:50% 18px;transform:rotate(var(--r,0deg))}
+.knob.big .dial{width:64px;height:64px}.knob.big .dial::after{transform-origin:50% 27px;height:16px}
+.knob .lab{min-height:15px;color:var(--c,var(--muted));max-width:84px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btns{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.btn{position:relative;appearance:none;border:0;border-radius:10px;padding:10px 0 8px;background:linear-gradient(#3a3d47,#2a2c34);color:var(--ink);font:700 12px var(--font);letter-spacing:.05em;cursor:pointer;box-shadow:0 3px 0 #15161b,inset 0 1px 0 #ffffff1a}
+.btn:active,.btn.down{transform:translateY(2px);box-shadow:0 1px 0 #15161b}
+.btn i{position:absolute;top:4px;right:6px;width:6px;height:6px;border-radius:50%;background:#2b2a2a}
+.btn i.l1{background:#6b4a22}.btn i.l2{background:var(--led);box-shadow:0 0 8px var(--led)}
+.btn small{display:block;font-weight:600;font-size:9.5px;color:var(--muted);margin-top:1px;letter-spacing:.02em}
+.btn.play{background:linear-gradient(#2f5a3c,#22412c)}.btn.rec{background:linear-gradient(#6a2a2a,#4a1e1e)}
+.keys{grid-area:keys;position:relative;height:150px;background:#101116;border-radius:12px;padding:8px}
+.kb{position:relative;height:100%}
+.wk{position:absolute;top:0;bottom:0;background:linear-gradient(#f4f4f6,#d7d8de);border-radius:0 0 7px 7px;border:1px solid #9a9ca6;cursor:pointer;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding-bottom:6px;font:700 11px var(--font);color:#2a2c33}
+.bk{position:absolute;top:0;height:60%;background:linear-gradient(#2c2e36,#14151a);border-radius:0 0 6px 6px;border:1px solid #000;z-index:2;cursor:pointer;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding-bottom:5px;font:700 9.5px var(--font);color:#c9ccd6}
+.wk.down{background:linear-gradient(#ffe7c2,#ffc77a)}.bk.down{background:linear-gradient(#5a3a10,#3a2508)}
+.wk .led,.bk .led{width:7px;height:7px;border-radius:50%;margin-bottom:4px;background:#bbb}
+.bk .led{background:#2a2a2a}.led.l1{background:#c98a3e}.bk .led.l1{background:#6b4a22}.led.l2{background:var(--led)!important;box-shadow:0 0 8px var(--led)}
+.power{position:absolute;inset:0;border-radius:24px;background:#0b0c10e6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:5;text-align:center;padding:20px}
+.power button{appearance:none;border:0;border-radius:999px;padding:14px 30px;background:var(--acc);color:#1a1206;font:800 17px var(--font);cursor:pointer;box-shadow:0 8px 30px #ff961e55}
+.drop{border:2px dashed var(--edge);border-radius:16px;padding:16px;text-align:center;color:var(--muted)}
+.drop.on{border-color:var(--acc);color:var(--ink);background:#ff961e10}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.card{background:var(--desk2);border:1px solid var(--edge);border-radius:14px;padding:14px 16px}
+.card h3{margin:0 0 6px;font-size:14px;color:var(--acc2);text-transform:uppercase;letter-spacing:.06em}
+.card p,.card li{margin:4px 0;color:#c8ccd6;font-size:14px}.card ul{padding-left:18px;margin:0}
+kbd{font:600 12px var(--mono);background:#2a2d36;border:1px solid #444955;border-bottom-width:2px;border-radius:5px;padding:0 5px}
+.status{font:13px var(--mono);color:var(--muted)}
+@media (max-width:860px){.device{grid-template-columns:1fr 1fr;grid-template-areas:"screen screen" "left right" "keys keys"}.left{flex-direction:row;flex-wrap:wrap}.keys{height:120px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div><h1><b>BREAK</b>R <span class="sub">v__BREAKR_VER__</span></h1><div class="sub" data-t="tag">Breakbeat slicer for the M-VAVE FM-1 — the real firmware, in your browser</div></div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <a class="pill" href="../" data-t="home">Home</a><a class="pill" href="../editor/" data-t="editor">Break editor</a>
+    <div class="langs"><button data-l="en" aria-pressed="true">EN</button> <button data-l="fr" aria-pressed="false">FR</button></div>
+  </div>
+</header>
+
+<section class="device" id="device">
+  <div class="left">
+    <div class="knob big" data-enc="master" id="master"><div class="dial" style="--c:#fff"></div><span class="lab">MASTER</span></div>
+    <div class="knob" data-enc="1"><div class="dial" style="--c:var(--acc)"></div><span class="lab">ALGO · BPM</span></div>
+    <div class="knob" data-enc="6"><div class="dial" style="--c:var(--acc2)"></div><span class="lab">PRESETS · PAT</span></div>
+  </div>
+  <div class="scr">
+    <div class="bezel"><canvas id="lcd" width="240" height="240"></canvas></div>
+    <div class="knobs4">
+      <div class="knob" data-enc="2"><div class="dial" style="--c:var(--k1)"></div><span class="lab" style="--c:var(--k1)">K1</span></div>
+      <div class="knob" data-enc="3"><div class="dial" style="--c:var(--k2)"></div><span class="lab" style="--c:var(--k2)">K2</span></div>
+      <div class="knob" data-enc="4"><div class="dial" style="--c:var(--k3)"></div><span class="lab" style="--c:var(--k3)">K3</span></div>
+      <div class="knob" data-enc="5"><div class="dial" style="--c:var(--k4)"></div><span class="lab" style="--c:var(--k4)">K4</span></div>
+    </div>
+  </div>
+  <div class="right">
+    <div style="display:flex;justify-content:center"><div class="knob big" data-enc="0"><div class="dial" style="--c:#fff"></div><span class="lab">SELECT</span></div></div>
+    <div class="btns" id="btns"></div>
+  </div>
+  <div class="keys"><div class="kb" id="kb"></div></div>
+  <div class="power" id="power">
+    <div style="font-size:42px;font-weight:900;letter-spacing:.02em"><b style="color:var(--acc)">BREAK</b>R</div>
+    <div class="sub" data-t="power" style="max-width:420px">The firmware runs here as it is, compiled to WebAssembly. Turn your sound on.</div>
+    <button id="power-btn" data-t="on">Power on</button>
+    <div class="status" id="power-err" hidden></div>
+  </div>
+</section>
+
+<div class="drop" id="drop" data-t="drop">Drop a WAV, MP3 or AIFF loop here: it becomes one of your breaks (up to 8), sliced on its hits. For full control, use the break editor.</div>
+<div class="status" id="status"></div>
+
+<div class="cards">
+  <div class="card"><h3 data-t="c1">Start here</h3><ul data-t="c1l">
+    <li><b>PLAY</b> (or <kbd>Space</kbd>) plays the pattern: the break, in order.</li>
+    <li>White keys play the 16 slices, black keys hold the 11 punch effects.</li>
+    <li>Hold <b>HOME</b>: the help of the page you are on.</li>
+    <li>Turn <b>K4</b> on PLAY: the dice take over.</li></ul></div>
+  <div class="card"><h3 data-t="c2">Computer keyboard</h3><ul data-t="c2l">
+    <li>Slices / steps: <kbd>A</kbd>…<kbd>K</kbd> (1-8), <kbd>Z</kbd>…<kbd>,</kbd> (9-16)</li>
+    <li>Punch effects: <kbd>1</kbd>…<kbd>0</kbd>, <kbd>-</kbd></li>
+    <li><kbd>Space</kbd> play · <kbd>Enter</kbd> rec · <kbd>Tab</kbd> home · <kbd>←</kbd><kbd>→</kbd> select · <kbd>↑</kbd><kbd>↓</kbd> tempo</li>
+    <li>Knobs: drag up / down, or the mouse wheel.</li></ul></div>
+  <div class="card"><h3 data-t="c3">The pages</h3><p data-t="c3p">HOME play · SEQ steps · SEL slicing · EDIT chop a slice · ENV amp · LFO dice &amp; generator · ARP flex patterns · FX master effects · GLO tempo &amp; system · SAVE projects &amp; chains. Press a page's button again for its next page.</p></div>
+</div>
+</div>
+
+<script>
+__BRK_JS__
+</script>
+<script>
+(function () {
+"use strict";
+const WASM_B64 = "__BREAKR_WASM__";
+const $ = (id) => document.getElementById(id);
+const BTN = [["OCT-", 0, ""], ["OCT+", 1, ""], ["FX", 2, "FX"], ["SEL", 3, "SLICE"], ["ENV", 4, "AMP"], ["LFO", 5, "DICE"], ["EDIT", 6, "CHOP"], ["GLO", 7, "GLOBAL"],
+  ["HOME", 8, "PLAY"], ["SAVE", 9, "SAVE"], ["ARP", 10, "FLEX"], ["SEQ", 11, "STEPS"], ["PLAY", 12, ""], ["REC", 13, ""]];
+const WHITE = [0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26], BLACK = [1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25];
+const PUNCH = ["1/4", "1/8", "1/16", "ROLL", "6/8", "REV", "OCT-", "OCT+", "UNI", "SCRT", "STOP"];
+const FLEX = ["HALF", "DOUBL", "TAPE", "REWIN", "BUILD", "GATE8", "GT16", "TRIP", "JUGL", "ROLL", "ECHO", "SWAP", "SPIN", "DROP", "CHOP", "SLOW"];
+const KEY_LED = (k) => 14 + k;
+const T = {
+  en: {}, fr: {
+    tag: "Découpeur de breakbeats pour le M-VAVE FM-1 — le vrai firmware, dans ton navigateur", home: "Accueil", editor: "Éditeur de breaks",
+    power: "Le firmware tourne ici tel quel, compilé en WebAssembly. Monte le son.", on: "Allumer",
+    drop: "Dépose ici une boucle WAV, MP3 ou AIFF : elle devient un de tes breaks (8 max), découpée sur ses frappes. Pour tout régler, utilise l'éditeur de breaks.",
+    c1: "Pour commencer", c1l: "<li><b>PLAY</b> (ou <kbd>Espace</kbd>) joue le pattern : le break, dans l'ordre.</li><li>Les touches blanches jouent les 16 tranches, les noires tiennent les 11 effets.</li><li>Maintiens <b>HOME</b> : l'aide de la page.</li><li>Tourne <b>K4</b> sur PLAY : les dés prennent la main.</li>",
+    c2: "Clavier d'ordinateur", c2l: "<li>Tranches / pas : <kbd>A</kbd>…<kbd>K</kbd> (1-8), <kbd>Z</kbd>…<kbd>,</kbd> (9-16)</li><li>Effets : <kbd>1</kbd>…<kbd>0</kbd>, <kbd>-</kbd></li><li><kbd>Espace</kbd> play · <kbd>Entrée</kbd> rec · <kbd>Tab</kbd> home · <kbd>←</kbd><kbd>→</kbd> select · <kbd>↑</kbd><kbd>↓</kbd> tempo</li><li>Potards : glisser haut / bas, ou la molette.</li>",
+    c3: "Les pages", c3p: "HOME jouer · SEQ pas · SEL découpe · EDIT une tranche · ENV ampli · LFO dés et générateur · ARP patterns flex · FX effets · GLO tempo et système · SAVE projets et chaînes. Le bouton d'une page à nouveau : sa page suivante."
+  }
+};
+let lang = (localStorage.getItem("breakr-lang") || (navigator.language || "").slice(0, 2)) === "fr" ? "fr" : "en";
+const orig = {};
+document.querySelectorAll("[data-t]").forEach((el) => { orig[el.dataset.t] = el.innerHTML; });
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-t]").forEach((el) => { const v = T[lang][el.dataset.t]; el.innerHTML = v !== undefined ? v : orig[el.dataset.t]; });
+  document.querySelectorAll(".langs button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.l === lang));
+  localStorage.setItem("breakr-lang", lang);
+  send({t: "lang", v: lang === "fr" ? 0 : 1});
+}
+document.querySelectorAll(".langs button").forEach((b) => b.onclick = () => { lang = b.dataset.l; applyLang(); });
+
+/* ---- the engine (the same code runs in the worklet, or on the page when there is none) */
+const ENGINE_SRC = `
+class Engine {
+  constructor(bytes, rate, boot) {
+    const x = this.ex = new WebAssembly.Instance(new WebAssembly.Module(bytes), {}).exports;
+    x.breakr_init();
+    this.pos = 512; this.ratio = 44100 / rate; this.frac = 0; this.pl = 0; this.pr = 0; this.cl = 0; this.cr = 0;
+    this.frames = 0; this.sg = -1; this.lk = ""; this.uk = ""; this.storeGen = -1; this.storeAt = -1e9; this.emit = () => {};
+    if (boot && boot.store) this.putStore(boot.store);
+    if (boot && boot.lang !== undefined) x.breakr_lang(boot.lang);
+    this.storeGen = x.breakr_store_gen();
+  }
+  u8(p, n) { return new Uint8Array(this.ex.memory.buffer, p, n); }
+  str(p) { const u = new Uint8Array(this.ex.memory.buffer); let s = ""; for (let i = 0; i < 24 && u[p + i]; i++) s += String.fromCharCode(u[p + i]); return s; }
+  putStore(b) { const x = this.ex, n = x.breakr_store_size(); const m = this.u8(x.breakr_store(), n); m.fill(255); m.set(b.subarray(0, n)); x.breakr_store_loaded(); }
+  sysex(f) {
+    const x = this.ex; this.u8(x.breakr_sysex_buf(), f.length).set(f);
+    const n = x.breakr_sysex(f.length); return n ? this.u8(x.breakr_reply(), n).slice() : null;
+  }
+  msg(d) {
+    const x = this.ex;
+    if (d.t === "keys") x.breakr_keys(d.mask >>> 0);
+    else if (d.t === "btn") x.breakr_button(d.id, d.down ? 1 : 0);
+    else if (d.t === "turn") x.breakr_turn(d.enc, d.steps | 0);
+    else if (d.t === "master") x.breakr_master(d.v | 0);
+    else if (d.t === "midi") x.breakr_midi(d.st, d.d1, d.d2);
+    else if (d.t === "lang") x.breakr_lang(d.v | 0);
+    else if (d.t === "sysex") this.emit({t: "reply", id: d.id, data: this.sysex(d.data)});
+  }
+  poll() {
+    const x = this.ex, g = x.breakr_screen_gen();
+    if (g !== this.sg) { this.sg = g; const fb = new Uint16Array(x.memory.buffer, x.breakr_screen(), 57600).slice(); this.emit({t: "screen", fb}, [fb.buffer]); }
+    const leds = this.u8(x.breakr_leds(), 41), lk = String.fromCharCode.apply(null, leds);
+    if (lk !== this.lk) { this.lk = lk; this.emit({t: "leds", leds: leds.slice()}); }
+    const labels = [0, 1, 2, 3].map((i) => this.str(x.breakr_knob_label(i))), page = x.breakr_page(), uk = page + labels.join("|");
+    if (uk !== this.uk) { this.uk = uk; this.emit({t: "ui", page, labels}); }
+    const sg = x.breakr_store_gen();
+    if (sg !== this.storeGen && this.frames - this.storeAt > 88200) {
+      this.storeGen = sg; this.storeAt = this.frames;
+      const b = this.u8(x.breakr_store(), x.breakr_store_size()).slice(); this.emit({t: "store", data: b}, [b.buffer]);
+    }
+  }
+  frame() {
+    if (this.pos >= 512) { const p = this.ex.breakr_audio(); this.buf = new Float32Array(this.ex.memory.buffer, p, 512); this.pos = 0; this.frames += 256; this.ex.breakr_step(); this.ex.breakr_step(); }
+    this.cl = this.buf[this.pos]; this.cr = this.buf[this.pos + 1]; this.pos += 2;
+  }
+  fill(L, R) {
+    for (let i = 0; i < L.length; i++) {
+      if (this.ratio === 1) { this.frame(); L[i] = this.cl; R[i] = this.cr; continue; }
+      this.frac += this.ratio;
+      while (this.frac >= 1) { this.pl = this.cl; this.pr = this.cr; this.frame(); this.frac -= 1; }
+      L[i] = this.pl + (this.cl - this.pl) * this.frac; R[i] = this.pr + (this.cr - this.pr) * this.frac;
+    }
+  }
+}`;
+const WORKLET_SRC = ENGINE_SRC + `
+class Proc extends AudioWorkletProcessor {
+  constructor(o) { super(); this.e = new Engine(o.processorOptions.bytes, sampleRate, o.processorOptions.boot);
+    this.e.emit = (m, tr) => this.port.postMessage(m, tr || []); this.t = 0; this.last = -1e9; this.port.onmessage = (ev) => this.e.msg(ev.data); }
+  process(i, outputs) { const o = outputs[0]; this.e.fill(o[0], o[1] || o[0]); this.t += o[0].length;
+    if (this.t - this.last >= sampleRate / 40) { this.last = this.t; this.e.poll(); } return true; }
+}
+registerProcessor("breakr", Proc);`;
+
+let send = () => {}, audio = null, running = false, keyMask = 0, page = 0;
+const pending = new Map();
+let reqId = 0;
+const lcd = $("lcd").getContext("2d"), img = lcd.createImageData(240, 240);
+lcd.fillStyle = "#0a0b0e"; lcd.fillRect(0, 0, 240, 240);
+
+function onEngine(m) {
+  if (m.t === "screen") {
+    const d = img.data, fb = m.fb;
+    for (let i = 0; i < 57600; i++) { const v = fb[i]; d[i * 4] = (v >> 11) * 255 / 31; d[i * 4 + 1] = ((v >> 5) & 63) * 255 / 63; d[i * 4 + 2] = (v & 31) * 255 / 31; d[i * 4 + 3] = 255; }
+    lcd.putImageData(img, 0, 0);
+  } else if (m.t === "leds") {
+    BTN.forEach(([, id]) => { const el = document.querySelector(`.btn[data-id="${id}"] i`); if (el) el.className = "l" + m.leds[id]; });
+    for (let k = 0; k < 27; k++) { const el = document.querySelector(`[data-key="${k}"] .led`); if (el) el.className = "led l" + m.leds[KEY_LED(k)]; }
+  } else if (m.t === "ui") {
+    page = m.page;
+    m.labels.forEach((l, i) => { document.querySelector(`.knob[data-enc="${i + 2}"] .lab`).textContent = l || "K" + (i + 1); });
+    labelKeys();
+  } else if (m.t === "store") {
+    try { localStorage.setItem("breakr-store-v1", b64(m.data)); } catch (e) { console.warn("store too big for localStorage", e); }
+  } else if (m.t === "reply") {
+    const p = pending.get(m.id); if (p) { pending.delete(m.id); p(m.data); }
+  }
+}
+const b64 = (u8) => { let s = ""; for (let i = 0; i < u8.length; i += 32768) s += String.fromCharCode.apply(null, u8.subarray(i, i + 32768)); return btoa(s); };
+const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+
+/* ---- the panel */
+const btns = $("btns");
+const order = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 12, 13];
+order.forEach((id) => {
+  const [name, , sub] = BTN.find((b) => b[1] === id);
+  const b = document.createElement("button");
+  b.className = "btn" + (id === 12 ? " play" : id === 13 ? " rec" : "");
+  b.dataset.id = id;
+  b.innerHTML = `<i></i>${name}${sub ? `<small>${sub}</small>` : ""}`;
+  const dn = (e) => { e.preventDefault(); b.classList.add("down"); send({t: "btn", id, down: 1}); };
+  const up = () => { if (!b.classList.contains("down")) return; b.classList.remove("down"); send({t: "btn", id, down: 0}); };
+  b.addEventListener("pointerdown", dn); b.addEventListener("pointerup", up); b.addEventListener("pointerleave", up);
+  btns.appendChild(b);
+});
+const kb = $("kb");
+WHITE.forEach((k, i) => {
+  const el = document.createElement("div"); el.className = "wk"; el.dataset.key = k;
+  el.style.left = (i * 100 / 16) + "%"; el.style.width = (100 / 16) + "%";
+  el.innerHTML = `<span class="led"></span><span class="t">${i + 1}</span>`; kb.appendChild(el);
+});
+BLACK.forEach((k, i) => {
+  const el = document.createElement("div"); el.className = "bk"; el.dataset.key = k;
+  const w = WHITE.indexOf(k - 1);
+  el.style.left = ((w + 1) * 100 / 16 - 100 / 16 * 0.32) + "%"; el.style.width = (100 / 16 * 0.64) + "%";
+  el.innerHTML = `<span class="led"></span><span class="t">${PUNCH[i]}</span>`; kb.appendChild(el);
+});
+function labelKeys() {
+  WHITE.forEach((k, i) => { const t = document.querySelector(`[data-key="${k}"] .t`); t.textContent = page === 6 ? FLEX[i] : page === 9 ? "P" + (i + 1) : String(i + 1); });
+}
+function setKey(k, down) {
+  const bit = 1 << k, was = keyMask;
+  keyMask = down ? keyMask | bit : keyMask & ~bit;
+  if (keyMask !== was) { send({t: "keys", mask: keyMask}); document.querySelector(`[data-key="${k}"]`).classList.toggle("down", down); }
+}
+const held = new Map();
+kb.addEventListener("pointerdown", (e) => { const el = e.target.closest("[data-key]"); if (!el) return; e.preventDefault(); kb.setPointerCapture(e.pointerId); held.set(e.pointerId, +el.dataset.key); setKey(+el.dataset.key, true); });
+const kbUp = (e) => { if (held.has(e.pointerId)) { setKey(held.get(e.pointerId), false); held.delete(e.pointerId); } };
+kb.addEventListener("pointerup", kbUp); kb.addEventListener("pointercancel", kbUp);
+
+let master = 0.8;
+document.querySelectorAll(".knob").forEach((kn) => {
+  const enc = kn.dataset.enc, dial = kn.querySelector(".dial");
+  let rot = enc === "master" ? (master - 0.5) * 270 : 0, acc = 0, y0 = null;
+  dial.style.setProperty("--r", rot + "deg");
+  const turn = (d) => {
+    if (enc === "master") { master = Math.max(0, Math.min(1, master + d / 40)); rot = (master - 0.5) * 270; send({t: "master", v: Math.round(master * master * 4096)}); }
+    else { rot += d * 15; send({t: "turn", enc: +enc, steps: d}); }
+    dial.style.setProperty("--r", rot + "deg");
+  };
+  kn.addEventListener("pointerdown", (e) => { e.preventDefault(); kn.setPointerCapture(e.pointerId); y0 = e.clientY; acc = 0; });
+  kn.addEventListener("pointermove", (e) => { if (y0 === null) return; acc += (y0 - e.clientY) / 8; y0 = e.clientY; const s = Math.trunc(acc); if (s) { acc -= s; turn(s); } });
+  kn.addEventListener("pointerup", () => { y0 = null; });
+  kn.addEventListener("wheel", (e) => { e.preventDefault(); turn(e.deltaY < 0 ? 1 : -1); }, {passive: false});
+});
+
+/* the computer's keyboard */
+const KMAP = {};
+"asdfghjk".split("").forEach((c, i) => KMAP["Key" + c.toUpperCase()] = WHITE[i]);
+["KeyZ", "KeyX", "KeyC", "KeyV", "KeyB", "KeyN", "KeyM", "Comma"].forEach((c, i) => KMAP[c] = WHITE[8 + i]);
+["Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7", "Digit8", "Digit9", "Digit0", "Minus"].forEach((c, i) => KMAP[c] = BLACK[i]);
+const BMAP = {Space: 12, Enter: 13, Tab: 8};
+window.addEventListener("keydown", (e) => {
+  if (!running || e.target.closest("input,textarea,select") || e.metaKey || e.ctrlKey) return;
+  if (e.code in KMAP) { e.preventDefault(); if (!e.repeat) setKey(KMAP[e.code], true); }
+  else if (e.code in BMAP) { e.preventDefault(); if (!e.repeat) send({t: "btn", id: BMAP[e.code], down: 1}); }
+  else if (e.code === "ArrowLeft" || e.code === "ArrowRight") { e.preventDefault(); send({t: "turn", enc: 0, steps: e.code === "ArrowRight" ? 1 : -1}); }
+  else if (e.code === "ArrowUp" || e.code === "ArrowDown") { e.preventDefault(); send({t: "turn", enc: 1, steps: e.code === "ArrowUp" ? 1 : -1}); }
+});
+window.addEventListener("keyup", (e) => {
+  if (e.code in KMAP) setKey(KMAP[e.code], false);
+  else if (e.code in BMAP) send({t: "btn", id: BMAP[e.code], down: 0});
+});
+
+/* ---- power on */
+function wasmBytes() { return unb64(WASM_B64); }
+function bootData() { const s = localStorage.getItem("breakr-store-v1"); return {store: s ? unb64(s) : null, lang: lang === "fr" ? 0 : 1}; }
+async function powerOn() {
+  $("power-btn").disabled = true;
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    audio = new AC({sampleRate: 44100, latencyHint: "interactive"});
+    const wasm = wasmBytes();
+    let ok = false;
+    if (audio.audioWorklet && window.AudioWorkletNode) {
+      try {
+        await audio.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET_SRC], {type: "application/javascript"})));
+        const node = new AudioWorkletNode(audio, "breakr", {numberOfInputs: 0, outputChannelCount: [2], processorOptions: {bytes: wasm, boot: bootData()}});
+        node.port.onmessage = (ev) => onEngine(ev.data);
+        node.connect(audio.destination);
+        send = (m) => node.port.postMessage(m);
+        ok = true;
+      } catch (e) { console.warn("worklet", e); }
+    }
+    if (!ok) {
+      const Engine = new Function(ENGINE_SRC + "; return Engine;")();
+      const eng = new Engine(wasm, audio.sampleRate, bootData());
+      eng.emit = onEngine;
+      const sp = audio.createScriptProcessor(1024, 0, 2);
+      sp.onaudioprocess = (ev) => eng.fill(ev.outputBuffer.getChannelData(0), ev.outputBuffer.getChannelData(1));
+      sp.connect(audio.destination);
+      send = (m) => eng.msg(m);
+      setInterval(() => eng.poll(), 25);
+    }
+    running = true;
+    send({t: "master", v: Math.round(master * master * 4096)});
+    applyLang();
+    $("power").hidden = true;
+    audio.resume();
+    if (navigator.requestMIDIAccess) navigator.requestMIDIAccess().then((m) => m.inputs.forEach((i) => {
+      i.onmidimessage = (ev) => { const [st, d1, d2] = ev.data; if (st < 0xF0 || st === 0xF8 || st === 0xFA || st === 0xFC) send({t: "midi", st, d1: d1 || 0, d2: d2 || 0}); };
+    })).catch(() => {});
+  } catch (e) {
+    $("power-btn").disabled = false; $("power-err").hidden = false; $("power-err").textContent = String(e); console.error(e);
+  }
+}
+$("power-btn").addEventListener("click", powerOn);
+
+/* ---- drop a loop: it joins the bank (in the emulator), over the same SysEx as to an FM-1 */
+const tr = {name: "emulator", request: (f) => new Promise((res) => { const id = ++reqId; pending.set(id, res); send({t: "sysex", id, data: f}); setTimeout(() => { if (pending.has(id)) { pending.delete(id); res(null); } }, 3000); })};
+const say = (s) => { $("status").textContent = s; };
+async function addLoops(files) {
+  if (!running) await powerOn();
+  const RATE = 22050;
+  let breaks = [];
+  const fr = lang === "fr";
+  try { breaks = await BRK.readBank(tr); } catch (e) { breaks = []; }
+  for (const f of files) {
+    if (breaks.length >= 8) { say(fr ? "8 breaks au maximum." : "8 breaks at most."); break; }
+    say((fr ? "Lecture de " : "Reading ") + f.name + "…");
+    const a = await BRK.decodeFile(f, audio);
+    const pcm = BRK.toInt16(BRK.resample(a.pcm, a.rate, RATE));
+    const sec = pcm.length / RATE, bars = BRK.guessBars(sec);
+    const an = BRK.analyse(pcm, RATE), sl = BRK.onsets(pcm, RATE, 6, an);
+    breaks.push({name: a.name, rate: RATE, frames: pcm.length, data: BRK.imaEncode(pcm), bars, bpm10: Math.round(bars * 2400 / sec), sl, cls: BRK.classify(sl, an)});
+  }
+  try {
+    const bank = BRK.buildBank(breaks);
+    say(fr ? "Envoi au FM-1 émulé…" : "Sending to the emulated FM-1…");
+    send({t: "btn", id: 12, down: 0});
+    await BRK.upload(tr, bank, (p) => say((fr ? "Envoi… " : "Sending… ") + Math.round(p * 100) + "%"));
+    say(fr ? `${breaks.length} break(s) sur le FM-1 émulé. Tourne SELECT après les 8 breaks d'usine.` : `${breaks.length} break(s) on the emulated FM-1. Turn SELECT past the 8 factory breaks.`);
+  } catch (e) { say("⚠ " + e.message); }
+}
+const drop = $("drop");
+["dragenter", "dragover"].forEach((t) => document.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("on"); }));
+document.addEventListener("dragleave", (e) => { if (!e.relatedTarget) drop.classList.remove("on"); });
+document.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("on"); if (e.dataTransfer.files.length) addLoops([...e.dataTransfer.files]); });
+drop.addEventListener("click", () => { const i = document.createElement("input"); i.type = "file"; i.accept = "audio/*"; i.multiple = true; i.onchange = () => addLoops([...i.files]); i.click(); });
+applyLang();
+})();
+</script>
+</body>
+</html>

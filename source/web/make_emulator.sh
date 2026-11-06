@@ -15,7 +15,7 @@ import base64
 import os
 from pathlib import Path
 b64 = base64.b64encode(Path("build/web/breakr.wasm").read_bytes()).decode()
-page = Path("web/emulator.html").read_text().replace("__BREAKR_WASM__", b64).replace("__BREAKR_VER__", os.environ["BRK_VER"])
+page = Path("web/emulator.html").read_text().replace("__BREAKR_WASM__", b64).replace("__BREAKR_VER__", os.environ["BRK_VER"]).replace("__BRK_JS__", Path("web/brk.js").read_text())
 Path("../emulator/index.html").write_text(page)
 print("wasm", Path("build/web/breakr.wasm").stat().st_size, "B; page", len(page), "B")
 PY

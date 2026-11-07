@@ -1,0 +1,10 @@
+{
+  "what": "BREAKR turns the FM-1 into a breakbeat machine for breakbeat, breakcore and IDM: slice any loop on its hits, sequence it on 64 steps with ratchets up to x16, trig conditions and effect locks, play 32 glitch effects (K-GLITCH's DESTROY and BEAT banks), 11 punch effects and 16 flex patterns, generate drill, breakcore and IDM patterns, and resample the output into new breaks right on the FM-1. Your own breaks go in from the browser, computer or Android phone.",
+  "kinds": [
+    "sampler",
+    "sequencer"
+  ],
+  "play": "https://guizmoh.github.io/BREAKR-FM1/emulator/index.html",
+  "editor": "https://guizmoh.github.io/BREAKR-FM1/editor/index.html",
+  "image": "docs/img/card.png"
+}

@@ -11,12 +11,12 @@ cd "$(dirname "$0")/.."
 OUT=build/loader-tests
 CC="${CC:-cc}"
 export AC79_SDK="${AC79_SDK:-$HOME/fw-AC79_AIoT_SDK}"
-for f in build/kawa.fwsc build/kawa.bin build/loader/ota.bin; do
+for f in build/breakr.fwsc build/breakr.bin build/loader/ota.bin; do
     [ -f "$f" ] || { echo "run_loader_tests.sh: no $f (run ./build.sh first)"; exit 1; }
 done
 mkdir -p "$OUT"
 # the app installed before: the first 200000 B of this one, in a package of its own (tools/fm1pkg_make.py)
-head -c 200000 build/kawa.bin > "$OUT/old_app.bin"
+head -c 200000 build/breakr.bin > "$OUT/old_app.bin"
 python3 tools/fm1pkg_make.py "$OUT/old_app.bin" build/loader/ota.bin "$OUT/old.fwsc" >/dev/null
 
 fail=0
@@ -31,8 +31,8 @@ build_and_run() {                               # build_and_run SUFFIX LABEL CFL
     shift 2
     $CC "$@" -O1 -Wall -Wextra -Wno-unused-function -o "$OUT/ota_test$x" tests/ota_test.c
     $CC "$@" -O1 -Wall -Wextra -Wno-unused-function -o "$OUT/ldr_test$x" tests/ldr_test.c
-    run "step 1, ota.c$tag" "$OUT/ota_test$x" build/kawa.fwsc
-    run "update loader, ldr_core.c: other app -> this build$tag" "$OUT/ldr_test$x" "$OUT/old.fwsc" build/kawa.fwsc
+    run "step 1, ota.c$tag" "$OUT/ota_test$x" build/breakr.fwsc
+    run "update loader, ldr_core.c: other app -> this build$tag" "$OUT/ldr_test$x" "$OUT/old.fwsc" build/breakr.fwsc
 }
 build_and_run "" ""
 if echo 'int main(void){return 0;}' | $CC -fsanitize=address,undefined -x c -o "$OUT/san_probe" - 2>/dev/null &&

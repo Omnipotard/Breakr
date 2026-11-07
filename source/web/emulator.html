@@ -3,6 +3,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BREAKR Emulator</title>
+<meta property="og:image" content="../docs/img/card.png">
 <meta name="description" content="BREAKR by Omnipotard: a breakbeat slicer firmware for the M-VAVE FM-1, running in the browser.">
 <meta name="theme-color" content="#07080b">
 <meta name="color-scheme" content="dark">
@@ -64,6 +65,9 @@ header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: 
 .logo .cut { position: absolute; inset: 0; color: var(--sig); clip-path: inset(41% 0 39% 0); transform: translateX(.09em); }
 .logo .base { clip-path: polygon(0 0, 100% 0, 100% 40%, 0 40%, 0 62%, 100% 62%, 100% 100%, 0 100%); display: block; }
 .beta { font-family: var(--pixel); font-size: 11px; letter-spacing: .06em; color: var(--sig-ink); background: var(--arm); padding: 4px 8px 3px; clip-path: var(--cut-s); white-space: nowrap; margin-bottom: 6px; }
+.sitenav { display: flex; gap: 4px 16px; flex-wrap: wrap; margin-bottom: 8px; }
+.sitenav a { font-family: var(--pixel); font-size: 11px; color: var(--text-2); text-decoration: none; }
+.sitenav a:hover { color: var(--sig); }
 .tag { font-family: var(--pixel); font-size: 11px; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; margin-bottom: 6px; }
 .langs { display: flex; gap: 2px; background: var(--ink-3); padding: 3px; clip-path: var(--cut-s); margin-bottom: 4px; }
 .langs button { appearance: none; border: 0; background: none; color: var(--muted); font-family: var(--pixel); font-size: 12px; padding: 5px 10px; cursor: pointer; }
@@ -243,7 +247,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: var(--panel); paddi
       <h1 class="logo" aria-label="BREAKR"><span class="base" aria-hidden="true">BREAKR</span><span class="cut" aria-hidden="true">BREAKR</span></h1>
       <span class="beta" id="beta-badge">__BREAKR_VER__ BETA</span>
     </div>
-    <div class="tag" data-t="tag"></div>
+    <nav class="sitenav" aria-label="Site"><a href="../index.html">HOME</a><a href="../installer.html" data-t="n.inst"></a><a href="../editor/index.html" data-t="n.edit"></a><a href="../manual.html" data-t="n.man"></a></nav>
     <div class="langs" role="group" data-ta="langs" aria-label="Language">
       <button type="button" data-lang="en" lang="en">EN</button><button type="button" data-lang="fr" lang="fr">FR</button>
     </div>
@@ -483,6 +487,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: var(--panel); paddi
   const I18N = {
     en: {
       tag: "Breakbeat slicer by Omnipotard · firmware for the M-VAVE FM-1",
+      "n.inst": "INSTALL", "n.edit": "BREAK EDITOR", "n.man": "MANUAL",
       langs: "Language",
       beta: "<b>This is a beta.</b> BREAKR has not been tested on a real FM-1 yet. Read the safety section of the manual before you install it. The official firmware can always be reinstalled with M-UPGRADE; never unplug the FM-1 while an update runs.",
       screen: "The FM-1's screen",
@@ -550,6 +555,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: var(--panel); paddi
     },
     fr: {
       tag: "Découpeur de breaks par Omnipotard · firmware pour le M-VAVE FM-1",
+      "n.inst": "INSTALLER", "n.edit": "ÉDITEUR", "n.man": "MANUEL",
       langs: "Langue",
       beta: "<b>Version bêta.</b> BREAKR n’a pas encore été testé sur un vrai FM-1. Lis la partie sécurité du manuel avant de l’installer. Le firmware officiel se réinstalle toujours avec M-UPGRADE ; ne débranche jamais le FM-1 pendant une mise à jour.",
       screen: "L’écran du FM-1",

@@ -1,0 +1,47 @@
+# Builds BREAKR's .fwsc on GitHub's Linux machines and runs the tests: on the test branches and by hand.
+# The package and the log are attached to the run (Actions > the run > Artifacts); nothing is released.
+name: build
+on:
+  push:
+    branches: ["test/**"]
+  workflow_dispatch:
+jobs:
+  fwsc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pil xz-utils clang lld
+      - name: Engine and web tests
+        working-directory: source
+        run: |
+          sh tests/run_engine_test.sh
+          sh web/make_emulator.sh
+          node tests/web_e2e.js
+      - name: JieLi toolchain
+        run: source/tools/get_toolchain.sh "$HOME/.jieli"
+      - name: JieLi AC79 SDK (three files used, checked by SHA-256)
+        run: git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git "$HOME/fw-AC79_AIoT_SDK"
+      - name: Build
+        working-directory: source
+        shell: bash
+        run: |
+          VER=$(echo "${GITHUB_REF_NAME}" | sed -n 's#^test/\([0-9][0-9.]*[0-9]\).*#\1#p')
+          mkdir -p build
+          JIELI_TOOLCHAIN="$HOME/.jieli/toolchain" AC79_SDK="$HOME/fw-AC79_AIoT_SDK" ./build.sh --release "${VER:-0.1}" 2>&1 | tee build/log.txt
+          exit "${PIPESTATUS[0]}"
+      - name: Update path tests
+        working-directory: source
+        run: |
+          VER=$(ls build/breakr-*.fwsc | sed 's#.*breakr-\(.*\)\.fwsc#\1#')
+          cp build/breakr-$VER.fwsc build/breakr.fwsc
+          AC79_SDK="$HOME/fw-AC79_AIoT_SDK" sh tests/run_loader_tests.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: breakr-test
+          path: |
+            source/build/breakr-*.fwsc
+            source/build/log.txt

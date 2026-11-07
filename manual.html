@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BREAKR Manual</title>
+<meta name="description" content="The BREAKR manual: every page, every control, the 32 glitch effects, conditions, ratchets, resampling, your own breaks.">
+<meta name="theme-color" content="#07080b">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2307080b'/%3E%3Cpath d='M4 6h24v8H4z' fill='%23e8ff2e'/%3E%3Cpath d='M8 16h20v4H8z' fill='%23e8ff2e'/%3E%3Cpath d='M4 22h24v4H4z' fill='%23e8ff2e'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;600&family=Silkscreen&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="site.css">
+<style>
+.layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 32px; padding-top: 28px; }
+.toc { position: sticky; top: calc(70px + env(safe-area-inset-top, 0px)); align-self: start; display: grid; gap: 2px; }
+.toc a { font-family: var(--pixel); font-size: 11px; color: var(--text-2); text-decoration: none; padding: 4px 0; }
+.toc a:hover { color: var(--sig); }
+.doc h1 { font-weight: 800; font-size: clamp(42px, 7vw, 64px); margin-bottom: 14px; }
+.doc h1 span { color: var(--sig); }
+.doc section { padding-block: 26px; border-top: 1px solid var(--rule); }
+.doc h2 { font-size: 34px; margin-bottom: 14px; }
+.doc h2 small { font: 400 12px var(--pixel); color: var(--sig); letter-spacing: .05em; margin-left: 10px; vertical-align: middle; }
+.doc h3 { margin: 18px 0 8px; color: var(--sig); }
+.pg { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 22px; align-items: start; }
+.pg img { image-rendering: pixelated; width: 240px; aspect-ratio: 1; clip-path: var(--cut-s); background: #000; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+.tw { overflow-x: auto; }
+th, td { text-align: left; padding: 7px 10px; vertical-align: top; border-bottom: 1px solid var(--rule); color: var(--text-2); }
+th { font: 400 11px var(--pixel); color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+td:first-child { color: var(--paper); font-family: var(--display); font-weight: 700; font-size: 16px; letter-spacing: .04em; white-space: nowrap; }
+td .k { font-family: var(--pixel); font-size: 10px; }
+.k1 { color: var(--k1); } .k2 { color: var(--k2); } .k3 { color: var(--k3); } .k4 { color: var(--k4); }
+ul.tight { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 4px; color: var(--text-2); }
+@media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } .toc { position: static; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); } .pg { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <a class="mark" href="index.html" aria-label="BREAKR home"><span class="base" aria-hidden="true">BREAKR</span><span class="cut" aria-hidden="true">BREAKR</span></a>
+  <nav class="nav" aria-label="Site">
+    <a href="emulator/index.html"><span lang="en">EMULATOR</span><span lang="fr">ÉMULATEUR</span></a>
+    <a href="installer.html"><span lang="en">INSTALL</span><span lang="fr">INSTALLER</span></a>
+    <a href="editor/index.html"><span lang="en">BREAK EDITOR</span><span lang="fr">ÉDITEUR</span></a>
+    <a href="manual.html" aria-current="page"><span lang="en">MANUAL</span><span lang="fr">MANUEL</span></a>
+  </nav>
+  <div class="langs" role="group" aria-label="Language"><button type="button" data-lang="en">EN</button><button type="button" data-lang="fr">FR</button></div>
+</div></header>
+
+<main class="wrap layout">
+  <nav class="toc" aria-label="Contents">
+    <a href="#panel">PANEL</a><a href="#play">PLAY</a><a href="#steps">STEPS · STEP+</a><a href="#slice">SLICE · CHOP</a><a href="#amp">AMP</a>
+    <a href="#dice">DICE · GENERATE</a><a href="#flex">FLEX</a><a href="#fx">FX · TONE · SPACE</a><a href="#glitch">DESTROY · BEAT</a>
+    <a href="#global">GLOBAL</a><a href="#save">SAVE · RESAMPLE</a><a href="#breaks"><span lang="en">YOUR BREAKS</span><span lang="fr">TES BREAKS</span></a><a href="#midi">MIDI</a><a href="#safety"><span lang="en">SAFETY</span><span lang="fr">SÉCURITÉ</span></a>
+  </nav>
+  <article class="doc">
+    <span class="eyebrow">BREAKR 0.1 · M-VAVE FM-1</span>
+    <h1><span lang="en">The <span>manual</span></span><span lang="fr">Le <span>manuel</span></span></h1>
+    <p><span lang="en">Every page of BREAKR, every control. You can try everything in the <a href="emulator/index.html">emulator</a> first: it runs the same firmware.</span><span lang="fr">Chaque page de BREAKR, chaque commande. Tu peux tout essayer d’abord dans l’<a href="emulator/index.html">émulateur</a> : il fait tourner le même firmware.</span></p>
+
+    <section id="panel">
+      <h2><span lang="en">The panel</span><span lang="fr">Le panneau</span></h2>
+      <div class="pg"><div>
+        <p><span lang="en">Each button opens a page; the same button again opens its next page (the small squares in the header). The <b>bar ruler</b> under the header lights the step that plays. The <b>strip</b> over the knobs says what SELECT, OCT, the white keys (WHT) and the black keys (BLK) do on this page. The four knobs are always <span class="k1">KNOB 1 red</span>, <span class="k2">2 yellow</span>, <span class="k3">3 green</span>, <span class="k4">4 blue</span>, their name and value on the screen.</span>
+           <span lang="fr">Chaque bouton ouvre une page ; le même bouton encore ouvre sa page suivante (les petits carrés dans l’en-tête). La <b>règle de mesure</b> sous l’en-tête allume le pas qui joue. Le <b>bandeau</b> au-dessus des knobs dit ce que font SELECT, OCT, les touches blanches (WHT) et noires (BLK) sur cette page. Les quatre knobs sont toujours <span class="k1">KNOB 1 rouge</span>, <span class="k2">2 jaune</span>, <span class="k3">3 vert</span>, <span class="k4">4 bleu</span>, leur nom et leur valeur à l’écran.</span></p>
+        <div class="tw"><table>
+          <tr><th><span lang="en">Control</span><span lang="fr">Commande</span></th><th><span lang="en">Everywhere</span><span lang="fr">Partout</span></th></tr>
+          <tr><td>HOME</td><td><span lang="en">PLAY page. Held: the help of the page and every control. HOME + PLAY: everything stops.</span><span lang="fr">Page PLAY. Tenu : l’aide de la page et toutes les commandes. HOME + PLAY : tout s’arrête.</span></td></tr>
+          <tr><td>PLAY · REC</td><td><span lang="en">Start / stop the pattern. REC records what you play (slices, punch effects, glitch effects held).</span><span lang="fr">Lance / arrête le pattern. REC enregistre ce que tu joues (tranches, effets punch, effets glitch tenus).</span></td></tr>
+          <tr><td>ALGORITHM</td><td><span lang="en">The tempo, 40 to 300 BPM.</span><span lang="fr">Le tempo, de 40 à 300 BPM.</span></td></tr>
+          <tr><td>PRESETS</td><td><span lang="en">The pattern (16); while playing, the next one starts at the end of this one.</span><span lang="fr">Le pattern (16) ; en lecture, le suivant part à la fin de celui-ci.</span></td></tr>
+          <tr><td><span lang="en">Black keys</span><span lang="fr">Touches noires</span></td><td><span lang="en">11 punch effects, held: REPEAT 1/4, 1/8, 1/16, ROLL, 6/8, REVERSE, OCTAVE −/+, UNISON, SCRATCH, TAPE.</span><span lang="fr">11 effets punch, tenus : REPEAT 1/4, 1/8, 1/16, ROLL, 6/8, REVERSE, OCTAVE −/+, UNISON, SCRATCH, TAPE.</span></td></tr>
+        </table></div>
+      </div><img src="docs/img/17-help.png" alt="HOME held: the help" width="480" height="480" loading="lazy"></div>
+    </section>
+
+    <section id="play">
+      <h2>PLAY <small>HOME</small></h2>
+      <div class="pg"><div>
+        <p><span lang="en">The break and its slices: <b>white keys</b> play slices 1–16 (<b>OCT+</b> 17–32), the black keys punch. <b>SELECT</b> changes the break (stopped, the tempo follows it).</span><span lang="fr">Le break et ses tranches : les <b>touches blanches</b> jouent les tranches 1–16 (<b>OCT+</b> 17–32), les noires frappent. <b>SELECT</b> change de break (à l’arrêt, le tempo le suit).</span></p>
+        <p><span class="k1">K1 PITCH</span> · <span class="k2">K2 FILTER</span> · <span class="k3">K3 CRUSH</span> · <span class="k4">K4 DICE</span></p>
+      </div><img src="docs/img/02-play-running.png" alt="PLAY" width="480" height="480" loading="lazy"></div>
+    </section>
+
+    <section id="steps">
+      <h2>STEPS · STEP+ <small>SEQ</small></h2>
+      <div class="pg"><div>
+        <p><span lang="en">16 steps on the white keys (<b>OCT</b>: steps 17–64). A tap puts the brush's slice (<b>SELECT</b>) or clears a step. <b>Hold a step</b> and turn: <span class="k1">K1 slice</span>, <span class="k2">K2 pitch</span>, <span class="k3">K3 ratchet ×1…×16</span>, <span class="k4">K4 chance</span>; hold a step and press a black key: a punch effect locked on it.</span>
+           <span lang="fr">16 pas sur les touches blanches (<b>OCT</b> : pas 17–64). Un appui pose la tranche du pinceau (<b>SELECT</b>) ou vide un pas. <b>Tiens un pas</b> et tourne : <span class="k1">K1 tranche</span>, <span class="k2">K2 hauteur</span>, <span class="k3">K3 ratchet ×1…×16</span>, <span class="k4">K4 chance</span> ; tiens un pas et appuie sur une noire : un effet punch verrouillé dessus.</span></p>
+        <p><span lang="en">Without a step held: <span class="k1">K1 length</span> (1–64), <span class="k2">K2 rate</span> (1/16, 1/8, 1/32, triplets), <span class="k3">K3 swing</span>, <span class="k4">K4 brush</span>.</span><span lang="fr">Sans pas tenu : <span class="k1">K1 longueur</span> (1–64), <span class="k2">K2 pas</span> (1/16, 1/8, 1/32, triolets), <span class="k3">K3 swing</span>, <span class="k4">K4 pinceau</span>.</span></p>
+        <h3>STEP+ <span class="px">SEQ ×2</span></h3>
+        <p><span lang="en">Hold a step: <span class="k1">K1 COND</span>, <span class="k2">K2 RAMP</span>, <span class="k3">K3 FX</span> (none, a punch effect, or any of the 32 DESTROY / BEAT effects, for that step), <span class="k4">K4 NUDGE</span> (early / late). No step held: <span class="k1">K1 ROTATE</span>, <span class="k2">K2 HUMANIZE</span> (left: back on the grid), <span class="k3">K3 RATCHETS</span> (a few hits drilled; left: none), <span class="k4">K4 REVERSE</span>. Every one of these keeps an undo (DICE or SAVE: OCT−).</span>
+           <span lang="fr">Tiens un pas : <span class="k1">K1 COND</span>, <span class="k2">K2 RAMPE</span>, <span class="k3">K3 FX</span> (aucun, un effet punch, ou l’un des 32 effets DESTROY / BEAT, pour ce pas), <span class="k4">K4 NUDGE</span> (en avance / en retard). Sans pas tenu : <span class="k1">K1 DÉCALER</span>, <span class="k2">K2 HUMANISER</span> (à gauche : retour sur la grille), <span class="k3">K3 RATCHETS</span> (quelques coups drillés ; à gauche : aucun), <span class="k4">K4 INVERSER</span>. Chacun garde un annuler (DÉS ou SAVE : OCT−).</span></p>
+        <div class="tw"><table>
+          <tr><th>COND</th><th><span lang="en">The step plays…</span><span lang="fr">Le pas joue…</span></th></tr>
+          <tr><td>A:B</td><td><span lang="en">on the A-th of every B loops of the pattern (1:2, 2:2, 1:3 … 4:4, 1:8, 8:8)</span><span lang="fr">à la A-ième de chaque série de B boucles du pattern (1:2, 2:2, 1:3 … 4:4, 1:8, 8:8)</span></td></tr>
+          <tr><td>FIRST · !FIRST</td><td><span lang="en">on the first loop only · on every loop but the first</span><span lang="fr">à la première boucle seulement · à toutes sauf la première</span></td></tr>
+          <tr><td>PRE · !PRE</td><td><span lang="en">when the last conditional step played · when it did not</span><span lang="fr">si le dernier pas conditionnel a joué · s’il n’a pas joué</span></td></tr>
+          <tr><th>RAMP</th><th><span lang="en">The ratchet's hits…</span><span lang="fr">Les coups du ratchet…</span></th></tr>
+          <tr><td>UP · DOWN</td><td><span lang="en">a semitone higher / lower each</span><span lang="fr">un demi-ton plus haut / plus bas chacun</span></td></tr>
+          <tr><td>OCT UP · OCT DN</td><td><span lang="en">an octave up / down over the step</span><span lang="fr">une octave en montant / en descendant sur le pas</span></td></tr>
+          <tr><td>RANDOM · FADE · REV ALT</td><td><span lang="en">random pitches · quieter and quieter · every other one backwards</span><span lang="fr">hauteurs au hasard · de plus en plus doux · un sur deux à l’envers</span></td></tr>
+        </table></div>
+      </div><img src="docs/img/20-step-plus-held.png" alt="STEP+" width="480" height="480" loading="lazy"></div>
+    </section>
+
+    <section id="slice">
+      <h2>SLICE · CHOP <small>SCL · EDIT</small></h2>
+      <div class="pg"><div>
+        <p><span lang="en"><b>SLICE</b>: <span class="k1">K1 MODE</span> as is / grid / auto (on the hits), <span class="k2">K2</span> grid count or auto sensitivity, <span class="k3">K3 BARS</span> (gives the break its tempo), <span class="k4">K4 TEMPO</span>: CHOP keeps the pitch, VARI follows the tempo.</span>
+           <span lang="fr"><b>DÉCOUPE</b> : <span class="k1">K1 MODE</span> tel quel / grille / auto (sur les frappes), <span class="k2">K2</span> nombre de la grille ou sensibilité, <span class="k3">K3 MESURES</span> (donne son tempo au break), <span class="k4">K4 TEMPO</span> : CHOP garde la hauteur, VARI suit le tempo.</span></p>
+        <p><span lang="en"><b>CHOP</b>: one slice (SELECT or a key). <span class="k1">K1 START</span>, <span class="k2">K2 FINE</span>, <span class="k3">K3 PITCH</span>, <span class="k4">K4 GAIN</span>; EDIT again: reverse, class (kick, snare, hat, other). <b>OCT+</b> splits it, <b>OCT−</b> joins it to the one before.</span>
+           <span lang="fr"><b>CHOP</b> : une tranche (SELECT ou une touche). <span class="k1">K1 DÉBUT</span>, <span class="k2">K2 FIN</span>, <span class="k3">K3 HAUTEUR</span>, <span class="k4">K4 GAIN</span> ; EDIT encore : envers, genre (kick, caisse claire, charleston, autre). <b>OCT+</b> la coupe en deux, <b>OCT−</b> la joint à la précédente.</span></p>
+      </div><img src="docs/img/06-chop.png" alt="CHOP" width="480" height="480" loading="lazy"></div>
+    </section>
+
+    <section id="amp">
+      <h2>AMP <small>ENV</small></h2>
+      <p><span lang="en"><span class="k1">K1 ATTACK</span>, <span class="k2">K2 DECAY</span> (to HOLD), <span class="k3">K3 LENGTH</span> (how much of each slice), <span class="k4">K4 CHOKE</span>: MONO cuts the last slice (classic chopping), POLY lets it ring. AMP again: GATE (a key plays while held).</span>
+         <span lang="fr"><span class="k1">K1 ATTAQUE</span>, <span class="k2">K2 DECAY</span> (jusqu’à HOLD), <span class="k3">K3 LONGUEUR</span> (quelle part de chaque tranche), <span class="k4">K4 CHOKE</span> : MONO coupe la tranche d’avant (le chop classique), POLY la laisse résonner. AMP encore : GATE (une touche joue tant qu’elle est tenue).</span></p>
+    </section>
+
+    <section id="dice">
+      <h2>DICE · GENERATE <small>LFO</small></h2>
+      <div class="pg"><div>
+        <p><span lang="en">Page 1: on every step, the chance of <span class="k1">another slice</span> (of the same kind with SMART), <span class="k2">backwards</span>, <span class="k3">a roll</span>, <span class="k4">a skip</span>. Page 2: <span class="k1">JUMPS</span> (octaves, fifths), <span class="k2">SMART</span>, <span class="k3">LOCK</span> (the random repeats every 1, 2 or 4 bars), <span class="k4">SEED</span>.</span>
+           <span lang="fr">Page 1 : à chaque pas, la chance d’<span class="k1">une autre tranche</span> (du même genre avec SMART), <span class="k2">à l’envers</span>, <span class="k3">d’un roll</span>, <span class="k4">d’un saut</span>. Page 2 : <span class="k1">SAUTS</span> (octaves, quintes), <span class="k2">SMART</span>, <span class="k3">LOCK</span> (le hasard se répète toutes les 1, 2 ou 4 mesures), <span class="k4">SEED</span>.</span></p>
+        <p><span lang="en">Page 3, GENERATE: each click writes a new pattern. <span class="k1">K1 STYLE</span>: ORIGINAL, SHUFFLE, JUNGLE, HALF, BOOM BAP, 2-STEP, GLITCH, BUILD UP, <b>DRILL</b> (drill'n'bass: climbing and falling ratchets, snare drills), <b>BREAKCORE</b> (four on the floor under amen edits, rolls, glitch locks), <b>IDM</b> (odd lengths, euclidean hits, conditions, micro-timing). <span class="k2">K2 ROLL</span> another one, <span class="k3">K3 DENSITY</span>, <span class="k4">K4 VARY</span>. OCT−: undo.</span>
+           <span lang="fr">Page 3, GÉNÉRER : chaque cran écrit un nouveau pattern. <span class="k1">K1 STYLE</span> : ORIGINAL, SHUFFLE, JUNGLE, HALF, BOOM BAP, 2-STEP, GLITCH, BUILD UP, <b>DRILL</b> (drill'n'bass : ratchets qui montent et descendent, drills de caisse claire), <b>BREAKCORE</b> (quatre-temps sous des edits d’amen, rolls, verrous glitch), <b>IDM</b> (longueurs impaires, frappes euclidiennes, conditions, micro-décalages). <span class="k2">K2 TIRAGE</span> un autre, <span class="k3">K3 DENSITÉ</span>, <span class="k4">K4 VARIATION</span>. OCT− : annuler.</span></p>
+      </div><img src="docs/img/25-generate-drill.png" alt="GENERATE DRILL" width="480" height="480" loading="lazy"></div>
+    </section>
+
+    <section id="flex">
+      <h2>FLEX <small>ARP</small></h2>
+      <p><span lang="en">16 flex patterns on the white keys (half, double, tape, rewind, build, gates, triplet, juggle, roll, echo, swap, spin, drop, chop, slow). <span class="k1">K1 MODE</span> latch / hold / one bar, <span class="k2">K2 QUANT</span> step / beat / bar, <span class="k3">K3 DEPTH</span>, <span class="k4">K4 PITCH</span>.</span>
+         <span lang="fr">16 patterns flex sur les touches blanches (half, double, tape, rewind, build, gates, triplet, juggle, roll, echo, swap, spin, drop, chop, slow). <span class="k1">K1 MODE</span> latch / hold / une mesure, <span class="k2">K2 QUANT</span> pas / temps / mesure, <span class="k3">K3 PROFONDEUR</span>, <span class="k4">K4 PITCH</span>.</span></p>
+    </section>
+
+    <section id="fx">
+      <h2>FX · TONE · SPACE <small>FX ×1 · ×2</small></h2>
+      <p><span lang="en">TONE: <span class="k1">K1 FILTER</span> (left low-pass, right high-pass), <span class="k2">K2 RESO</span>, <span class="k3">K3 DRIVE</span>, <span class="k4">K4 CRUSH</span>. SPACE: <span class="k1">K1 DELAY</span> 1/16 … 1/2, <span class="k2">K2 FEEDBACK</span>, <span class="k3">K3 MIX</span>, <span class="k4">K4 PUNCH</span> (a compressor).</span>
+         <span lang="fr">TONE : <span class="k1">K1 FILTER</span> (à gauche passe-bas, à droite passe-haut), <span class="k2">K2 RÉSO</span>, <span class="k3">K3 DRIVE</span>, <span class="k4">K4 CRUSH</span>. SPACE : <span class="k1">K1 DELAY</span> 1/16 … 1/2, <span class="k2">K2 RETOUR</span>, <span class="k3">K3 MIX</span>, <span class="k4">K4 PUNCH</span> (un compresseur).</span></p>
+    </section>
+
+    <section id="glitch">
+      <h2>DESTROY · BEAT <small>FX ×3 · ×4</small></h2>
+      <div class="pg"><div>
+        <p><span lang="en">K-GLITCH’s two banks, 16 effects each on the white keys: <b>hold</b> a key and it plays, on the bar; let go and it stops. The last key held wins. <span class="k1">KNOB 1</span> is the <b>intensity</b> of the last one pressed (each has its own, saved with the project); KNOB 2–4: filter, drive, crush. <b>REC</b> while holding one writes it on the steps it plays over; STEP+ K3 locks one on a step.</span>
+           <span lang="fr">Les deux banques de K-GLITCH, 16 effets chacune sur les touches blanches : <b>tiens</b> une touche et il joue, calé sur la mesure ; lâche, il s’arrête. La dernière tenue gagne. <span class="k1">KNOB 1</span> règle l’<b>intensité</b> du dernier appuyé (chacun a la sienne, sauvée avec le projet) ; KNOB 2–4 : filtre, drive, crush. <b>REC</b> en tenant un effet l’écrit sur les pas qu’il traverse ; STEP+ K3 en verrouille un sur un pas.</span></p>
+      </div><img src="docs/img/23-destroy-held.png" alt="DESTROY" width="480" height="480" loading="lazy"></div>
+      <div class="tw"><table>
+        <tr><th>DESTROY</th><th><span lang="en">Intensity</span><span lang="fr">Intensité</span></th></tr>
+        <tr><td>LOOP DESTROY</td><td><span lang="en">the bar cut in 1/2 … 1/32, looped; past 60 % passes backwards, past 85 % from random places</span><span lang="fr">la mesure coupée en 1/2 … 1/32, bouclée ; au-delà de 60 % des passages à l’envers, de 85 % depuis des endroits au hasard</span></td></tr>
+        <tr><td>STUTTER X</td><td><span lang="en">2, 3, 4, 8 repeats a beat, each fading; past 75 % random bursts</span><span lang="fr">2, 3, 4, 8 répétitions par temps, chacune plus douce ; au-delà de 75 % des rafales</span></td></tr>
+        <tr><td>GLITCH</td><td><span lang="en">bits and rate down, chunks of the past instead of now, noise bursts past 60 %</span><span lang="fr">bits et fréquence réduits, des morceaux du passé à la place du présent, bruit au-delà de 60 %</span></td></tr>
+        <tr><td>SCRATCH</td><td><span lang="en">a hand on the record: baby scratches, chirps, tears, transformers, scribbles</span><span lang="fr">une main sur le disque : baby scratches, chirps, tears, transformers, scribbles</span></td></tr>
+        <tr><td>REVERSE X</td><td><span lang="en">the last beat, 1/2 or 1/4 backwards, segment after segment</span><span lang="fr">le dernier temps, 1/2 ou 1/4 à l’envers, segment après segment</span></td></tr>
+        <tr><td>PITCH MAD</td><td><span lang="en">a staircase up, random jumps, then a dive</span><span lang="fr">un escalier qui monte, des sauts au hasard, puis un plongeon</span></td></tr>
+        <tr><td>GATE X</td><td><span lang="en">silences each bar, 16ths or 32nds, more holes</span><span lang="fr">des silences à chaque mesure, en doubles ou triples croches, plus de trous</span></td></tr>
+        <tr><td>FILTER CHAOS</td><td><span lang="en">a resonant low-pass jumping each 16th</span><span lang="fr">un passe-bas résonant qui saute à chaque double-croche</span></td></tr>
+        <tr><td>BEAT REPEAT</td><td><span lang="en">the last beat, 1/2, 1/4 repeated; past 70 % into a roll</span><span lang="fr">le dernier temps, 1/2, 1/4 répété ; au-delà de 70 % en roll</span></td></tr>
+        <tr><td>BEAT SKIP</td><td><span lang="en">16ths dropped, or past 50 % the one before again</span><span lang="fr">des doubles-croches sautées, ou au-delà de 50 % la précédente encore</span></td></tr>
+        <tr><td>MICRO STUTTER</td><td><span lang="en">50 … 10 ms grains, a new one each 16th</span><span lang="fr">des grains de 50 … 10 ms, un nouveau à chaque double-croche</span></td></tr>
+        <tr><td>TIME STRETCH</td><td><span lang="en">the groove at 3/4 … 1/4 speed, same pitch</span><span lang="fr">le groove à 3/4 … 1/4 de vitesse, même hauteur</span></td></tr>
+        <tr><td>RING MOD · FUZZ</td><td><span lang="en">a carrier 30 Hz … 2 kHz · drive ×1 … ×15</span><span lang="fr">une porteuse 30 Hz … 2 kHz · drive ×1 … ×15</span></td></tr>
+        <tr><td>RANDOMIZER · TOTAL CHAOS</td><td><span lang="en">one of the above each 16th · the same, crushed and ring-modulated</span><span lang="fr">l’un des précédents à chaque double-croche · pareil, écrasé et modulé en anneau</span></td></tr>
+        <tr><th>BEAT</th><th><span lang="en">A program over the bar</span><span lang="fr">Un programme sur la mesure</span></th></tr>
+        <tr><td>RND STUTTER · RND BAR · RND FILL</td><td><span lang="en">stutters on random 8ths · every 16th dry, repeated, backwards, muted, half speed or pitched · the end of the bar a random fill</span><span lang="fr">des stutters sur des croches au hasard · chaque double-croche sèche, répétée, à l’envers, coupée, ralentie ou transposée · la fin de la mesure en fill au hasard</span></td></tr>
+        <tr><td>ROLL UP · SKIP 8TH · STAMMER</td><td><span lang="en">the downbeat repeated faster and faster · the off-8ths dropped · 3-3-2, the hits repeated</span><span lang="fr">le premier temps répété de plus en plus vite · les contretemps sautés · 3-3-2, les frappes répétées</span></td></tr>
+        <tr><td>GATE 8 · 16 · 3-3-2 · RAMP</td><td><span lang="en">trance gates; RAMP speeds up from quarters to 32nds</span><span lang="fr">des gates trance ; RAMP accélère des noires aux triples croches</span></td></tr>
+        <tr><td>REV BEAT · REV OFFBEAT</td><td><span lang="en">beats backwards · each off-8th the one before backwards</span><span lang="fr">des temps à l’envers · chaque contretemps la croche d’avant à l’envers</span></td></tr>
+        <tr><td>SCRATCH BAR · SCRATCH CUT</td><td><span lang="en">silence, three scratches, the downbeat backwards · beats 2 and 4 scratched under the fader</span><span lang="fr">un silence, trois scratches, le premier temps à l’envers · les temps 2 et 4 scratchés sous le fader</span></td></tr>
+        <tr><td>TAPE STOP · HALF TIME</td><td><span lang="en">the end of the bar slows to a stop · each beat played at half speed</span><span lang="fr">la fin de la mesure ralentit jusqu’à l’arrêt · chaque temps joué à mi-vitesse</span></td></tr>
+      </table></div>
+    </section>
+
+    <section id="global">
+      <h2>GLOBAL <small>GLO</small></h2>
+      <p><span lang="en"><span class="k1">K1 BPM</span>, <span class="k2">K2 SWING</span>, <span class="k3">K3 TEMPO</span> (CHOP / VARI), <span class="k4">K4 METRONOME</span>; OCT+ taps the tempo. GLO again: <span class="k1">CLOCK</span> (internal / MIDI), <span class="k2">LANGUAGE</span>, <span class="k3">THEME</span> (WARP, RAVE, AMEN, PHOSPHOR, MONO), <span class="k4">VOLUME</span>.</span>
+         <span lang="fr"><span class="k1">K1 BPM</span>, <span class="k2">K2 SWING</span>, <span class="k3">K3 TEMPO</span> (CHOP / VARI), <span class="k4">K4 MÉTRONOME</span> ; OCT+ tape le tempo. GLO encore : <span class="k1">HORLOGE</span> (interne / MIDI), <span class="k2">LANGUE</span>, <span class="k3">THÈME</span> (WARP, RAVE, AMEN, PHOSPHOR, MONO), <span class="k4">VOLUME</span>.</span></p>
+    </section>
+
+    <section id="save">
+      <h2>SAVE · RESAMPLE <small>SAVE</small></h2>
+      <div class="pg"><div>
+        <p><span lang="en"><span class="k1">K1 ACTION</span>: SAVE, LOAD, CLEAR PAT, COPY PAT, NEW, RESAMPLE; <b>SAVE again</b> does it (LOAD, CLEAR and NEW ask twice). SELECT: the slot (AUTO, A, B, C). The white keys pick a pattern; hold one and press others: a chain. OCT−: undo. It saves itself when stopped.</span>
+           <span lang="fr"><span class="k1">K1 ACTION</span> : SAUVER, CHARGER, EFFACER, COPIER, NOUVEAU, RESAMPLE ; <b>SAVE encore</b> la fait (CHARGER, EFFACER et NOUVEAU demandent deux fois). SELECT : l’emplacement (AUTO, A, B, C). Les touches blanches choisissent un pattern ; tiens-en un et appuie sur d’autres : une chaîne. OCT− : annuler. Il sauve tout seul à l’arrêt.</span></p>
+        <h3>RESAMPLE</h3>
+        <p><span lang="en"><span class="k2">K2 BARS</span>: 1, 2 or 4. SAVE: from the next bar (the pattern starts if it was stopped), what comes out, effects and all, is recorded (22 kHz, up to 5.5 s), then the sequencer stops and the take becomes a new break of your bank, cut on the grid, its slices classed: <b>RS 170 3</b> (its tempo and its place). SAVE again before the end: cancelled.</span>
+           <span lang="fr"><span class="k2">K2 MESURES</span> : 1, 2 ou 4. SAVE : à partir de la mesure suivante (le pattern démarre s’il était arrêté), ce qui sort, effets compris, est enregistré (22 kHz, jusqu’à 5,5 s), puis le séquenceur s’arrête et la prise devient un nouveau break de ta banque, découpé en grille, ses tranches classées : <b>RS 170 3</b> (son tempo et sa place). SAVE encore avant la fin : annulé.</span></p>
+      </div><img src="docs/img/28-resample-armed.png" alt="RESAMPLE" width="480" height="480" loading="lazy"></div>
+    </section>
+
+    <section id="breaks">
+      <h2><span lang="en">Your breaks</span><span lang="fr">Tes breaks</span></h2>
+      <ul class="tight">
+        <li><span lang="en"><b>On the FM-1</b>: RESAMPLE (above).</span><span lang="fr"><b>Sur le FM-1</b> : RESAMPLE (ci-dessus).</span></li>
+        <li><span lang="en"><b>From a computer</b>: the <a href="editor/index.html">break editor</a> in Chrome or Edge: drop loops, cut them, send them over USB.</span><span lang="fr"><b>Depuis un ordinateur</b> : l’<a href="editor/index.html">éditeur de breaks</a> dans Chrome ou Edge : dépose des boucles, découpe-les, envoie-les par USB.</span></li>
+        <li><span lang="en"><b>From an Android phone</b>: the same page in Chrome, the FM-1 on a USB-C (OTG) data cable. iPhone and iPad have no Web MIDI.</span><span lang="fr"><b>Depuis un téléphone Android</b> : la même page dans Chrome, le FM-1 sur un câble de données USB-C (OTG). iPhone et iPad n’ont pas Web MIDI.</span></li>
+        <li><span lang="en">8 breaks at most, about 22 s at 22 kHz in all (more at 16 or 11 kHz). They come after the 8 factory breaks (SELECT).</span><span lang="fr">8 breaks au plus, environ 22 s à 22 kHz en tout (plus à 16 ou 11 kHz). Ils viennent après les 8 d’usine (SELECT).</span></li>
+      </ul>
+    </section>
+
+    <section id="midi">
+      <h2>MIDI</h2>
+      <p><span lang="en">USB-MIDI in: notes play the slices, clock and start / stop follow (GLOBAL › CLOCK: MIDI). Out: the clock. The FM-1 also shows up as a USB audio input.</span><span lang="fr">USB-MIDI en entrée : les notes jouent les tranches, l’horloge et start / stop suivent (GLOBAL › HORLOGE : MIDI). En sortie : l’horloge. Le FM-1 apparaît aussi comme une entrée audio USB.</span></p>
+    </section>
+
+    <section id="safety">
+      <h2><span lang="en">Safety</span><span lang="fr">Sécurité</span></h2>
+      <ul class="tight">
+        <li><span lang="en">Beta: built and checked for the FM-1 (size, memory, the update path against the real package, random sessions under sanitizers), not yet played on hardware.</span><span lang="fr">Bêta : compilé et vérifié pour le FM-1 (taille, mémoire, la mise à jour contre le vrai paquet, des sessions aléatoires sous sanitizers), pas encore joué sur le matériel.</span></li>
+        <li><span lang="en">The installer checks the whole package before writing; a cut install resumes; an update never touches your projects and breaks.</span><span lang="fr">L’installeur vérifie tout le paquet avant d’écrire ; une installation coupée reprend ; une mise à jour ne touche jamais tes projets et tes breaks.</span></li>
+        <li><span lang="en">Rescue: hold <b>OCT−</b> while switching on (USB rescue), then install again. Back to the stock firmware: M-VAVE’s M-UPGRADE.</span><span lang="fr">Secours : maintiens <b>OCT−</b> à l’allumage (secours USB), puis réinstalle. Retour au firmware d’origine : M-UPGRADE de M-VAVE.</span></li>
+      </ul>
+    </section>
+    <footer class="foot"><p><span lang="en">BREAKR by Omnipotard · GPL-3.0 · on Dinghy, Felucca and SLOOP (Leo Kuroshita, Hügelton Instruments, zvenson).</span><span lang="fr">BREAKR par Omnipotard · GPL-3.0 · sur Dinghy, Felucca et SLOOP (Leo Kuroshita, Hügelton Instruments, zvenson).</span></p></footer>
+  </article>
+</main>
+<script>
+(() => {
+  function setLang(l) {
+    const lang = l === "fr" ? "fr" : "en";
+    document.documentElement.lang = lang; document.documentElement.dataset.lang = lang;
+    document.querySelectorAll(".langs button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.lang === lang ? "true" : "false"));
+    try { localStorage.setItem("breakr-lang", lang); } catch (e) {}
+  }
+  document.querySelectorAll(".langs button").forEach((b) => b.addEventListener("click", () => setLang(b.dataset.lang)));
+  let s = null; try { s = localStorage.getItem("breakr-lang"); } catch (e) {}
+  setLang((location.hash || "").slice(1) === "fr" ? "fr" : s || (/^fr/i.test(navigator.language || "") ? "fr" : "en"));
+})();
+</script>
+</body>
+</html>

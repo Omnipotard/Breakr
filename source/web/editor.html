@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BREAKR Break Editor</title>
+<meta name="description" content="Import your own drum loops into BREAKR, the breakbeat slicer firmware for the M-VAVE FM-1: cut them, then send them over USB from Chrome (computer or Android phone).">
+<meta name="theme-color" content="#07080b">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2307080b'/%3E%3Cpath d='M4 6h24v8H4z' fill='%23e8ff2e'/%3E%3Cpath d='M8 16h20v4H8z' fill='%23e8ff2e'/%3E%3Cpath d='M4 22h24v4H4z' fill='%23e8ff2e'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;600&family=Silkscreen&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="../site.css">
+<style>
+.hero { padding-block: 28px 8px; display: grid; gap: 14px; }
+.hero h1 { font-weight: 800; font-size: clamp(40px, 8vw, 68px); color: var(--paper); }
+.hero h1 span { color: var(--sig); }
+.drop { margin-top: 18px; border: 2px dashed var(--rule); padding: 26px 22px; display: grid; gap: 10px; justify-items: start; background: var(--ink-2); transition: border-color .12s, background .12s; }
+.drop.over { border-color: var(--sig); background: rgba(232,255,46,.05); }
+.drop strong { font-family: var(--display); font-weight: 800; font-size: 26px; text-transform: uppercase; letter-spacing: .03em; }
+.meter { display: grid; gap: 6px; margin-top: 18px; }
+.meter .bar { height: 12px; background: var(--ink-3); position: relative; overflow: hidden; clip-path: var(--cut-s); }
+.meter .bar i { position: absolute; inset: 0 auto 0 0; background: var(--sig); }
+.meter .bar.over i { background: var(--arm); }
+.meter .lbl { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.list { display: grid; gap: 14px; margin-top: 18px; }
+.brk { background: var(--ink-2); clip-path: var(--cut); border-top: 2px solid var(--rule); padding: 16px 18px; display: grid; gap: 12px; min-width: 0; }
+.brk.sel { border-top-color: var(--sig); }
+.brk .head { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; }
+.brk .idx { font-family: var(--pixel); font-size: 11px; color: var(--sig-ink); background: var(--sig); padding: 4px 7px; clip-path: var(--cut-s); }
+.brk input.name { font: 800 24px/1 var(--display); letter-spacing: .04em; text-transform: uppercase; background: transparent; border: 0; border-bottom: 1px solid var(--rule); color: var(--paper); width: min(15ch, 100%); padding: 2px 0; }
+.brk input.name:focus { outline: none; border-bottom-color: var(--sig); }
+.brk .meta { font-family: var(--pixel); font-size: 10px; color: var(--muted); margin-left: auto; text-align: right; }
+.wave { width: 100%; height: 120px; display: block; background: #0b0c10; cursor: pointer; touch-action: manipulation; }
+.wave.edit { cursor: crosshair; outline: 1px dashed var(--arm); }
+.ctl { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: end; }
+.ctl label { display: grid; gap: 4px; font-family: var(--pixel); font-size: 10px; color: var(--muted); text-transform: uppercase; }
+.ctl select, .ctl input[type=range] { font: 600 15px var(--text); background: var(--ink-3); color: var(--paper); border: 1px solid var(--rule); padding: 6px 8px; min-width: 0; }
+.ctl input[type=range] { accent-color: var(--sig); padding: 0; height: 30px; width: 140px; }
+.mini { appearance: none; border: 0; cursor: pointer; font: 700 14px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--paper); background: var(--panel-hi); padding: 9px 12px; clip-path: var(--cut-s); }
+.mini:hover { background: #3a3f4f; }
+.mini.on { background: var(--arm); color: var(--sig-ink); }
+.mini.hot { background: var(--sig); color: var(--sig-ink); }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-family: var(--pixel); font-size: 10px; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; }
+.send { margin-top: 26px; display: grid; gap: 14px; }
+.status { font-family: var(--pixel); font-size: 12px; color: var(--text-2); min-height: 1.4em; }
+.status.err { color: var(--arm); }
+.status.ok { color: var(--ok); }
+.prog { height: 8px; background: var(--ink-3); overflow: hidden; }
+.prog i { display: block; height: 100%; width: 0; background: var(--sig); transition: width .15s; }
+.how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 28px; }
+.how .card p { font-size: 15.5px; }
+@media (max-width: 760px) { .how { grid-template-columns: minmax(0, 1fr); } .brk .meta { margin-left: 0; text-align: left; width: 100%; } }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <a class="mark" href="../index.html" aria-label="BREAKR home"><span class="base" aria-hidden="true">BREAKR</span><span class="cut" aria-hidden="true">BREAKR</span></a>
+  <nav class="nav" aria-label="Site">
+    <a href="../emulator/index.html"><span lang="en">EMULATOR</span><span lang="fr">ÉMULATEUR</span></a>
+    <a href="../installer.html"><span lang="en">INSTALL</span><span lang="fr">INSTALLER</span></a>
+    <a href="./index.html" aria-current="page"><span lang="en">BREAK EDITOR</span><span lang="fr">ÉDITEUR</span></a>
+    <a href="../manual.html"><span lang="en">MANUAL</span><span lang="fr">MANUEL</span></a>
+  </nav>
+  <div class="langs" role="group" aria-label="Language"><button type="button" data-lang="en">EN</button><button type="button" data-lang="fr">FR</button></div>
+</div></header>
+
+<main class="wrap">
+  <div class="hero">
+    <span class="eyebrow"><span lang="en">Your breaks on the FM-1, no software to install</span><span lang="fr">Tes breaks sur le FM-1, sans logiciel à installer</span></span>
+    <h1><span lang="en">Break <span>editor</span></span><span lang="fr">Éditeur de <span>breaks</span></span></h1>
+    <p><span lang="en">Drop up to <b>8 drum loops</b> (WAV, MP3, OGG, FLAC: anything your browser plays). Each one is cut where it hits, given its tempo, then packed the way BREAKR keeps them (4-bit IMA, about <b>22 seconds</b> in all at 22 kHz). Send them to your FM-1 over USB, or open them in the emulator.</span>
+       <span lang="fr">Dépose jusqu’à <b>8 boucles de batterie</b> (WAV, MP3, OGG, FLAC : tout ce que ton navigateur lit). Chacune est découpée là où elle frappe, reçoit son tempo, puis est rangée comme BREAKR les garde (IMA 4 bits, environ <b>22 secondes</b> en tout à 22 kHz). Envoie-les à ton FM-1 par USB, ou ouvre-les dans l’émulateur.</span></p>
+    <p class="note"><span lang="en"><b>No computer?</b> This page works in <b>Chrome on an Android phone</b>: plug the FM-1 in with a USB-C (OTG) data cable. iPhone and iPad browsers have no Web MIDI. On the FM-1 itself, <b>SAVE › RESAMPLE</b> turns what you play into a new break.</span>
+       <span lang="fr"><b>Pas d’ordinateur ?</b> Cette page marche dans <b>Chrome sur un téléphone Android</b> : branche le FM-1 avec un câble de données USB-C (OTG). Les navigateurs d’iPhone et d’iPad n’ont pas Web MIDI. Sur le FM-1 lui-même, <b>SAVE › RESAMPLE</b> transforme ce que tu joues en un nouveau break.</span></p>
+  </div>
+
+  <label class="drop" id="drop">
+    <strong><span lang="en">Drop loops here</span><span lang="fr">Dépose tes boucles ici</span></strong>
+    <span class="px"><span lang="en">or click to choose files · a .brkbank opens a whole bank</span><span lang="fr">ou clique pour choisir · un .brkbank ouvre toute une banque</span></span>
+    <input id="files" type="file" class="vh" multiple accept="audio/*,.wav,.mp3,.ogg,.flac,.aif,.aiff,.m4a,.brkbank">
+  </label>
+
+  <div class="meter" aria-live="polite">
+    <div class="lbl"><span class="px" id="cap-txt"></span><span class="px" id="cnt-txt"></span></div>
+    <div class="bar" id="cap-bar"><i id="cap-fill"></i></div>
+  </div>
+
+  <div class="legend" aria-hidden="true"><span><i style="background:#ff6e50"></i>KICK</span><span><i style="background:#ffc846"></i>SNARE</span><span><i style="background:#5ac8ff"></i>HAT</span><span><i style="background:#aaaab9"></i><span lang="en">OTHER</span><span lang="fr">AUTRE</span></span>
+    <span><span lang="en">click: hear a slice · CUTS on: click adds or removes a cut</span><span lang="fr">clic : écouter une tranche · COUPES actif : un clic ajoute ou retire une coupe</span></span></div>
+
+  <div class="list" id="list"></div>
+
+  <div class="send card sig">
+    <h3><span lang="en">Your FM-1</span><span lang="fr">Ton FM-1</span></h3>
+    <p><span lang="en">BREAKR running, stopped, plugged in with a USB <b>data</b> cable, no other MIDI program open. Chrome, Edge or Opera.</span>
+       <span lang="fr">BREAKR lancé, à l’arrêt, branché avec un câble USB de <b>données</b>, aucun autre programme MIDI ouvert. Chrome, Edge ou Opera.</span></p>
+    <div class="row">
+      <button class="btn hot" id="b-send" type="button"><span lang="en">Send to the FM-1</span><span lang="fr">Envoyer au FM-1</span></button>
+      <button class="btn" id="b-read" type="button"><span lang="en">Read the FM-1's bank</span><span lang="fr">Lire la banque du FM-1</span></button>
+      <button class="btn" id="b-emu" type="button"><span lang="en">Open in the emulator</span><span lang="fr">Ouvrir dans l’émulateur</span></button>
+      <button class="btn" id="b-save" type="button"><span lang="en">Download .brkbank</span><span lang="fr">Télécharger .brkbank</span></button>
+      <button class="btn red" id="b-erase" type="button"><span lang="en">Erase the FM-1's bank</span><span lang="fr">Effacer la banque du FM-1</span></button>
+    </div>
+    <div class="prog" id="prog" hidden><i id="prog-fill"></i></div>
+    <div class="status" id="status" role="status"></div>
+  </div>
+
+  <div class="how">
+    <div class="card"><h3>1 · <span lang="en">Loops</span><span lang="fr">Boucles</span></h3><p><span lang="en">Cut on the bar: 1, 2, 4 or 8 bars. The tempo comes from the length (BARS). Silence at the start is trimmed.</span><span lang="fr">Coupées sur la mesure : 1, 2, 4 ou 8 mesures. Le tempo vient de la longueur (MESURES). Le silence au début est retiré.</span></p></div>
+    <div class="card"><h3>2 · <span lang="en">Slices</span><span lang="fr">Tranches</span></h3><p><span lang="en">AUTO finds the hits (SENS: how small a hit counts), GRID cuts equal parts. Up to 32 slices; their class (kick, snare, hat) guides the dice and the generators.</span><span lang="fr">AUTO trouve les frappes (SENS : à partir de quand), GRILLE coupe en parts égales. Jusqu’à 32 tranches ; leur genre (kick, caisse claire, charleston) guide les dés et les générateurs.</span></p></div>
+    <div class="card"><h3>3 · <span lang="en">Room</span><span lang="fr">Place</span></h3><p><span lang="en">The bank holds 240 KB. A loop at 16 kHz or 11 kHz takes less room (and sounds dirtier: good for breakcore).</span><span lang="fr">La banque tient 240 Ko. Une boucle à 16 kHz ou 11 kHz prend moins de place (et sonne plus sale : parfait pour le breakcore).</span></p></div>
+  </div>
+
+  <footer class="foot"><p><span lang="en">BREAKR is free software (GPL-3.0) by Omnipotard. The sound never leaves your browser.</span><span lang="fr">BREAKR est un logiciel libre (GPL-3.0) d’Omnipotard. Le son ne quitte jamais ton navigateur.</span></p></footer>
+</main>
+
+<script>
+const BRK_SRC = __BREAKR_BRKJS__;
+new Function(BRK_SRC)();
+</script>
+<script>
+(() => {
+  "use strict";
+  const BRK = window.BRK, $ = (id) => document.getElementById(id);
+  const CLS_COL = ["#aaaab9", "#ff6e50", "#ffc846", "#5ac8ff"];
+  const LS_LANG = "breakr-lang", LS_PENDING = "breakr-bank-pending";
+  let lang = "en", actx = null, playing = null, busy = false;
+  const T = (en, fr) => (lang === "fr" ? fr : en);
+  const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } } };
+  const breaks = [];                            /* {name, rate, pcm (Int16 at rate), bars, mode, sens, count, sl, cls, data, edit} */
+
+  function setLang(l) {
+    lang = l === "fr" ? "fr" : "en";
+    document.documentElement.lang = lang; document.documentElement.dataset.lang = lang;
+    document.querySelectorAll(".langs button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.lang === lang ? "true" : "false"));
+    ls.set(LS_LANG, lang);
+    render();
+  }
+  document.querySelectorAll(".langs button").forEach((b) => b.addEventListener("click", () => setLang(b.dataset.lang)));
+  const ctx = () => actx || (actx = new (window.AudioContext || window.webkitAudioContext)());
+
+  function status(t, cls) { const s = $("status"); s.textContent = t; s.className = "status" + (cls ? " " + cls : ""); }
+  function prog(p) { $("prog").hidden = p === undefined; $("prog-fill").style.width = (p === undefined ? 0 : Math.round(p * 100)) + "%"; }
+
+  /* ---- slicing */
+  function reslice(b) {
+    if (b.mode === "grid") { b.sl = BRK.grid(b.pcm.length, b.count); }
+    else if (b.mode === "auto") { b.an = b.an || BRK.analyse(b.pcm, b.rate); b.sl = BRK.onsets(b.pcm, b.rate, b.sens, b.an).slice(0, 32); }
+    if (b.sl.length === 0 || b.sl[0] !== 0) b.sl.unshift(0);
+    b.sl = Array.from(new Set(b.sl)).sort((x, y) => x - y).slice(0, 32);
+    b.an = b.an || BRK.analyse(b.pcm, b.rate);
+    b.cls = BRK.classify(b.sl, b.an);
+    b.data = null;
+  }
+  function trimStart(x) {                       /* the silence before the first hit (< -48 dB) */
+    let peak = 1e-9; for (let i = 0; i < x.length; i++) peak = Math.max(peak, Math.abs(x[i]));
+    const th = peak * 0.004; let i = 0; while (i < x.length && Math.abs(x[i]) < th) i++;
+    return x.subarray(Math.max(0, i - 32));
+  }
+  function make(name, f32, srcRate, rate) {
+    const x = BRK.resample(trimStart(f32), srcRate, rate), pcm = BRK.toInt16(x);
+    const b = {name: clean(name), rate, pcm, src: {f32, srcRate}, bars: BRK.guessBars(pcm.length / rate), mode: "auto", sens: 6, count: 16, sl: [], cls: [], data: null, edit: false};
+    reslice(b);
+    return b;
+  }
+  const clean = (n) => (n || "BREAK").toUpperCase().replace(/[^ -_]/g, "").replace(/\s+/g, " ").trim().slice(0, 15) || "BREAK";
+
+  /* ---- import */
+  async function importFiles(list) {
+    if (busy) return;
+    for (const f of list) {
+      if (/\.brkbank$/i.test(f.name)) {
+        try {
+          const got = BRK.readBankFile(new Uint8Array(await f.arrayBuffer()));
+          breaks.length = 0;
+          got.forEach((g) => breaks.push(fromBank(g)));
+          status(T(got.length + " breaks opened from " + f.name, got.length + " breaks ouverts depuis " + f.name), "ok");
+        } catch (e) { status(T("Not a BREAKR bank: ", "Pas une banque BREAKR : ") + e.message, "err"); }
+        continue;
+      }
+      if (breaks.length >= BRK.MAX_BREAKS) { status(T("8 breaks at most: remove one first.", "8 breaks au plus : retires-en un d’abord."), "err"); break; }
+      try {
+        status(T("Reading ", "Lecture de ") + f.name + "…");
+        const d = await BRK.decodeFile(f, ctx());
+        breaks.push(make(d.name, d.pcm, d.rate, 22050));
+        status(T("Added ", "Ajouté : ") + f.name, "ok");
+      } catch (e) { status(T("Could not read ", "Lecture impossible : ") + f.name + " (" + (e.message || e) + ")", "err"); }
+    }
+    render();
+  }
+  function fromBank(g) {
+    const pcm = BRK.imaDecode(g.data, g.frames);
+    return {name: clean(g.name), rate: g.rate, pcm, src: null, bars: g.bars || 1, mode: "orig", sens: 6, count: 16, sl: g.sl.length ? g.sl : [0], cls: g.cls, data: g.data, edit: false};
+  }
+  const drop = $("drop");
+  $("files").addEventListener("change", (e) => { importFiles(Array.from(e.target.files || [])); e.target.value = ""; });
+  ["dragenter", "dragover"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave", "drop"].forEach((t) => drop.addEventListener(t, () => drop.classList.remove("over")));
+  drop.addEventListener("drop", (e) => { e.preventDefault(); importFiles(Array.from(e.dataTransfer.files || [])); });
+  window.addEventListener("dragover", (e) => e.preventDefault());
+  window.addEventListener("drop", (e) => { if (!drop.contains(e.target)) { e.preventDefault(); importFiles(Array.from(e.dataTransfer.files || [])); } });
+
+  /* ---- the bank: room */
+  const bytesOf = (b) => BRK.imaBytes(b.pcm.length);
+  function capacity() {
+    const used = breaks.reduce((s, b) => s + bytesOf(b), 0), cap = BRK.BANK_CAP;
+    $("cap-fill").style.width = Math.min(100, used / cap * 100) + "%";
+    $("cap-bar").classList.toggle("over", used > cap);
+    $("cap-txt").textContent = T("ROOM ", "PLACE ") + Math.round(used / 1024) + " / " + Math.round(cap / 1024) + T(" KB", " KO") + (used > cap ? T(" · TOO BIG: lower a rate or remove a break", " · TROP GROS : baisse une fréquence ou retire un break") : "");
+    $("cnt-txt").textContent = breaks.length + " / 8 BREAKS";
+    return used <= cap;
+  }
+
+  /* ---- drawing a break */
+  function drawWave(cv, b, hi) {
+    const r = cv.getBoundingClientRect(), W = Math.max(200, Math.round(r.width * devicePixelRatio)), H = Math.round(120 * devicePixelRatio);
+    cv.width = W; cv.height = H;
+    const g = cv.getContext("2d"), n = b.pcm.length, mid = H / 2;
+    g.fillStyle = "#0b0c10"; g.fillRect(0, 0, W, H);
+    for (let k = 0; k < b.sl.length; k++) {   /* the slices, tinted by class */
+      const x0 = b.sl[k] / n * W, x1 = (k + 1 < b.sl.length ? b.sl[k + 1] : n) / n * W;
+      g.fillStyle = CLS_COL[b.cls[k] & 3] + (k === hi ? "55" : (k & 1 ? "1c" : "10"));
+      g.fillRect(x0, 0, x1 - x0, H);
+    }
+    g.fillStyle = "#c9cdd6";
+    for (let x = 0; x < W; x++) {
+      let mn = 0, mx = 0;
+      const a = Math.floor(x / W * n), z = Math.min(n, Math.floor((x + 1) / W * n) + 1);
+      for (let i = a; i < z; i++) { const v = b.pcm[i]; if (v < mn) mn = v; if (v > mx) mx = v; }
+      g.fillRect(x, mid - mx / 32768 * mid * 0.95, 1, Math.max(1, (mx - mn) / 32768 * mid * 0.95));
+    }
+    for (let k = 0; k < b.sl.length; k++) {   /* the cuts and their numbers */
+      const x = Math.round(b.sl[k] / n * W);
+      g.fillStyle = CLS_COL[b.cls[k] & 3]; g.fillRect(x, 0, Math.max(1, devicePixelRatio), H);
+      g.font = (10 * devicePixelRatio) + "px Silkscreen, monospace"; g.fillText(String(k + 1), x + 3 * devicePixelRatio, 12 * devicePixelRatio);
+    }
+  }
+  const bpmOf = (b) => b.bars * 240 / (b.pcm.length / b.rate);
+
+  function render() {
+    const list = $("list");
+    list.innerHTML = "";
+    breaks.forEach((b, i) => {
+      const el = document.createElement("article");
+      el.className = "brk";
+      const secs = (b.pcm.length / b.rate).toFixed(2);
+      el.innerHTML = `
+        <div class="head">
+          <span class="idx">MY ${i + 1}</span>
+          <input class="name" maxlength="15" value="${b.name}" aria-label="${T("Name", "Nom")}">
+          <span class="meta">${secs} S · ${b.rate} HZ · ${bpmOf(b).toFixed(1)} BPM · ${b.sl.length} ${T("SLICES", "TRANCHES")} · ${Math.round(bytesOf(b) / 1024)} ${T("KB", "KO")}</span>
+        </div>
+        <canvas class="wave${b.edit ? " edit" : ""}" aria-label="${T("Waveform and slices", "Forme d'onde et tranches")}"></canvas>
+        <div class="ctl">
+          <label>${T("Slices", "Tranches")}<select data-k="mode">
+            <option value="auto">AUTO</option><option value="grid">${T("GRID", "GRILLE")}</option>${b.src ? "" : `<option value="orig">${T("AS IS", "TEL QUEL")}</option>`}</select></label>
+          <label class="s-sens">SENS <input type="range" min="1" max="10" step="1" value="${b.sens}" data-k="sens"></label>
+          <label class="s-count">${T("Count", "Nombre")}<select data-k="count">${[4, 8, 12, 16, 24, 32].map((c) => `<option ${c === b.count ? "selected" : ""}>${c}</option>`).join("")}</select></label>
+          <label>${T("Bars", "Mesures")}<select data-k="bars">${[1, 2, 4, 8].map((c) => `<option ${c === b.bars ? "selected" : ""}>${c}</option>`).join("")}</select></label>
+          ${b.src ? `<label>${T("Rate", "Fréquence")}<select data-k="rate">${[22050, 16000, 11025].map((c) => `<option value="${c}" ${c === b.rate ? "selected" : ""}>${c / 1000} kHz</option>`).join("")}</select></label>` : ""}
+          <span class="row" style="margin-left:auto">
+            <button class="mini hot" data-a="play" type="button">${T("PLAY", "ÉCOUTER")}</button>
+            <button class="mini${b.edit ? " on" : ""}" data-a="edit" type="button">${T("CUTS", "COUPES")}</button>
+            <button class="mini" data-a="up" type="button" aria-label="${T("Move up", "Monter")}">▲</button>
+            <button class="mini" data-a="down" type="button" aria-label="${T("Move down", "Descendre")}">▼</button>
+            <button class="mini" data-a="del" type="button">${T("REMOVE", "RETIRER")}</button>
+          </span>
+        </div>`;
+      list.appendChild(el);
+      const cv = el.querySelector("canvas");
+      el.querySelector("[data-k=mode]").value = b.mode;
+      el.querySelector(".s-sens").hidden = b.mode !== "auto";
+      el.querySelector(".s-count").hidden = b.mode !== "grid";
+      requestAnimationFrame(() => drawWave(cv, b, -1));
+      el.querySelector(".name").addEventListener("change", (e) => { b.name = clean(e.target.value); e.target.value = b.name; });
+      el.querySelectorAll("select, input[type=range]").forEach((c) => c.addEventListener("change", () => {
+        const k = c.dataset.k, v = c.value;
+        if (k === "mode") { b.mode = v; if (v !== "orig") reslice(b); }
+        if (k === "sens") { b.sens = +v; reslice(b); }
+        if (k === "count") { b.count = +v; reslice(b); }
+        if (k === "bars") { b.bars = +v; }
+        if (k === "rate" && b.src) { const nb = make(b.name, b.src.f32, b.src.srcRate, +v); Object.assign(b, nb, {name: b.name, bars: b.bars, mode: b.mode, sens: b.sens, count: b.count}); reslice(b); }
+        render();
+      }));
+      cv.addEventListener("click", (e) => {
+        const r = cv.getBoundingClientRect(), at = Math.round((e.clientX - r.left) / r.width * b.pcm.length);
+        if (b.edit) {                           /* add a cut, or remove the one near */
+          const near = b.sl.findIndex((s) => Math.abs(s - at) < b.pcm.length / r.width * 6);
+          if (near > 0) b.sl.splice(near, 1);
+          else if (near < 0 && b.sl.length < 32) { b.sl.push(at); b.sl.sort((x, y) => x - y); }
+          b.mode = "orig"; b.cls = BRK.classify(b.sl, b.an || (b.an = BRK.analyse(b.pcm, b.rate))); b.data = null;
+          render();
+          return;
+        }
+        let k = 0; while (k + 1 < b.sl.length && b.sl[k + 1] <= at) k++;
+        play(b, b.sl[k], k + 1 < b.sl.length ? b.sl[k + 1] : b.pcm.length);
+        drawWave(cv, b, k);
+      });
+      el.querySelectorAll("[data-a]").forEach((btn) => btn.addEventListener("click", () => {
+        const a = btn.dataset.a;
+        if (a === "play") play(b, 0, b.pcm.length, true);
+        if (a === "edit") { b.edit = !b.edit; render(); }
+        if (a === "up" && i > 0) { breaks.splice(i - 1, 0, breaks.splice(i, 1)[0]); render(); }
+        if (a === "down" && i + 1 < breaks.length) { breaks.splice(i + 1, 0, breaks.splice(i, 1)[0]); render(); }
+        if (a === "del") { breaks.splice(i, 1); render(); }
+      }));
+    });
+    if (!breaks.length) list.innerHTML = `<p class="px" style="padding:10px 2px">${T("No break yet: drop a loop above, or read your FM-1's bank.", "Aucun break : dépose une boucle ci-dessus, ou lis la banque de ton FM-1.")}</p>`;
+    const ok = capacity();
+    $("b-send").disabled = $("b-save").disabled = $("b-emu").disabled = !breaks.length || !ok || busy;
+  }
+  window.addEventListener("resize", () => document.querySelectorAll(".brk canvas").forEach((cv, i) => breaks[i] && drawWave(cv, breaks[i], -1)));
+
+  function play(b, from, to, loop) {
+    const c = ctx();
+    if (playing) { try { playing.stop(); } catch (e) {} playing = null; }
+    const n = to - from; if (n < 16) return;
+    const buf = c.createBuffer(1, n, b.rate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = b.pcm[from + i] / 32768;
+    const s = c.createBufferSource(); s.buffer = buf; s.loop = !!loop; s.connect(c.destination); s.start();
+    if (loop) setTimeout(() => { if (playing === s) { try { s.stop(); } catch (e) {} } }, n / b.rate * 2000);
+    playing = s;
+  }
+
+  /* ---- the bank out */
+  function bank() {
+    return BRK.buildBank(breaks.map((b) => {
+      const data = b.data && b.mode === "orig" ? b.data : (b.data = BRK.imaEncode(b.pcm));
+      return {name: b.name, rate: b.rate, frames: b.pcm.length, data, bars: b.bars, bpm10: Math.round(bpmOf(b) * 10), sl: b.sl, cls: b.cls};
+    }));
+  }
+  function lock(on) { busy = on; render(); ["b-read", "b-erase"].forEach((id) => { $(id).disabled = on; }); }
+  async function midi() {
+    status(T("Looking for the FM-1 (allow MIDI access)…", "Recherche du FM-1 (autorise l’accès MIDI)…"));
+    const tr = await BRK.webMidi();
+    const info = await BRK.info(tr);
+    if (info.app !== "BRKR") throw new Error(T("the FM-1 does not run BREAKR", "le FM-1 ne fait pas tourner BREAKR"));
+    return tr;
+  }
+  $("b-send").addEventListener("click", async () => {
+    if (busy) return;
+    let tr = null;
+    lock(true);
+    try {
+      const bk = bank();
+      tr = await midi();
+      status(T("Sending ", "Envoi de ") + breaks.length + " breaks…");
+      prog(0);
+      await BRK.upload(tr, bk, (p) => { prog(p); status(T("Sending ", "Envoi ") + Math.round(p * 100) + " %"); });
+      status(T("Done: the FM-1 has your breaks (SELECT picks them, after the 8 factory ones).", "Terminé : le FM-1 a tes breaks (SELECT les choisit, après les 8 d’usine)."), "ok");
+    } catch (e) { status(T("Stopped: ", "Arrêté : ") + (e.message || e), "err"); }
+    finally { prog(undefined); if (tr && tr.close) tr.close(); lock(false); }
+  });
+  $("b-read").addEventListener("click", async () => {
+    if (busy) return;
+    let tr = null;
+    lock(true);
+    try {
+      tr = await midi();
+      prog(0);
+      const got = await BRK.readBank(tr, (p) => { prog(p); status(T("Reading ", "Lecture ") + Math.round(p * 100) + " %"); });
+      breaks.length = 0;
+      got.forEach((g) => breaks.push(fromBank(g)));
+      status(got.length ? T(got.length + " breaks read from the FM-1.", got.length + " breaks lus sur le FM-1.") : T("The FM-1's bank is empty.", "La banque du FM-1 est vide."), "ok");
+    } catch (e) { status(T("Stopped: ", "Arrêté : ") + (e.message || e), "err"); }
+    finally { prog(undefined); if (tr && tr.close) tr.close(); lock(false); }
+  });
+  $("b-erase").addEventListener("click", async () => {
+    if (busy) return;
+    const b = $("b-erase");
+    if (!b.dataset.sure) { b.dataset.sure = "1"; status(T("Click again to erase every user break on the FM-1.", "Clique encore pour effacer tous les breaks perso du FM-1."), "err"); setTimeout(() => delete b.dataset.sure, 4000); return; }
+    delete b.dataset.sure;
+    let tr = null;
+    lock(true);
+    try { tr = await midi(); await BRK.erase(tr); status(T("The FM-1's bank is empty.", "La banque du FM-1 est vide."), "ok"); }
+    catch (e) { status(T("Stopped: ", "Arrêté : ") + (e.message || e), "err"); }
+    finally { if (tr && tr.close) tr.close(); lock(false); }
+  });
+  function b64(u8) { let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
+  $("b-save").addEventListener("click", () => {
+    const f = BRK.bankFile(bank()), url = URL.createObjectURL(new Blob([f], {type: "application/octet-stream"}));
+    const a = document.createElement("a"); a.href = url; a.download = "breakr-bank.brkbank"; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    status(T("Saved as breakr-bank.brkbank", "Enregistré : breakr-bank.brkbank"), "ok");
+  });
+  $("b-emu").addEventListener("click", () => {
+    if (!ls.set(LS_PENDING, b64(BRK.bankFile(bank())))) { status(T("This browser's storage is full.", "Le stockage du navigateur est plein."), "err"); return; }
+    location.href = "../emulator/index.html";
+  });
+
+  if (!navigator.requestMIDIAccess) status(T("This browser has no Web MIDI: you can cut your breaks and download them, then send them from Chrome or Edge.", "Ce navigateur n’a pas Web MIDI : tu peux découper tes breaks et les télécharger, puis les envoyer depuis Chrome ou Edge."));
+  setLang((location.hash || "").slice(1) === "fr" ? "fr" : ls.get(LS_LANG) || (/^fr/i.test(navigator.language || "") ? "fr" : "en"));
+})();
+</script>
+</body>
+</html>

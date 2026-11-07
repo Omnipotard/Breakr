@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
-/* Host test of the update loader (firmware/loader/ldr_core.c), Felucca's ported to KAWA: a fake host serves a
+/* Host test of the update loader (firmware/loader/ldr_core.c), Felucca's ported to KAWA, then BREAKR: a fake host serves a
  * package over the SysEx protocol, the "device" flash starts as another package's flash.bin (as if that
- * firmware were installed), with the update records of step 1 and user data in KAWA's store.
+ * firmware were installed), with the update records of step 1 and user data in the app's store.
  * Power cuts: a longjmp out of a flash erase, the flash as it was at that instant; "power on" runs the
  * loader again (the SPL does, while the flash record is there).
  *   ldr_test OLD.fwsc NEW.fwsc   (tests/run_loader_tests.sh) */
@@ -93,7 +93,7 @@ static void ota_commit(const uint8_t *parm) { (void)parm; }
 #include "../firmware/src/ota.c"
 
 /* the loader's windows (loader.c FL_RANGE_OK): erase [0x4000, 0x97000) and [0xE0000, 0xFC000), program the app
- * area only; never the head, KAWA's store [0x97000, 0xE0000) or the settings (0xFC000) */
+ * area only; never the head, the app's store [0x97000, 0xE0000) or the settings (0xFC000) */
 static int ldr_fread(uint32_t off, void *p, uint32_t n) { memcpy(p, nor + off, n); return 0; }
 static int ldr_erase(uint32_t off)
 {
@@ -167,7 +167,7 @@ static int record_at(uint32_t at)                   /* a valid update record the
 }
 
 /* OLD installed, the records of step 1 at 0xE4F00 (KAWA's / Felucca's) and 0xE8F00 (the stock firmware's,
- * a first install from it); user data in KAWA's store (a project slot, the last user-sample sector) and the
+ * a first install from it); user data in the app's store (a project slot, the last user-sample sector) and the
  * settings, each with bytes that look like a record */
 static void device_old(void)
 {

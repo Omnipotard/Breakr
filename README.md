@@ -1,17 +1,60 @@
-# BREAKR — breakbeat slicer firmware for the M-VAVE FM-1 (work in progress)
+<p align="center"><img src="docs/img/card.png" alt="BREAKR, a breakbeat firmware for the M-VAVE FM-1"></p>
+<p align="center"><a href="https://guizmoh.github.io/BREAKR-FM1/">https://guizmoh.github.io/BREAKR-FM1/</a></p>
 
-Open-source (GPL-3.0) firmware on the Dinghy / Felucca platform (same base as KAWA).
+# BREAKR · breakbeat firmware for the FM-1
 
-**Done:** 8 factory breaks (IMA 4-bit): 4 played by Omnipotard (CC0, `source/assets/breaks/`), 4 synthesized; slicing (as-is / grid / auto transients + kick/snare/hat classes),
-64-step sequencer with groove-preserving micro-timing, dice (random slice / reverse / roll / skip / pitch, FREE or LOCKed),
-pattern generators (8 styles), 11 PO-33-style punch FX on the black keys, 16 Flex-Beat-style patterns, master FX
-(filter, drive, crush, delay, punch), 10-page anti-aliased UI, project slots, user break bank over USB SysEx,
-host tests (UBSan/ASan) and a WebAssembly build.
+**English** · [Français](README.fr.md)
 
-**To do:** emulator page, break editor page (web/brk.js is ready), docs/site, CI release (zvenson/fm1-build), hardware test.
+**Breakbeat, breakcore, IDM on the M-VAVE FM-1.** Slice any loop on its hits, sequence it on 64 steps with
+ratchets up to ×16, conditions and effect locks, then drill, destroy and resample it. Free and open source
+(GPL-3.0). *Version 0.1 **BETA**: built and checked for the FM-1 (size, memory, the update path, thousands of
+random sessions under sanitizers), not yet played on the hardware; tell me what you see (Issues tab).*
 
-    cd source
-    sh tests/run_engine_test.sh      # engine checks
-    sh tests/run_host.sh             # screens + audio in build/host/
-    sh web/make_emulator.sh          # wasm build
-    ./build.sh                       # device .fwsc (JieLi toolchain, see BUILDING.md of KAWA)
+| | |
+|---|---|
+| 🎛 **Try it** (browser) | [`emulator/index.html`](emulator/index.html) |
+| ⬇️ **Install** on the FM-1 | [`installer.html`](installer.html) (Chrome or Edge, USB) · or `INSTALL-Windows.bat` / `INSTALL-Mac.command` / `INSTALL-Linux.sh` |
+| 🥁 **Your breaks** | [`editor/index.html`](editor/index.html) (computer or Android phone, no app) · or **SAVE › RESAMPLE** on the FM-1 |
+| 📖 **Manual** | [`manual.html`](manual.html) |
+| 🏠 **Home page** | [`index.html`](index.html) (GitHub Pages: <https://guizmoh.github.io/BREAKR-FM1/>) |
+
+## What it does
+
+1. **8 factory breaks** (4 played by Omnipotard, CC0; 4 synthesized) and **8 of yours**; sliced as they are, on a grid or on their hits, each slice classed kick / snare / hat.
+2. **64-step sequencer**: ratchets up to **×16** with a ramp (up, down, octave, random, fade, reverse every other), **conditions** (1:2 … 8:8, FIRST, PRE), chance, nudge, an effect locked per step; the break's own groove kept; patterns and chains.
+3. **32 glitch effects**, K-GLITCH's two banks on the white keys: **DESTROY** (loop destroy, stutter, glitch, scratch, reverse, pitch mad, gate, filter chaos, beat repeat, beat skip, micro stutter, time stretch, ring mod, fuzz, randomizer, total chaos) and **BEAT** (programs over the bar: random stutter, random bar, random fill, roll up, skip 8th, stammer, four gates, reverse beat, reverse offbeat, scratch bar, scratch cut, tape stop, half time), each with its intensity.
+4. **11 punch effects** on the black keys (PO-33 style) and **16 flex patterns** (Flex Beat style).
+5. **Generators**: DRILL, BREAKCORE, IDM, jungle, half time, boom bap, 2-step, glitch, build-up; **dice** (FREE or LOCKed).
+6. **RESAMPLE** on the FM-1: the output, effects and all, recorded into a new break, cut and classed.
+7. **Master**: filter, resonance, drive, crush, tempo-synced delay, compressor.
+8. **It tells you what does what**: a strip over the knobs says what SELECT, OCT and the keys do on each page; HOME held lists every control. 5 themes. English and French.
+
+## Install
+
+1. FM-1 on, plugged in with a USB **data** cable, other MIDI software closed.
+2. Open [`installer.html`](installer.html) in Chrome or Edge → “Install BREAKR”.
+3. The package is in [`install/`](install/) (`breakr-X.Y.fwsc`, checksums in `SHA256SUMS`); identity `FM-1_2002`.
+
+Back to KAWA, K-WASUB or another firmware: install its `.fwsc` the same way; the stock firmware: M-UPGRADE. Holding `OCT−` at power-on = USB rescue. An update never touches your projects and breaks.
+
+## Build
+
+```sh
+cd source
+sh tests/run_engine_test.sh              # the engine (UBSan, ASan): fidelity, timing, dice, glitch, steps, generators
+sh tests/run_host.sh                     # the firmware on a computer: screens and sound in build/host/
+node tests/web_e2e.js                    # web/brk.js against the firmware in WebAssembly (upload, RESAMPLE)
+./build.sh --release 0.1                 # -> build/breakr-0.1.fwsc (JieLi toolchain + AC79 SDK: tools/get_toolchain.sh)
+sh tests/run_loader_tests.sh             # the update path against that package
+APP_VER=0.1 sh web/make_emulator.sh      # -> emulator/index.html
+python3 web/make_site.py 0.1             # -> editor/, installer.html, install/
+```
+
+## Credits
+
+BREAKR by **Omnipotard**. Built on **Dinghy**, **Felucca** and **SLOOP**, the FM-1 community's open platform
+(Leo Kuroshita / Hügelton Instruments, zvenson), as KAWA. The DESTROY and BEAT banks come from **K-GLITCH**.
+Fonts: Barlow Condensed and Silkscreen (SIL OFL 1.1). M-VAVE and FM-1 are their owners' names; BREAKR is not
+made by them. See [`LICENSE`](LICENSE).
+
+☕ [ko-fi.com/omnipotard](https://ko-fi.com/omnipotard)

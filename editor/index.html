@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BREAKR Break Editor</title>
+<meta name="description" content="Import your own drum loops into BREAKR, the breakbeat slicer firmware for the M-VAVE FM-1: cut them, then send them over USB from Chrome (computer or Android phone).">
+<meta name="theme-color" content="#07080b">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2307080b'/%3E%3Cpath d='M4 6h24v8H4z' fill='%23e8ff2e'/%3E%3Cpath d='M8 16h20v4H8z' fill='%23e8ff2e'/%3E%3Cpath d='M4 22h24v4H4z' fill='%23e8ff2e'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;600&family=Silkscreen&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="../site.css">
+<style>
+.hero { padding-block: 28px 8px; display: grid; gap: 14px; }
+.hero h1 { font-weight: 800; font-size: clamp(40px, 8vw, 68px); color: var(--paper); }
+.hero h1 span { color: var(--sig); }
+.drop { margin-top: 18px; border: 2px dashed var(--rule); padding: 26px 22px; display: grid; gap: 10px; justify-items: start; background: var(--ink-2); transition: border-color .12s, background .12s; }
+.drop.over { border-color: var(--sig); background: rgba(232,255,46,.05); }
+.drop strong { font-family: var(--display); font-weight: 800; font-size: 26px; text-transform: uppercase; letter-spacing: .03em; }
+.meter { display: grid; gap: 6px; margin-top: 18px; }
+.meter .bar { height: 12px; background: var(--ink-3); position: relative; overflow: hidden; clip-path: var(--cut-s); }
+.meter .bar i { position: absolute; inset: 0 auto 0 0; background: var(--sig); }
+.meter .bar.over i { background: var(--arm); }
+.meter .lbl { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.list { display: grid; gap: 14px; margin-top: 18px; }
+.brk { background: var(--ink-2); clip-path: var(--cut); border-top: 2px solid var(--rule); padding: 16px 18px; display: grid; gap: 12px; min-width: 0; }
+.brk.sel { border-top-color: var(--sig); }
+.brk .head { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; }
+.brk .idx { font-family: var(--pixel); font-size: 11px; color: var(--sig-ink); background: var(--sig); padding: 4px 7px; clip-path: var(--cut-s); }
+.brk input.name { font: 800 24px/1 var(--display); letter-spacing: .04em; text-transform: uppercase; background: transparent; border: 0; border-bottom: 1px solid var(--rule); color: var(--paper); width: min(15ch, 100%); padding: 2px 0; }
+.brk input.name:focus { outline: none; border-bottom-color: var(--sig); }
+.brk .meta { font-family: var(--pixel); font-size: 10px; color: var(--muted); margin-left: auto; text-align: right; }
+.wave { width: 100%; height: 120px; display: block; background: #0b0c10; cursor: pointer; touch-action: manipulation; }
+.wave.edit { cursor: crosshair; outline: 1px dashed var(--arm); }
+.ctl { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: end; }
+.ctl label { display: grid; gap: 4px; font-family: var(--pixel); font-size: 10px; color: var(--muted); text-transform: uppercase; }
+.ctl select, .ctl input[type=range] { font: 600 15px var(--text); background: var(--ink-3); color: var(--paper); border: 1px solid var(--rule); padding: 6px 8px; min-width: 0; }
+.ctl input[type=range] { accent-color: var(--sig); padding: 0; height: 30px; width: 140px; }
+.mini { appearance: none; border: 0; cursor: pointer; font: 700 14px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--paper); background: var(--panel-hi); padding: 9px 12px; clip-path: var(--cut-s); }
+.mini:hover { background: #3a3f4f; }
+.mini.on { background: var(--arm); color: var(--sig-ink); }
+.mini.hot { background: var(--sig); color: var(--sig-ink); }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-family: var(--pixel); font-size: 10px; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; }
+.send { margin-top: 26px; display: grid; gap: 14px; }
+.status { font-family: var(--pixel); font-size: 12px; color: var(--text-2); min-height: 1.4em; }
+.status.err { color: var(--arm); }
+.status.ok { color: var(--ok); }
+.prog { height: 8px; background: var(--ink-3); overflow: hidden; }
+.prog i { display: block; height: 100%; width: 0; background: var(--sig); transition: width .15s; }
+.how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 28px; }
+.how .card p { font-size: 15.5px; }
+@media (max-width: 760px) { .how { grid-template-columns: minmax(0, 1fr); } .brk .meta { margin-left: 0; text-align: left; width: 100%; } }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <a class="mark" href="../index.html" aria-label="BREAKR home"><span class="base" aria-hidden="true">BREAKR</span><span class="cut" aria-hidden="true">BREAKR</span></a>
+  <nav class="nav" aria-label="Site">
+    <a href="../emulator/index.html"><span lang="en">EMULATOR</span><span lang="fr">ÉMULATEUR</span></a>
+    <a href="../installer.html"><span lang="en">INSTALL</span><span lang="fr">INSTALLER</span></a>
+    <a href="./index.html" aria-current="page"><span lang="en">BREAK EDITOR</span><span lang="fr">ÉDITEUR</span></a>
+    <a href="../manual.html"><span lang="en">MANUAL</span><span lang="fr">MANUEL</span></a>
+  </nav>
+  <div class="langs" role="group" aria-label="Language"><button type="button" data-lang="en">EN</button><button type="button" data-lang="fr">FR</button></div>
+</div></header>
+
+<main class="wrap">
+  <div class="hero">
+    <span class="eyebrow"><span lang="en">Your breaks on the FM-1, no software to install</span><span lang="fr">Tes breaks sur le FM-1, sans logiciel à installer</span></span>
+    <h1><span lang="en">Break <span>editor</span></span><span lang="fr">Éditeur de <span>breaks</span></span></h1>
+    <p><span lang="en">Drop up to <b>8 drum loops</b> (WAV, MP3, OGG, FLAC: anything your browser plays). Each one is cut where it hits, given its tempo, then packed the way BREAKR keeps them (4-bit IMA, about <b>22 seconds</b> in all at 22 kHz). Send them to your FM-1 over USB, or open them in the emulator.</span>
+       <span lang="fr">Dépose jusqu’à <b>8 boucles de batterie</b> (WAV, MP3, OGG, FLAC : tout ce que ton navigateur lit). Chacune est découpée là où elle frappe, reçoit son tempo, puis est rangée comme BREAKR les garde (IMA 4 bits, environ <b>22 secondes</b> en tout à 22 kHz). Envoie-les à ton FM-1 par USB, ou ouvre-les dans l’émulateur.</span></p>
+    <p class="note"><span lang="en"><b>No computer?</b> This page works in <b>Chrome on an Android phone</b>: plug the FM-1 in with a USB-C (OTG) data cable. iPhone and iPad browsers have no Web MIDI. On the FM-1 itself, <b>SAVE › RESAMPLE</b> turns what you play into a new break.</span>
+       <span lang="fr"><b>Pas d’ordinateur ?</b> Cette page marche dans <b>Chrome sur un téléphone Android</b> : branche le FM-1 avec un câble de données USB-C (OTG). Les navigateurs d’iPhone et d’iPad n’ont pas Web MIDI. Sur le FM-1 lui-même, <b>SAVE › RESAMPLE</b> transforme ce que tu joues en un nouveau break.</span></p>
+  </div>
+
+  <label class="drop" id="drop">
+    <strong><span lang="en">Drop loops here</span><span lang="fr">Dépose tes boucles ici</span></strong>
+    <span class="px"><span lang="en">or click to choose files · a .brkbank opens a whole bank</span><span lang="fr">ou clique pour choisir · un .brkbank ouvre toute une banque</span></span>
+    <input id="files" type="file" class="vh" multiple accept="audio/*,.wav,.mp3,.ogg,.flac,.aif,.aiff,.m4a,.brkbank">
+  </label>
+
+  <div class="meter" aria-live="polite">
+    <div class="lbl"><span class="px" id="cap-txt"></span><span class="px" id="cnt-txt"></span></div>
+    <div class="bar" id="cap-bar"><i id="cap-fill"></i></div>
+  </div>
+
+  <div class="legend" aria-hidden="true"><span><i style="background:#ff6e50"></i>KICK</span><span><i style="background:#ffc846"></i>SNARE</span><span><i style="background:#5ac8ff"></i>HAT</span><span><i style="background:#aaaab9"></i><span lang="en">OTHER</span><span lang="fr">AUTRE</span></span>
+    <span><span lang="en">click: hear a slice · CUTS on: click adds or removes a cut</span><span lang="fr">clic : écouter une tranche · COUPES actif : un clic ajoute ou retire une coupe</span></span></div>
+
+  <div class="list" id="list"></div>
+
+  <div class="send card sig">
+    <h3><span lang="en">Your FM-1</span><span lang="fr">Ton FM-1</span></h3>
+    <p><span lang="en">BREAKR running, stopped, plugged in with a USB <b>data</b> cable, no other MIDI program open. Chrome, Edge or Opera.</span>
+       <span lang="fr">BREAKR lancé, à l’arrêt, branché avec un câble USB de <b>données</b>, aucun autre programme MIDI ouvert. Chrome, Edge ou Opera.</span></p>
+    <div class="row">
+      <button class="btn hot" id="b-send" type="button"><span lang="en">Send to the FM-1</span><span lang="fr">Envoyer au FM-1</span></button>
+      <button class="btn" id="b-read" type="button"><span lang="en">Read the FM-1's bank</span><span lang="fr">Lire la banque du FM-1</span></button>
+      <button class="btn" id="b-emu" type="button"><span lang="en">Open in the emulator</span><span lang="fr">Ouvrir dans l’émulateur</span></button>
+      <button class="btn" id="b-save" type="button"><span lang="en">Download .brkbank</span><span lang="fr">Télécharger .brkbank</span></button>
+      <button class="btn red" id="b-erase" type="button"><span lang="en">Erase the FM-1's bank</span><span lang="fr">Effacer la banque du FM-1</span></button>
+    </div>
+    <div class="prog" id="prog" hidden><i id="prog-fill"></i></div>
+    <div class="status" id="status" role="status"></div>
+  </div>
+
+  <div class="how">
+    <div class="card"><h3>1 · <span lang="en">Loops</span><span lang="fr">Boucles</span></h3><p><span lang="en">Cut on the bar: 1, 2, 4 or 8 bars. The tempo comes from the length (BARS). Silence at the start is trimmed.</span><span lang="fr">Coupées sur la mesure : 1, 2, 4 ou 8 mesures. Le tempo vient de la longueur (MESURES). Le silence au début est retiré.</span></p></div>
+    <div class="card"><h3>2 · <span lang="en">Slices</span><span lang="fr">Tranches</span></h3><p><span lang="en">AUTO finds the hits (SENS: how small a hit counts), GRID cuts equal parts. Up to 32 slices; their class (kick, snare, hat) guides the dice and the generators.</span><span lang="fr">AUTO trouve les frappes (SENS : à partir de quand), GRILLE coupe en parts égales. Jusqu’à 32 tranches ; leur genre (kick, caisse claire, charleston) guide les dés et les générateurs.</span></p></div>
+    <div class="card"><h3>3 · <span lang="en">Room</span><span lang="fr">Place</span></h3><p><span lang="en">The bank holds 240 KB. A loop at 16 kHz or 11 kHz takes less room (and sounds dirtier: good for breakcore).</span><span lang="fr">La banque tient 240 Ko. Une boucle à 16 kHz ou 11 kHz prend moins de place (et sonne plus sale : parfait pour le breakcore).</span></p></div>
+  </div>
+
+  <footer class="foot"><p><span lang="en">BREAKR is free software (GPL-3.0) by Omnipotard. The sound never leaves your browser.</span><span lang="fr">BREAKR est un logiciel libre (GPL-3.0) d’Omnipotard. Le son ne quitte jamais ton navigateur.</span></p></footer>
+</main>
+
+<script>
+const BRK_SRC = "/* SPDX-License-Identifier: GPL-3.0-only */\n/* BREAKR's web library (the editor and the emulator share it): audio in, slices, 4-bit IMA ADPCM, the bank\n * of breaks, and the upload over SysEx, to an FM-1 (Web MIDI) or to the emulator. The same formats as the\n * firmware: firmware/src/brk_ima.c, brk_store.c, brk_sysex.c. Plain JavaScript, no build step. */\n(function (root) {\n  \"use strict\";\n  const BRK = {};\n\n  /* ---- 4-bit IMA ADPCM, blocks of 256 bytes = 505 samples (brk_ima.c) */\n  const STEP = [7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45, 50, 55, 60, 66, 73, 80, 88, 97,\n    107, 118, 130, 143, 157, 173, 190, 209, 230, 253, 279, 307, 337, 371, 408, 449, 494, 544, 598, 658, 724, 796,\n    876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066, 2272, 2499, 2749, 3024, 3327, 3660, 4026, 4428, 4871,\n    5358, 5894, 6484, 7132, 7845, 8630, 9493, 10442, 11487, 12635, 13899, 15289, 16818, 18500, 20350, 22385, 24623,\n    27086, 29794, 32767];\n  const IDX = [-1, -1, -1, -1, 2, 4, 6, 8];\n  const SPB = 505, BLOCK = 256;\n  function qn(pred, idx, s) {\n    let d = s - pred, step = STEP[idx], nib = 0;\n    if (d < 0) { nib = 8; d = -d; }\n    if (d >= step) { nib |= 4; d -= step; }\n    if (d >= step >> 1) { nib |= 2; d -= step >> 1; }\n    if (d >= step >> 2) nib |= 1;\n    return nib;\n  }\n  function ap(st, nib) {                         /* st = [pred, idx] */\n    const step = STEP[st[1]];\n    let diff = step >> 3;\n    if (nib & 4) diff += step;\n    if (nib & 2) diff += step >> 1;\n    if (nib & 1) diff += step >> 2;\n    let p = st[0] + ((nib & 8) ? -diff : diff);\n    st[0] = p > 32767 ? 32767 : p < -32768 ? -32768 : p;\n    let i = st[1] + IDX[nib & 7];\n    st[1] = i < 0 ? 0 : i > 88 ? 88 : i;\n  }\n  BRK.imaBytes = (frames) => Math.ceil(frames / SPB) * BLOCK;\n  /* each nibble the best of 16 over it and the next `look` samples (+1.5 dB on drums; the decoder is standard) */\n  BRK.imaEncode = function (pcm, look) {\n    look = look === undefined ? 2 : look;\n    const n = pcm.length, out = new Uint8Array(BRK.imaBytes(n)), st = [0, 0], t = [0, 0];\n    let idx = 0;\n    for (let at = 0; at < n; at += SPB) {\n      const b = (at / SPB) * BLOCK, end = Math.min(n, at + SPB);\n      st[0] = pcm[at]; st[1] = idx;\n      out[b] = pcm[at] & 255; out[b + 1] = (pcm[at] >> 8) & 255; out[b + 2] = idx; out[b + 3] = 0;\n      for (let i = 1; i < SPB; i++) {\n        let nib = 0;\n        if (at + i < n) {\n          let best = Infinity;\n          for (let c = 0; c < 16; c++) {\n            t[0] = st[0]; t[1] = st[1];\n            ap(t, c);\n            let e = (t[0] - pcm[at + i]) ** 2;\n            for (let j = 1; j <= look && at + i + j < end; j++) {\n              ap(t, qn(t[0], t[1], pcm[at + i + j]));\n              e += (t[0] - pcm[at + i + j]) ** 2;\n              if (e >= best) break;\n            }\n            if (e < best) { best = e; nib = c; }\n          }\n        }\n        ap(st, nib);\n        out[b + 4 + ((i - 1) >> 1)] |= (i & 1) ? nib : nib << 4;\n      }\n      idx = st[1];\n    }\n    return out;\n  };\n  BRK.imaDecode = function (data, frames) {\n    const out = new Int16Array(frames), st = [0, 0];\n    for (let blk = 0; blk * SPB < frames; blk++) {\n      const b = blk * BLOCK, base = blk * SPB;\n      st[0] = (data[b] | data[b + 1] << 8) << 16 >> 16; st[1] = Math.min(88, data[b + 2]);\n      out[base] = st[0];\n      for (let i = 1; i < SPB && base + i < frames; i++) {\n        const v = data[b + 4 + ((i - 1) >> 1)];\n        ap(st, (i & 1) ? v & 15 : v >> 4);\n        out[base + i] = st[0];\n      }\n    }\n    return out;\n  };\n\n  /* ---- audio in: any file the browser decodes, to mono at `rate` (a gentle low-pass first) */\n  BRK.decodeFile = async function (file, ctx) {\n    const buf = await file.arrayBuffer();\n    const ab = await ctx.decodeAudioData(buf.slice(0));\n    const n = ab.length, mono = new Float32Array(n);\n    for (let c = 0; c < ab.numberOfChannels; c++) {\n      const d = ab.getChannelData(c);\n      for (let i = 0; i < n; i++) mono[i] += d[i] / ab.numberOfChannels;\n    }\n    return {pcm: mono, rate: ab.sampleRate, name: file.name.replace(/\\.[^.]+$/, \"\")};\n  };\n  BRK.resample = function (x, from, to) {\n    if (from === to) return Float32Array.from(x);\n    const ratio = from / to, n = Math.floor(x.length / ratio), y = new Float32Array(n);\n    let src = x;\n    if (to < from) {                             /* two one-pole passes at ~0.42 of the new rate */\n      const a = Math.exp(-2 * Math.PI * 0.42 * to / from);\n      src = new Float32Array(x.length);\n      let s1 = 0, s2 = 0;\n      for (let i = 0; i < x.length; i++) { s1 = (1 - a) * x[i] + a * s1; s2 = (1 - a) * s1 + a * s2; src[i] = s2; }\n      let r1 = 0, r2 = 0;                        /* (and backwards: no delay) */\n      for (let i = x.length - 1; i >= 0; i--) { r1 = (1 - a) * src[i] + a * r1; r2 = (1 - a) * r1 + a * r2; src[i] = r2; }\n    }\n    for (let i = 0; i < n; i++) {\n      const p = i * ratio, k = Math.floor(p), f = p - k;\n      y[i] = (src[k] || 0) * (1 - f) + (src[k + 1] || 0) * f;\n    }\n    return y;\n  };\n  BRK.toInt16 = function (x, gain) {             /* normalised to -1 dBFS unless a gain is given */\n    let peak = 1e-9;\n    for (let i = 0; i < x.length; i++) peak = Math.max(peak, Math.abs(x[i]));\n    const g = gain || 0.89 / peak, y = new Int16Array(x.length);\n    for (let i = 0; i < x.length; i++) y[i] = Math.max(-32768, Math.min(32767, Math.round(x[i] * g * 32767)));\n    return y;\n  };\n\n  /* ---- the tempo of a loop: the bars (1, 2, 4, 8) that put it nearest 120 BPM, inside 70..185 */\n  BRK.guessBars = function (seconds) {\n    let best = 1, bestd = Infinity;\n    for (const bars of [1, 2, 4, 8]) {\n      const bpm = bars * 240 / seconds;\n      const d = bpm < 70 || bpm > 185 ? 1000 + Math.abs(bpm - 120) : Math.abs(bpm - 125);\n      if (d < bestd) { bestd = d; best = bars; }\n    }\n    return best;\n  };\n\n  /* ---- slices: an STFT (1024, hop 128), the spectral flux in three bands; peaks over a moving mean; each\n   * onset found again to the sample. The class from what rose: lows (kick), mids and highs (snare), highs (hat) */\n  function fft(re, im) {\n    const n = re.length;\n    for (let i = 1, j = 0; i < n; i++) {\n      let bit = n >> 1;\n      for (; j & bit; bit >>= 1) j ^= bit;\n      j ^= bit;\n      if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; }\n    }\n    for (let len = 2; len <= n; len <<= 1) {\n      const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);\n      for (let i = 0; i < n; i += len) {\n        let cr = 1, ci = 0;\n        for (let k = 0; k < len / 2; k++) {\n          const a = i + k, b = a + len / 2, tr = re[b] * cr - im[b] * ci, ti = re[b] * ci + im[b] * cr;\n          re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;\n          const ncr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = ncr;\n        }\n      }\n    }\n  }\n  BRK.analyse = function (pcm, rate) {           /* pcm: Float32Array or Int16Array */\n    const N = 1024, H = 128, nf = Math.max(1, Math.floor((pcm.length - N) / H) + 1);\n    const scale = pcm instanceof Int16Array ? 1 / 32768 : 1;\n    const win = new Float32Array(N);\n    for (let i = 0; i < N; i++) win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / N);\n    const bin = (f) => Math.max(1, Math.min(N / 2 - 1, Math.round(f * N / rate)));\n    const b150 = bin(150), b300 = bin(300), b2k = bin(2000), b5k = bin(5000);\n    const lo = new Float32Array(nf), mid = new Float32Array(nf), hi = new Float32Array(nf), flux = new Float32Array(nf), en = new Float32Array(nf);\n    let prev = new Float32Array(N / 2);\n    const re = new Float32Array(N), im = new Float32Array(N);\n    for (let f = 0; f < nf; f++) {\n      const o = f * H;\n      for (let i = 0; i < N; i++) { re[i] = (pcm[o + i] || 0) * scale * win[i]; im[i] = 0; }\n      fft(re, im);\n      const mag = new Float32Array(N / 2);\n      let fl = 0, l = 0, m = 0, h = 0, e = 0;\n      for (let k = 1; k < N / 2; k++) {\n        const v = Math.log1p(10 * Math.hypot(re[k], im[k]));\n        mag[k] = v;\n        const d = v - prev[k];\n        if (d > 0) fl += d * (k > b2k ? 1.4 : 1);\n        if (k <= b150) l += v; else if (k >= b300 && k <= b2k) m += v; else if (k >= b5k) h += v;\n        e += v;\n      }\n      prev = mag;\n      flux[f] = fl; lo[f] = l / b150; mid[f] = m / (b2k - b300 + 1); hi[f] = h / (N / 2 - b5k); en[f] = e;\n    }\n    return {flux, lo, mid, hi, en, hop: H, n: N, rate};\n  };\n  BRK.onsets = function (pcm, rate, sens, an) {  /* sens 1..10: onset frame positions (samples), the first at 0 */\n    an = an || BRK.analyse(pcm, rate);\n    const f = an.flux, nf = f.length, out = [0], strength = [Infinity];\n    const k = 1.9 - 0.13 * sens, gap = Math.round(0.045 * rate / an.hop);\n    let last = -1e9;\n    for (let i = 2; i < nf - 1; i++) {\n      let mean = 0, c = 0;\n      for (let j = Math.max(0, i - 12); j <= Math.min(nf - 1, i + 4); j++) { mean += f[j]; c++; }\n      mean /= c;\n      if (f[i] < f[i - 1] || f[i] < f[i + 1] || f[i] < mean * k + 0.5) continue;\n      const at = i * an.hop + an.n / 2 - an.hop;   /* the window's middle, a hop early */\n      if (i - last < gap) { if (f[i] > strength[strength.length - 1] && out.length > 1) { out[out.length - 1] = at; strength[strength.length - 1] = f[i]; last = i; } continue; }\n      out.push(at); strength.push(f[i]); last = i;\n    }\n    /* each one to the sample: the first sample over a quarter of the peak around it, 1 ms before */\n    const scale = pcm instanceof Int16Array ? 1 / 32768 : 1, res = [0];\n    for (let j = 1; j < out.length; j++) {\n      const a = Math.max(0, out[j] - an.n / 2), b = Math.min(pcm.length, out[j] + an.n / 2);\n      let peak = 0;\n      for (let i = a; i < b; i++) peak = Math.max(peak, Math.abs(pcm[i] * scale));\n      let i = a;\n      while (i < b && Math.abs(pcm[i] * scale) * 4 < peak) i++;\n      const s = Math.max(0, i - Math.round(rate / 1000));\n      if (s > res[res.length - 1] + rate / 40) res.push(s);\n    }\n    /* at most 32: the strongest */\n    if (res.length > 32) {\n      const idx = res.map((s, i) => [s, i === 0 ? Infinity : (an.flux[Math.min(an.flux.length - 1, Math.round(s / an.hop))] || 0)]);\n      idx.sort((x, y) => y[1] - x[1]);\n      return idx.slice(0, 32).map((x) => x[0]).sort((x, y) => x - y);\n    }\n    return res;\n  };\n  BRK.classify = function (starts, an) {         /* 0 other, 1 kick, 2 snare, 3 hat */\n    const rise = (v, h) => {\n      let m = Infinity, best = 0;\n      for (let k = 1; k <= 3; k++) if (h - k >= 0) m = Math.min(m, v[h - k]);\n      if (m === Infinity) m = 0;\n      for (let k = 0; k < 4 && h + k < v.length; k++) best = Math.max(best, v[h + k] - m);\n      return best;\n    };\n    return starts.map((s) => {\n      const h = Math.max(0, Math.round(s / an.hop) - 2);\n      const l = rise(an.lo, h), m = rise(an.mid, h), hh = rise(an.hi, h);\n      if (l > 0.35 && l >= hh * 0.9) return 1;\n      if (hh > 0.25 && m > 0.25) return 2;\n      if (hh > 0.12) return 3;\n      return l > hh ? 1 : 0;\n    });\n  };\n  BRK.grid = (frames, count) => Array.from({length: count}, (_, i) => Math.floor(frames * i / count));\n\n  /* ---- the bank (brk_store.c): header sector = header (32 B) + 8 entries of 224 B from byte 64; then the sound */\n  const BANK_MAGIC = 0x424B5242;\n  BRK.BANK_CAP = 0xE0000 - (0x97000 + 4 * 0x3000 + 0x1000);   /* 245760 B */\n  BRK.MAX_BREAKS = 8;\n  function crc32(bytes, c) {\n    c = c === undefined ? 0xFFFFFFFF : c;\n    for (let i = 0; i < bytes.length; i++) {\n      c ^= bytes[i];\n      for (let k = 0; k < 8; k++) c = c & 1 ? (c >>> 1) ^ 0xEDB88320 : c >>> 1;\n    }\n    return c >>> 0;\n  }\n  BRK.crc32 = (b) => (~crc32(b)) >>> 0;\n  /* breaks: [{name, rate, frames, data (IMA), bars, bpm10, sl: [..], cls: [..]}] */\n  BRK.buildBank = function (breaks) {\n    if (breaks.length > BRK.MAX_BREAKS) throw new Error(\"8 breaks at most\");\n    let total = 0;\n    for (const b of breaks) total += b.data.length;\n    if (total > BRK.BANK_CAP) throw new Error(\"the bank is \" + total + \" B, \" + BRK.BANK_CAP + \" B at most\");\n    const data = new Uint8Array(total), ents = new Uint8Array(breaks.length * 224), dv = new DataView(ents.buffer);\n    let off = 0;\n    breaks.forEach((b, i) => {\n      const e = i * 224;\n      const nm = (b.name || \"BREAK\").toUpperCase().replace(/[^ -_]/g, \"\").slice(0, 15);\n      for (let k = 0; k < nm.length; k++) ents[e + k] = nm.charCodeAt(k);\n      dv.setUint32(e + 16, b.rate, true);\n      dv.setUint32(e + 20, b.frames, true);\n      dv.setUint32(e + 24, off, true);\n      dv.setUint32(e + 28, b.data.length, true);\n      dv.setUint32(e + 32, b.bpm10 || 0, true);\n      dv.setUint32(e + 36, BRK.crc32(b.data), true);\n      ents[e + 40] = b.bars || 1;\n      ents[e + 41] = Math.min(32, b.sl.length);\n      for (let k = 0; k < 32; k++) dv.setUint32(e + 44 + 4 * k, k < b.sl.length ? b.sl[k] : 0, true);\n      for (let k = 0; k < 32; k++) ents[e + 172 + k] = k < b.cls.length ? b.cls[k] & 3 : 0;\n      data.set(b.data, off);\n      off += b.data.length;\n    });\n    const hdr = new Uint8Array(32), hv = new DataView(hdr.buffer);\n    hv.setUint32(0, BANK_MAGIC, true);\n    hv.setUint32(4, 1, true);\n    hv.setUint32(8, breaks.length, true);\n    hv.setUint32(12, total, true);\n    hv.setUint32(16, BRK.crc32(data), true);\n    hv.setUint32(20, BRK.crc32(ents), true);\n    return {hdr, ents, data};\n  };\n  /* a bank file (.brkbank): \"BRKF\", then the header, the entries, the sound */\n  BRK.bankFile = function (bank) {\n    const f = new Uint8Array(8 + 32 + bank.ents.length + bank.data.length);\n    f.set([0x42, 0x52, 0x4B, 0x46, 1, 0, 0, 0]);\n    f.set(bank.hdr, 8); f.set(bank.ents, 40); f.set(bank.data, 40 + bank.ents.length);\n    return f;\n  };\n  BRK.readBankFile = function (f) {\n    if (f[0] !== 0x42 || f[1] !== 0x52 || f[2] !== 0x4B || f[3] !== 0x46) throw new Error(\"not a BREAKR bank\");\n    const hdr = f.slice(8, 40), hv = new DataView(hdr.buffer), n = hv.getUint32(8, true), len = hv.getUint32(12, true);\n    const ents = f.slice(40, 40 + n * 224), data = f.slice(40 + n * 224, 40 + n * 224 + len);\n    return BRK.bankBreaks({hdr, ents, data});\n  };\n  BRK.bankBreaks = function (bank) {             /* a bank back into breaks (to edit them) */\n    const dv = new DataView(bank.ents.buffer, bank.ents.byteOffset), out = [];\n    for (let i = 0; i < bank.ents.length / 224; i++) {\n      const e = i * 224;\n      let name = \"\";\n      for (let k = 0; k < 16 && bank.ents[e + k]; k++) name += String.fromCharCode(bank.ents[e + k]);\n      const off = dv.getUint32(e + 24, true), len = dv.getUint32(e + 28, true), nsl = bank.ents[e + 41];\n      const b = {name, rate: dv.getUint32(e + 16, true), frames: dv.getUint32(e + 20, true), bpm10: dv.getUint32(e + 32, true),\n        bars: bank.ents[e + 40], data: bank.data.slice(off, off + len), sl: [], cls: []};\n      for (let k = 0; k < nsl; k++) { b.sl.push(dv.getUint32(e + 44 + 4 * k, true)); b.cls.push(bank.ents[e + 172 + k]); }\n      out.push(b);\n    }\n    return out;\n  };\n\n  /* ---- the SysEx protocol (brk_sysex.c): F0 7D 42 4B cmd pack7(args) F7 */\n  const CMD = {INFO: 1, BEGIN: 2, WRITE: 3, ENTRY: 4, END: 5, ERASE: 6, LIST: 7, READ: 8};\n  BRK.CMD = CMD;\n  const RC = [\"ok\", \"bad arguments\", \"busy: stop the FM-1 first\", \"flash error\", \"CRC mismatch\", \"out of order\"];\n  function pack7(b) {\n    const o = [];\n    let acc = 0, nb = 0;\n    for (const x of b) { acc |= x << nb; nb += 8; while (nb >= 7) { o.push(acc & 0x7F); acc >>>= 7; nb -= 7; } }\n    if (nb) o.push(acc & 0x7F);\n    return o;\n  }\n  function unpack7(b) {\n    const o = [];\n    let acc = 0, nb = 0;\n    for (const x of b) { acc |= (x & 0x7F) << nb; nb += 7; if (nb >= 8) { o.push(acc & 0xFF); acc >>>= 8; nb -= 8; } }\n    return new Uint8Array(o);\n  }\n  BRK.frame = (cmd, args) => new Uint8Array([0xF0, 0x7D, 0x42, 0x4B, cmd, ...pack7(args || []), 0xF7]);\n  BRK.parse = function (f) {                     /* a reply: {cmd, data} or null */\n    if (!f || f.length < 6 || f[0] !== 0xF0 || f[1] !== 0x7D || f[2] !== 0x42 || f[3] !== 0x4B || f[f.length - 1] !== 0xF7) return null;\n    return {cmd: f[4], data: unpack7(f.subarray(5, f.length - 1))};\n  };\n\n  /* a transport: request(frame) -> Promise(reply frame). The emulator's, or Web MIDI's */\n  BRK.emulatorTransport = function (ex) {        /* ex: the wasm exports (breakr_sysex_buf / breakr_sysex / breakr_reply) */\n    return {\n      name: \"emulator\",\n      request(f) {\n        const mem = () => new Uint8Array(ex.memory.buffer);\n        mem().set(f, ex.breakr_sysex_buf());\n        const n = ex.breakr_sysex(f.length);\n        return Promise.resolve(n ? mem().slice(ex.breakr_reply(), ex.breakr_reply() + n) : null);\n      }\n    };\n  };\n  BRK.webMidi = async function () {              /* the FM-1 over USB-MIDI (Chrome, Edge, Opera: SysEx allowed) */\n    if (!navigator.requestMIDIAccess) throw new Error(\"this browser has no Web MIDI (use Chrome or Edge)\");\n    const acc = await navigator.requestMIDIAccess({sysex: true});\n    const pick = (map) => {\n      let first = null;\n      for (const p of map.values()) { if (/fm-?1|m-?vave|breakr|felucca|dinghy/i.test(p.name || \"\")) return p; first = first || p; }\n      return first;\n    };\n    const inp = pick(acc.inputs), out = pick(acc.outputs);\n    if (!inp || !out) throw new Error(\"no FM-1 found: a USB data cable, the FM-1 on, no other MIDI program open\");\n    let waiting = null;\n    inp.onmidimessage = (ev) => {\n      const d = ev.data;\n      if (d[0] === 0xF0 && d[1] === 0x7D && d[2] === 0x42 && d[3] === 0x4B && waiting) { const w = waiting; waiting = null; w(d); }\n    };\n    return {\n      name: out.name,\n      request(f, ms) {\n        return new Promise((res) => {\n          const t = setTimeout(() => { waiting = null; res(null); }, ms || 1500);\n          waiting = (d) => { clearTimeout(t); res(d); };\n          out.send(Array.from(f));\n        });\n      },\n      close() { inp.onmidimessage = null; }\n    };\n  };\n\n  async function ask(tr, cmd, args, tries) {\n    for (let t = 0; t < (tries || 4); t++) {\n      const r = BRK.parse(await tr.request(BRK.frame(cmd, args)));\n      if (r && r.cmd === cmd) return r.data;\n    }\n    throw new Error(\"the FM-1 does not answer (is BREAKR running on it?)\");\n  }\n  BRK.info = async function (tr) {\n    const d = await ask(tr, CMD.INFO, []);\n    const s = (a, b) => String.fromCharCode(...d.slice(a, b));\n    return {rc: d[0], app: s(1, 5), version: s(5, 9).trim(), max: d[9], cap: d[10] | d[11] << 8 | d[12] << 16, count: d[13]};\n  };\n  BRK.list = async function (tr) {\n    const out = [];\n    for (let i = 0; i < 8; i++) {\n      const d = await ask(tr, CMD.LIST, [i]);\n      if (!d[2]) continue;\n      let name = \"\";\n      for (let k = 0; k < 12 && d[3 + k]; k++) name += String.fromCharCode(d[3 + k]);\n      out.push({slot: i, name, rate: d[15] | d[16] << 8, frames: d[17] | d[18] << 8 | d[19] << 16, bars: d[20], slices: d[21]});\n    }\n    return out;\n  };\n  /* send a bank: BEGIN, the sound by 256 B, the entries, END; progress(0..1) */\n  BRK.upload = async function (tr, bank, progress) {\n    const check = (d, what) => { if (d[0] !== 0) throw new Error(what + \": \" + (RC[d[0]] || \"error \" + d[0])); };\n    const info = await BRK.info(tr);\n    if (info.app !== \"BRKR\") throw new Error(\"the FM-1 does not run BREAKR\");\n    if (bank.data.length > info.cap) throw new Error(\"too big for this FM-1\");\n    check(await ask(tr, CMD.BEGIN, []), \"begin\");\n    const n = bank.data.length, chunks = Math.ceil(n / 256);\n    for (let c = 0; c < chunks; c++) {\n      const off = c * 256, part = bank.data.subarray(off, Math.min(n, off + 256));\n      check(await ask(tr, CMD.WRITE, [off & 255, off >> 8 & 255, off >> 16 & 255, ...part]), \"write\");\n      if (progress && (c & 7) === 0) progress(c / chunks);\n    }\n    for (let i = 0; i < bank.ents.length / 224; i++)\n      check(await ask(tr, CMD.ENTRY, [i, ...bank.ents.subarray(i * 224, i * 224 + 224)]), \"entry\");\n    check(await ask(tr, CMD.END, [...bank.hdr]), \"end\");\n    if (progress) progress(1);\n  };\n  BRK.erase = async function (tr) { const d = await ask(tr, CMD.ERASE, []); if (d[0]) throw new Error(RC[d[0]]); };\n  BRK.readBank = async function (tr, progress) { /* the bank as it is on the FM-1 (READ): its breaks */\n    const rd = async (off, n) => { const d = await ask(tr, CMD.READ, [off & 255, off >> 8 & 255, off >> 16 & 255, n]); return d.slice(4, 4 + n); };\n    const head = new Uint8Array(4096);\n    for (let o = 0; o < 64 + 8 * 224; o += 96) head.set(await rd(o, Math.min(96, 64 + 8 * 224 - o)), o);\n    const hv = new DataView(head.buffer);\n    if (hv.getUint32(0, true) !== BANK_MAGIC) return [];\n    const count = hv.getUint32(8, true), len = hv.getUint32(12, true), data = new Uint8Array(len);\n    for (let o = 0; o < len; o += 96) { data.set(await rd(4096 + o, Math.min(96, len - o)), o); if (progress && (o / 96 & 15) === 0) progress(o / len); }\n    return BRK.bankBreaks({hdr: head.slice(0, 32), ents: head.slice(64, 64 + count * 224), data});\n  };\n\n  root.BRK = BRK;\n  if (typeof module !== \"undefined\") module.exports = BRK;\n})(typeof window !== \"undefined\" ? window : globalThis);\n";
+new Function(BRK_SRC)();
+</script>
+<script>
+(() => {
+  "use strict";
+  const BRK = window.BRK, $ = (id) => document.getElementById(id);
+  const CLS_COL = ["#aaaab9", "#ff6e50", "#ffc846", "#5ac8ff"];
+  const LS_LANG = "breakr-lang", LS_PENDING = "breakr-bank-pending";
+  let lang = "en", actx = null, playing = null, busy = false;
+  const T = (en, fr) => (lang === "fr" ? fr : en);
+  const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } } };
+  const breaks = [];                            /* {name, rate, pcm (Int16 at rate), bars, mode, sens, count, sl, cls, data, edit} */
+
+  function setLang(l) {
+    lang = l === "fr" ? "fr" : "en";
+    document.documentElement.lang = lang; document.documentElement.dataset.lang = lang;
+    document.querySelectorAll(".langs button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.lang === lang ? "true" : "false"));
+    ls.set(LS_LANG, lang);
+    render();
+  }
+  document.querySelectorAll(".langs button").forEach((b) => b.addEventListener("click", () => setLang(b.dataset.lang)));
+  const ctx = () => actx || (actx = new (window.AudioContext || window.webkitAudioContext)());
+
+  function status(t, cls) { const s = $("status"); s.textContent = t; s.className = "status" + (cls ? " " + cls : ""); }
+  function prog(p) { $("prog").hidden = p === undefined; $("prog-fill").style.width = (p === undefined ? 0 : Math.round(p * 100)) + "%"; }
+
+  /* ---- slicing */
+  function reslice(b) {
+    if (b.mode === "grid") { b.sl = BRK.grid(b.pcm.length, b.count); }
+    else if (b.mode === "auto") { b.an = b.an || BRK.analyse(b.pcm, b.rate); b.sl = BRK.onsets(b.pcm, b.rate, b.sens, b.an).slice(0, 32); }
+    if (b.sl.length === 0 || b.sl[0] !== 0) b.sl.unshift(0);
+    b.sl = Array.from(new Set(b.sl)).sort((x, y) => x - y).slice(0, 32);
+    b.an = b.an || BRK.analyse(b.pcm, b.rate);
+    b.cls = BRK.classify(b.sl, b.an);
+    b.data = null;
+  }
+  function trimStart(x) {                       /* the silence before the first hit (< -48 dB) */
+    let peak = 1e-9; for (let i = 0; i < x.length; i++) peak = Math.max(peak, Math.abs(x[i]));
+    const th = peak * 0.004; let i = 0; while (i < x.length && Math.abs(x[i]) < th) i++;
+    return x.subarray(Math.max(0, i - 32));
+  }
+  function make(name, f32, srcRate, rate) {
+    const x = BRK.resample(trimStart(f32), srcRate, rate), pcm = BRK.toInt16(x);
+    const b = {name: clean(name), rate, pcm, src: {f32, srcRate}, bars: BRK.guessBars(pcm.length / rate), mode: "auto", sens: 6, count: 16, sl: [], cls: [], data: null, edit: false};
+    reslice(b);
+    return b;
+  }
+  const clean = (n) => (n || "BREAK").toUpperCase().replace(/[^ -_]/g, "").replace(/\s+/g, " ").trim().slice(0, 15) || "BREAK";
+
+  /* ---- import */
+  async function importFiles(list) {
+    if (busy) return;
+    for (const f of list) {
+      if (/\.brkbank$/i.test(f.name)) {
+        try {
+          const got = BRK.readBankFile(new Uint8Array(await f.arrayBuffer()));
+          breaks.length = 0;
+          got.forEach((g) => breaks.push(fromBank(g)));
+          status(T(got.length + " breaks opened from " + f.name, got.length + " breaks ouverts depuis " + f.name), "ok");
+        } catch (e) { status(T("Not a BREAKR bank: ", "Pas une banque BREAKR : ") + e.message, "err"); }
+        continue;
+      }
+      if (breaks.length >= BRK.MAX_BREAKS) { status(T("8 breaks at most: remove one first.", "8 breaks au plus : retires-en un d’abord."), "err"); break; }
+      try {
+        status(T("Reading ", "Lecture de ") + f.name + "…");
+        const d = await BRK.decodeFile(f, ctx());
+        breaks.push(make(d.name, d.pcm, d.rate, 22050));
+        status(T("Added ", "Ajouté : ") + f.name, "ok");
+      } catch (e) { status(T("Could not read ", "Lecture impossible : ") + f.name + " (" + (e.message || e) + ")", "err"); }
+    }
+    render();
+  }
+  function fromBank(g) {
+    const pcm = BRK.imaDecode(g.data, g.frames);
+    return {name: clean(g.name), rate: g.rate, pcm, src: null, bars: g.bars || 1, mode: "orig", sens: 6, count: 16, sl: g.sl.length ? g.sl : [0], cls: g.cls, data: g.data, edit: false};
+  }
+  const drop = $("drop");
+  $("files").addEventListener("change", (e) => { importFiles(Array.from(e.target.files || [])); e.target.value = ""; });
+  ["dragenter", "dragover"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave", "drop"].forEach((t) => drop.addEventListener(t, () => drop.classList.remove("over")));
+  drop.addEventListener("drop", (e) => { e.preventDefault(); importFiles(Array.from(e.dataTransfer.files || [])); });
+  window.addEventListener("dragover", (e) => e.preventDefault());
+  window.addEventListener("drop", (e) => { if (!drop.contains(e.target)) { e.preventDefault(); importFiles(Array.from(e.dataTransfer.files || [])); } });
+
+  /* ---- the bank: room */
+  const bytesOf = (b) => BRK.imaBytes(b.pcm.length);
+  function capacity() {
+    const used = breaks.reduce((s, b) => s + bytesOf(b), 0), cap = BRK.BANK_CAP;
+    $("cap-fill").style.width = Math.min(100, used / cap * 100) + "%";
+    $("cap-bar").classList.toggle("over", used > cap);
+    $("cap-txt").textContent = T("ROOM ", "PLACE ") + Math.round(used / 1024) + " / " + Math.round(cap / 1024) + T(" KB", " KO") + (used > cap ? T(" · TOO BIG: lower a rate or remove a break", " · TROP GROS : baisse une fréquence ou retire un break") : "");
+    $("cnt-txt").textContent = breaks.length + " / 8 BREAKS";
+    return used <= cap;
+  }
+
+  /* ---- drawing a break */
+  function drawWave(cv, b, hi) {
+    const r = cv.getBoundingClientRect(), W = Math.max(200, Math.round(r.width * devicePixelRatio)), H = Math.round(120 * devicePixelRatio);
+    cv.width = W; cv.height = H;
+    const g = cv.getContext("2d"), n = b.pcm.length, mid = H / 2;
+    g.fillStyle = "#0b0c10"; g.fillRect(0, 0, W, H);
+    for (let k = 0; k < b.sl.length; k++) {   /* the slices, tinted by class */
+      const x0 = b.sl[k] / n * W, x1 = (k + 1 < b.sl.length ? b.sl[k + 1] : n) / n * W;
+      g.fillStyle = CLS_COL[b.cls[k] & 3] + (k === hi ? "55" : (k & 1 ? "1c" : "10"));
+      g.fillRect(x0, 0, x1 - x0, H);
+    }
+    g.fillStyle = "#c9cdd6";
+    for (let x = 0; x < W; x++) {
+      let mn = 0, mx = 0;
+      const a = Math.floor(x / W * n), z = Math.min(n, Math.floor((x + 1) / W * n) + 1);
+      for (let i = a; i < z; i++) { const v = b.pcm[i]; if (v < mn) mn = v; if (v > mx) mx = v; }
+      g.fillRect(x, mid - mx / 32768 * mid * 0.95, 1, Math.max(1, (mx - mn) / 32768 * mid * 0.95));
+    }
+    for (let k = 0; k < b.sl.length; k++) {   /* the cuts and their numbers */
+      const x = Math.round(b.sl[k] / n * W);
+      g.fillStyle = CLS_COL[b.cls[k] & 3]; g.fillRect(x, 0, Math.max(1, devicePixelRatio), H);
+      g.font = (10 * devicePixelRatio) + "px Silkscreen, monospace"; g.fillText(String(k + 1), x + 3 * devicePixelRatio, 12 * devicePixelRatio);
+    }
+  }
+  const bpmOf = (b) => b.bars * 240 / (b.pcm.length / b.rate);
+
+  function render() {
+    const list = $("list");
+    list.innerHTML = "";
+    breaks.forEach((b, i) => {
+      const el = document.createElement("article");
+      el.className = "brk";
+      const secs = (b.pcm.length / b.rate).toFixed(2);
+      el.innerHTML = `
+        <div class="head">
+          <span class="idx">MY ${i + 1}</span>
+          <input class="name" maxlength="15" value="${b.name}" aria-label="${T("Name", "Nom")}">
+          <span class="meta">${secs} S · ${b.rate} HZ · ${bpmOf(b).toFixed(1)} BPM · ${b.sl.length} ${T("SLICES", "TRANCHES")} · ${Math.round(bytesOf(b) / 1024)} ${T("KB", "KO")}</span>
+        </div>
+        <canvas class="wave${b.edit ? " edit" : ""}" aria-label="${T("Waveform and slices", "Forme d'onde et tranches")}"></canvas>
+        <div class="ctl">
+          <label>${T("Slices", "Tranches")}<select data-k="mode">
+            <option value="auto">AUTO</option><option value="grid">${T("GRID", "GRILLE")}</option>${b.src ? "" : `<option value="orig">${T("AS IS", "TEL QUEL")}</option>`}</select></label>
+          <label class="s-sens">SENS <input type="range" min="1" max="10" step="1" value="${b.sens}" data-k="sens"></label>
+          <label class="s-count">${T("Count", "Nombre")}<select data-k="count">${[4, 8, 12, 16, 24, 32].map((c) => `<option ${c === b.count ? "selected" : ""}>${c}</option>`).join("")}</select></label>
+          <label>${T("Bars", "Mesures")}<select data-k="bars">${[1, 2, 4, 8].map((c) => `<option ${c === b.bars ? "selected" : ""}>${c}</option>`).join("")}</select></label>
+          ${b.src ? `<label>${T("Rate", "Fréquence")}<select data-k="rate">${[22050, 16000, 11025].map((c) => `<option value="${c}" ${c === b.rate ? "selected" : ""}>${c / 1000} kHz</option>`).join("")}</select></label>` : ""}
+          <span class="row" style="margin-left:auto">
+            <button class="mini hot" data-a="play" type="button">${T("PLAY", "ÉCOUTER")}</button>
+            <button class="mini${b.edit ? " on" : ""}" data-a="edit" type="button">${T("CUTS", "COUPES")}</button>
+            <button class="mini" data-a="up" type="button" aria-label="${T("Move up", "Monter")}">▲</button>
+            <button class="mini" data-a="down" type="button" aria-label="${T("Move down", "Descendre")}">▼</button>
+            <button class="mini" data-a="del" type="button">${T("REMOVE", "RETIRER")}</button>
+          </span>
+        </div>`;
+      list.appendChild(el);
+      const cv = el.querySelector("canvas");
+      el.querySelector("[data-k=mode]").value = b.mode;
+      el.querySelector(".s-sens").hidden = b.mode !== "auto";
+      el.querySelector(".s-count").hidden = b.mode !== "grid";
+      requestAnimationFrame(() => drawWave(cv, b, -1));
+      el.querySelector(".name").addEventListener("change", (e) => { b.name = clean(e.target.value); e.target.value = b.name; });
+      el.querySelectorAll("select, input[type=range]").forEach((c) => c.addEventListener("change", () => {
+        const k = c.dataset.k, v = c.value;
+        if (k === "mode") { b.mode = v; if (v !== "orig") reslice(b); }
+        if (k === "sens") { b.sens = +v; reslice(b); }
+        if (k === "count") { b.count = +v; reslice(b); }
+        if (k === "bars") { b.bars = +v; }
+        if (k === "rate" && b.src) { const nb = make(b.name, b.src.f32, b.src.srcRate, +v); Object.assign(b, nb, {name: b.name, bars: b.bars, mode: b.mode, sens: b.sens, count: b.count}); reslice(b); }
+        render();
+      }));
+      cv.addEventListener("click", (e) => {
+        const r = cv.getBoundingClientRect(), at = Math.round((e.clientX - r.left) / r.width * b.pcm.length);
+        if (b.edit) {                           /* add a cut, or remove the one near */
+          const near = b.sl.findIndex((s) => Math.abs(s - at) < b.pcm.length / r.width * 6);
+          if (near > 0) b.sl.splice(near, 1);
+          else if (near < 0 && b.sl.length < 32) { b.sl.push(at); b.sl.sort((x, y) => x - y); }
+          b.mode = "orig"; b.cls = BRK.classify(b.sl, b.an || (b.an = BRK.analyse(b.pcm, b.rate))); b.data = null;
+          render();
+          return;
+        }
+        let k = 0; while (k + 1 < b.sl.length && b.sl[k + 1] <= at) k++;
+        play(b, b.sl[k], k + 1 < b.sl.length ? b.sl[k + 1] : b.pcm.length);
+        drawWave(cv, b, k);
+      });
+      el.querySelectorAll("[data-a]").forEach((btn) => btn.addEventListener("click", () => {
+        const a = btn.dataset.a;
+        if (a === "play") play(b, 0, b.pcm.length, true);
+        if (a === "edit") { b.edit = !b.edit; render(); }
+        if (a === "up" && i > 0) { breaks.splice(i - 1, 0, breaks.splice(i, 1)[0]); render(); }
+        if (a === "down" && i + 1 < breaks.length) { breaks.splice(i + 1, 0, breaks.splice(i, 1)[0]); render(); }
+        if (a === "del") { breaks.splice(i, 1); render(); }
+      }));
+    });
+    if (!breaks.length) list.innerHTML = `<p class="px" style="padding:10px 2px">${T("No break yet: drop a loop above, or read your FM-1's bank.", "Aucun break : dépose une boucle ci-dessus, ou lis la banque de ton FM-1.")}</p>`;
+    const ok = capacity();
+    $("b-send").disabled = $("b-save").disabled = $("b-emu").disabled = !breaks.length || !ok || busy;
+  }
+  window.addEventListener("resize", () => document.querySelectorAll(".brk canvas").forEach((cv, i) => breaks[i] && drawWave(cv, breaks[i], -1)));
+
+  function play(b, from, to, loop) {
+    const c = ctx();
+    if (playing) { try { playing.stop(); } catch (e) {} playing = null; }
+    const n = to - from; if (n < 16) return;
+    const buf = c.createBuffer(1, n, b.rate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = b.pcm[from + i] / 32768;
+    const s = c.createBufferSource(); s.buffer = buf; s.loop = !!loop; s.connect(c.destination); s.start();
+    if (loop) setTimeout(() => { if (playing === s) { try { s.stop(); } catch (e) {} } }, n / b.rate * 2000);
+    playing = s;
+  }
+
+  /* ---- the bank out */
+  function bank() {
+    return BRK.buildBank(breaks.map((b) => {
+      const data = b.data && b.mode === "orig" ? b.data : (b.data = BRK.imaEncode(b.pcm));
+      return {name: b.name, rate: b.rate, frames: b.pcm.length, data, bars: b.bars, bpm10: Math.round(bpmOf(b) * 10), sl: b.sl, cls: b.cls};
+    }));
+  }
+  function lock(on) { busy = on; render(); ["b-read", "b-erase"].forEach((id) => { $(id).disabled = on; }); }
+  async function midi() {
+    status(T("Looking for the FM-1 (allow MIDI access)…", "Recherche du FM-1 (autorise l’accès MIDI)…"));
+    const tr = await BRK.webMidi();
+    const info = await BRK.info(tr);
+    if (info.app !== "BRKR") throw new Error(T("the FM-1 does not run BREAKR", "le FM-1 ne fait pas tourner BREAKR"));
+    return tr;
+  }
+  $("b-send").addEventListener("click", async () => {
+    if (busy) return;
+    let tr = null;
+    lock(true);
+    try {
+      const bk = bank();
+      tr = await midi();
+      status(T("Sending ", "Envoi de ") + breaks.length + " breaks…");
+      prog(0);
+      await BRK.upload(tr, bk, (p) => { prog(p); status(T("Sending ", "Envoi ") + Math.round(p * 100) + " %"); });
+      status(T("Done: the FM-1 has your breaks (SELECT picks them, after the 8 factory ones).", "Terminé : le FM-1 a tes breaks (SELECT les choisit, après les 8 d’usine)."), "ok");
+    } catch (e) { status(T("Stopped: ", "Arrêté : ") + (e.message || e), "err"); }
+    finally { prog(undefined); if (tr && tr.close) tr.close(); lock(false); }
+  });
+  $("b-read").addEventListener("click", async () => {
+    if (busy) return;
+    let tr = null;
+    lock(true);
+    try {
+      tr = await midi();
+      prog(0);
+      const got = await BRK.readBank(tr, (p) => { prog(p); status(T("Reading ", "Lecture ") + Math.round(p * 100) + " %"); });
+      breaks.length = 0;
+      got.forEach((g) => breaks.push(fromBank(g)));
+      status(got.length ? T(got.length + " breaks read from the FM-1.", got.length + " breaks lus sur le FM-1.") : T("The FM-1's bank is empty.", "La banque du FM-1 est vide."), "ok");
+    } catch (e) { status(T("Stopped: ", "Arrêté : ") + (e.message || e), "err"); }
+    finally { prog(undefined); if (tr && tr.close) tr.close(); lock(false); }
+  });
+  $("b-erase").addEventListener("click", async () => {
+    if (busy) return;
+    const b = $("b-erase");
+    if (!b.dataset.sure) { b.dataset.sure = "1"; status(T("Click again to erase every user break on the FM-1.", "Clique encore pour effacer tous les breaks perso du FM-1."), "err"); setTimeout(() => delete b.dataset.sure, 4000); return; }
+    delete b.dataset.sure;
+    let tr = null;
+    lock(true);
+    try { tr = await midi(); await BRK.erase(tr); status(T("The FM-1's bank is empty.", "La banque du FM-1 est vide."), "ok"); }
+    catch (e) { status(T("Stopped: ", "Arrêté : ") + (e.message || e), "err"); }
+    finally { if (tr && tr.close) tr.close(); lock(false); }
+  });
+  function b64(u8) { let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
+  $("b-save").addEventListener("click", () => {
+    const f = BRK.bankFile(bank()), url = URL.createObjectURL(new Blob([f], {type: "application/octet-stream"}));
+    const a = document.createElement("a"); a.href = url; a.download = "breakr-bank.brkbank"; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    status(T("Saved as breakr-bank.brkbank", "Enregistré : breakr-bank.brkbank"), "ok");
+  });
+  $("b-emu").addEventListener("click", () => {
+    if (!ls.set(LS_PENDING, b64(BRK.bankFile(bank())))) { status(T("This browser's storage is full.", "Le stockage du navigateur est plein."), "err"); return; }
+    location.href = "../emulator/index.html";
+  });
+
+  if (!navigator.requestMIDIAccess) status(T("This browser has no Web MIDI: you can cut your breaks and download them, then send them from Chrome or Edge.", "Ce navigateur n’a pas Web MIDI : tu peux découper tes breaks et les télécharger, puis les envoyer depuis Chrome ou Edge."));
+  setLang((location.hash || "").slice(1) === "fr" ? "fr" : ls.get(LS_LANG) || (/^fr/i.test(navigator.language || "") ? "fr" : "en"));
+})();
+</script>
+</body>
+</html>

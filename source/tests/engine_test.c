@@ -416,6 +416,10 @@ static void t_steps(void)
     CHECK(c3[2] == 1u && c3[0] + c3[1] + c3[3] == 0u && c3[5] == 0u, "condition 3:4");
     CHECK(cf[0] == 1u && cf[1] + cf[2] + cf[3] + cf[4] + cf[5] == 0u, "condition FIRST");
     CHECK(rk[0] == 16u && rk[1] == 16u, "ratchet x16: %u, %u hits", rk[0], rk[1]);
+    p->st[2].sl = 1; p->st[2].fx = (uint8_t)(FX_GL + 31u); p->st[3].sl = 1; p->st[3].fx = 5; p->st[5].fx = 200;
+    prj_sanitize();                             /* (what a project from flash goes through) */
+    CHECK(p->st[2].fx == FX_GL + 31u && p->st[3].fx == 5u && p->st[5].fx == 0u && ST_COND(p->st[0]) == CO_1_2 && ST_RAMP(p->st[12]) == RP_OCTUP,
+          "a loaded project keeps its locks, conditions and ramps");
     free(o);
 }
 

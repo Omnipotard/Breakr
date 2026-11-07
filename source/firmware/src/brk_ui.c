@@ -1384,6 +1384,11 @@ static void leds_update(void)
 static void page_set(uint32_t p)
 {
     if (p == page) sub[p] = (uint8_t)((sub[p] + 1u) % PAGE_SUBS[p]);
+    if (p == page && p == P_AMP) {              /* AMP again: GATE, a key plays while held */
+        prj.p.gate ^= 1u;
+        touch();
+        toast(prj.p.gate ? TR("GATE: TANT QUE TENUE", "GATE: WHILE HELD") : TR("GATE OFF", "GATE OFF"));
+    }
     page = (uint8_t)p;
     { uint32_t e; for (e = 0; e < 32u; e++) if ((beat_keys >> e & 1u) && (!GL_PAGE() || e / 16u != sub[P_FX] - 2u)) bt_key(e, 0); }   /* (let go with the page) */
     held_step = -1;
@@ -1660,7 +1665,7 @@ static void app_step(void)
         an_poll(6);
     }
     if (page == P_CHOP && sl_count(b)) zoom_make(b, chop_k < sl_count(b) ? chop_k : 0);
-    if (rs_state == RS_DONE) rs_commit();       /* RESAMPLE: taken, into the bank */
+    if (rs_state == RS_DONE && !bk_on) rs_commit();   /* RESAMPLE: taken, into the bank (not during an upload) */
     if (bk_toast) { toast(bk_toast == 1u ? TR("BREAKS RECUS !", "BREAKS IN !") : TR("BANQUE VIDE", "BANK EMPTY")); bk_toast = 0; an.b = 0xFF; }
     if (pat_dirty && !sq_play && !bk_on && fm1_ms - dirty_ms > 6000u) {   /* the autosave, when it is quiet */
         uint32_t j, busy = 0;

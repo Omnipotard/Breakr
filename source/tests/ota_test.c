@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
-/* Host test of firmware/src/ota.c (step 1 of an update), Felucca's ported to KAWA: a fake M-UPGRADE serves a
+/* Host test of firmware/src/ota.c (step 1 of an update), Felucca's ported to KAWA, then BREAKR: a fake M-UPGRADE serves a
  * real .fwsc over the SysEx protocol (pack7, cmd 0x30 reads, 0xE0000000 -> "success") and a simulated NOR
  * plays the flash. The handshake answers the package's own identity (OTA_IDENTITY, as the app does).
  *   ota_test FILE.fwsc   (tests/run_loader_tests.sh) */
@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define FELUCCA_ID "FM-1_957"
+#define FELUCCA_ID "FM-1_2002"
 #define FELUCCA_OTA_DRYRUN 0
 static char pkg_id[21];                         /* the package's marker identity */
 #define OTA_IDENTITY pkg_id
@@ -187,9 +187,7 @@ int main(int argc, char **argv)
     logical_len = n - 20;
     free(raw);
     printf("  package identity %s\n", pkg_id);
-    bad += check("package identity is KAWA's (FM-1_95N, FM-1_96N)",
-                 strlen(pkg_id) == 8 && (!strncmp(pkg_id, "FM-1_95", 7) || !strncmp(pkg_id, "FM-1_96", 7)) &&
-                 pkg_id[7] >= '0' && pkg_id[7] <= '9');
+    bad += check("package identity is BREAKR's (FM-1_2002)", !strcmp(pkg_id, "FM-1_2002"));
 
     /* handshake outside a session */
     reset_dev();

@@ -457,7 +457,7 @@ static void prj_sanitize(void)
             step_t *s = &pt->st[k];
             if (s->sl > NSL) s->sl = 0;
             if (s->pitch < -24 || s->pitch > 24) s->pitch = 0;
-            if (s->fx > NPUNCH) s->fx = 0;
+            if (s->fx > NPUNCH && (s->fx < FX_GL || s->fx >= FX_GL + 32u)) s->fx = 0;   /* (punch 1..11, DESTROY / BEAT 12..43) */
         }
     }
     if (prj.nchain > 16u) prj.nchain = 0;

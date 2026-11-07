@@ -108,7 +108,7 @@ static void bk_handle(uint32_t cmd, const uint8_t *a, uint32_t n)
         return;
     }
     case BK_BEGIN:
-        if (sq_play) { r[0] = BK_EBUSY; break; }
+        if (sq_play || rs_state != RS_IDLE) { r[0] = BK_EBUSY; break; }   /* (playing, or a RESAMPLE on its way) */
         bk_take();
         if (st_erase(BANK_AT)) { r[0] = BK_EFLASH; bk_end_session(); break; }   /* the header first: empty */
         bk_on = 1;

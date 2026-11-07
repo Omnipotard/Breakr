@@ -30,6 +30,7 @@ static struct {
     uint32_t last_b, last_k, last_live;         /* the last slice played (the repeats when stopped) */
     uint32_t live_next;
     int32_t tape;                               /* Q16: 1 .. 0, the tape stop */
+    int32_t dive;                               /* Q16: 1 .. 1/4, WRECK's DIVE */
     uint32_t flex_cnt, flex_base, flex_cur;
     uint32_t gate1_t, gate1_v, gate2_t, gate2_v; /* the flex gate: the step's two 1/32 */
     uint32_t rec_skip;
@@ -52,7 +53,10 @@ static uint32_t step_ticks(const pat_t *p) { return RATE_TICKS[p->rate < RATE_N 
 static uint32_t spt_of(uint32_t b10) { return (1806336000u / b10) * 10u; }
 
 /* the punch effects acting now: the keys and the step's lock */
-static uint32_t fx_now(void) { return (punch_keys | sq.cur_fx) & ((1u << NPUNCH) - 1u); }
+static uint32_t fx_now(void)
+{
+    return ((punch_keys | sq.cur_fx) & ((1u << NPUNCH) - 1u)) | (wreck_keys >> WK_TAPE & 1u) << PX_STOP;   /* (WRECK's TAPE) */
+}
 
 /* ---- a slice starts */
 static void trigger(uint32_t b, uint32_t k, int32_t pitch, uint32_t rev, uint32_t acc, uint32_t key, uint32_t live)
@@ -61,6 +65,8 @@ static void trigger(uint32_t b, uint32_t k, int32_t pitch, uint32_t rev, uint32_
     int32_t gain = 3200, p;
     const slicing_t *sc;
     if (b >= NBRK || k >= n) return;
+    if (((wreck_keys >> WK_NOKICK & 1u) && sl_class(b, k) == CL_K) || ((wreck_keys >> WK_NOSNARE & 1u) && sl_class(b, k) == CL_S))
+        return;                                 /* WRECK: NO KICK, NO SNARE */
     sc = &prj.sc[b];
     p = pitch + (int32_t)prj.p.pitch - 24 + (sc->nsl ? sc->pitch[k] : 0);
     speed = semi_q16(p);
@@ -449,6 +455,7 @@ static int32_t speed_now(uint32_t t, uint32_t ph)
         default: break;
         }
     }
+    sp = (int32_t)(((int64_t)sp * sq.dive) >> 16);
     return (int32_t)(((int64_t)sp * sq.tape) >> 16);
 }
 
@@ -484,7 +491,13 @@ static void app_audio(int32_t *out, uint32_t n)
         d = (int32_t)((n << 16) / (uint32_t)beat);
         if (fx_now() >> PX_STOP & 1u) sq.tape = sq.tape - d > 0 ? sq.tape - d : 0;
         else sq.tape = sq.tape + 4 * d < 65536 ? sq.tape + 4 * d : 65536;
+        /* WRECK's DIVE: two octaves down over a beat while held, back at once */
+        if (wreck_keys >> WK_DIVE & 1u) sq.dive = sq.dive - (d * 3 >> 2) > 16384 ? sq.dive - (d * 3 >> 2) : 16384;
+        else sq.dive = 65536;
     }
+    fx_tick0 = sq.tick;
+    fx_ph0 = sq.ph;
+    fx_spt = sq.spt;
     for (i = 0; i < n; i++) mixL[i] = mixR[i] = 0;
     while (off < n) {
         uint32_t left = n - off, chunk = (sq.spt - sq.ph + 65535u) >> 16, run = 1;
@@ -531,6 +544,7 @@ static void engine_init(void)
     fx_reset();
     seq_reset();
     sq.tape = 65536;
+    sq.dive = 65536;
     sq.flex_cur = 0xFF;
     sq.spt = spt_of(bpm10());
     sq.last_b = 0;

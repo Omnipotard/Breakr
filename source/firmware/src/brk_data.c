@@ -14,6 +14,19 @@ static const char *const PUNCH_LONG[NPUNCH] = {"REPEAT 1/4", "REPEAT 1/8", "REPE
                                                "TRIPLET 6/8", "REVERSE", "OCTAVE DOWN", "OCTAVE UP", "UNISON",
                                                "SCRATCH", "TAPE"};
 
+/* WRECK (FX, third page): 16 live effects on the white keys, as K-GLITCH's second live bank (CASSE / WRECK):
+ * held, they act on the whole output; let go, they stop. They stack. */
+enum { WK_CRUSH, WK_LOFI, WK_LPF, WK_HPF, WK_TAPE, WK_DIVE, WK_GATE16, WK_GATE32, WK_FREEZE, WK_RING, WK_ECHO,
+       WK_DIST, WK_WOB, WK_VINYL, WK_NOKICK, WK_NOSNARE, WK_N };
+static const char *const WRECK_EN[WK_N][2] = {
+    {"CRUSH", "4 BITS"}, {"LO-FI", "RATE"}, {"LOW-P", "SWEEP"}, {"HIGH-P", "SWEEP"}, {"TAPE", "STOP"},
+    {"DIVE", ""}, {"GATE", "1/16"}, {"GATE", "1/32"}, {"FREEZE", ""}, {"RING", ""}, {"ECHO", ""},
+    {"DISTO", ""}, {"WOBBLE", ""}, {"VINYL", ""}, {"NO", "KICK"}, {"NO", "SNARE"}};
+static const char *const WRECK_FR[WK_N][2] = {
+    {"ECRASE", "4 BITS"}, {"DECIME", ""}, {"FILTRE", "BAS"}, {"FILTRE", "HAUT"}, {"STOP", "K7"},
+    {"PIQUE", ""}, {"HACHE", "1/16"}, {"HACHE", "1/32"}, {"GEL", ""}, {"RING", ""}, {"ECHO", ""},
+    {"DISTO", ""}, {"WOBBLE", ""}, {"VINYLE", ""}, {"SANS", "KICK"}, {"SANS", "CAISSE"}};
+
 /* the flex patterns (Flex Beat / Gross Beat style): over a bar of 16 steps, which step plays (map), how loud
  * every 1/32 is (gate, 0..15), a pitch per step, and a speed ramp.
  * map: 0..15 the step of the bar; +16 backwards; +32 twice (a roll); +64 four times; FX_HOLD: no new slice

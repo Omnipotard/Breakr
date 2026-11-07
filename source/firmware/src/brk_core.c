@@ -134,6 +134,7 @@ static ev_t evq[NEV];
 static volatile uint32_t ev_w, ev_r;            /* main writes ev_w, the interrupt ev_r */
 
 static volatile uint32_t punch_keys;            /* bit k: punch effect k held (the black keys) */
+static volatile uint32_t wreck_keys;            /* bit k: WRECK effect k held (FX's third page, the white keys) */
 static volatile uint32_t flex_sel = 0xFF;       /* the flex pattern asked for (0..15), 0xFF none */
 static volatile uint32_t flex_on = 0xFF;        /* the one playing (the interrupt sets it at the launch) */
 static volatile uint32_t audio_hold;            /* 1: the interrupt is silent and touches nothing (flash writes) */

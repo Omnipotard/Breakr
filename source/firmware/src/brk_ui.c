@@ -8,7 +8,8 @@
  *   ENV    AMP      attack, decay, length, choke, gate
  *   LFO    DICE     random: another slice, backwards, rolls, skips, jumps; LOCK; GENERATE a pattern
  *   ARP    FLEX     16 flex patterns on the white keys (half time, tape stop, gates, juggles...)
- *   FX     FX       filter, resonance, drive, crush; delay, feedback, mix, punch
+ *   FX     FX       filter, resonance, drive, crush; delay, feedback, mix, punch; WRECK: 16 live effects on
+ *                    the white keys (held: crush, lo-fi, sweeps, tape, dive, gates, freeze, ring, echo...)
  *   GLO    GLOBAL   tempo, swing, the tempo mode, the metronome; clock, language, theme, volume
  *   SAVE   SAVE     4 project slots; the patterns and their chain
  * The page's button again: its next page. HOME held: the help of the page. HOME + PLAY: everything stops.
@@ -16,7 +17,7 @@
 
 enum { P_PLAY, P_SEQ, P_SLICE, P_CHOP, P_AMP, P_DICE, P_FLEX, P_FX, P_GLOBAL, P_SAVE, P_N };
 static const uint8_t PAGE_BTN[P_N] = {BTN_HOME, BTN_SEQ, BTN_SEL, BTN_EDIT, BTN_ENV, BTN_LFO, BTN_ARP, BTN_FX, BTN_GLO, BTN_SAVE};
-static const uint8_t PAGE_SUBS[P_N] = {1, 1, 1, 2, 1, 3, 1, 2, 2, 1};
+static const uint8_t PAGE_SUBS[P_N] = {1, 1, 1, 2, 1, 3, 1, 3, 2, 1};
 static const char *const PAGE_NAME[P_N] = {"PLAY", "STEPS", "SLICE", "CHOP", "AMP", "DICE", "FLEX", "FX", "GLOBAL", "SAVE"};
 
 /* the keys: 0 = F3 .. 26 = G5; 16 white, 11 black */
@@ -190,7 +191,7 @@ static void knob_info(uint32_t k, kv_t *o)
         if (k == 3) kv_txt(o, "PITCH", onoff(p->fl_pitch), p->fl_pitch * 1000);
         break;
     case P_FX:
-        if (s == 0u) {
+        if (s != 1u) {                          /* (WRECK, the third page: the first page's knobs) */
             if (k == 0) { kv_txt(o, "FILTER", p->filter < 60u ? "LOW" : p->filter > 68u ? "HIGH" : "OFF", p->filter * 1000 / 127); o->bip = 1; }
             if (k == 1) kv_int(o, "RESO", p->reso, 0, 15, 0);
             if (k == 2) kv_int(o, "DRIVE", p->drive, 0, 15, 0);
@@ -334,7 +335,7 @@ static void knob_turn(uint32_t k, int32_t d)
         if (k == 3) adj(&p->fl_pitch, d, 0, 1);
         break;
     case P_FX:
-        if (s == 0u) {
+        if (s != 1u) {
             if (k == 0) adj(&p->filter, accel(d) * 2, 0, 127);
             if (k == 1) adj(&p->reso, d, 0, 15);
             if (k == 2) adj(&p->drive, d, 0, 15);
@@ -838,10 +839,32 @@ static void draw_flex(void)
     }
 }
 
+/* WRECK: the 16 effects as the white keys, 4 rows of 4 (left to right, then down); lit while held */
+static void draw_wreck(void)
+{
+    uint32_t i, on = wreck_keys;
+    if (g_vis(29, 152)) {
+        g_rect(0, 29, 240, 152, C_BG);
+        for (i = 0; i < WK_N; i++) {
+            int32_t x = 2 + (int32_t)(i % 4u) * 59, y = 31 + (int32_t)(i / 4u) * 37;
+            uint32_t lit = on >> i & 1u;
+            const char *const *nm = lang ? WRECK_EN[i] : WRECK_FR[i];
+            g_round(x, y, 57, 35, lit ? C_ACC : C_PANEL);
+            g_textw(&FONT_BS, x + 4, y + 3, 50, nm[0], lit ? C_BG : C_TXT);
+            if (nm[1][0]) g_textw(&FONT_BS, x + 4, y + 18, 50, nm[1], lit ? C_BG : C_SUB);
+        }
+    }
+    if (g_vis(182, 14)) {
+        g_rect(0, 182, 240, 14, C_BG);
+        g_textc(&FONT_BS, 120, 182, TR("CASSE: TIENS UNE BLANCHE", "WRECK: HOLD A WHITE KEY"), C_DIMT);
+    }
+}
+
 static void draw_fx(void)
 {
     params_t *p = &prj.p;
     uint32_t s = sub[P_FX], i;
+    if (s == 2u) { draw_wreck(); return; }
     if (g_vis(29, 110)) {
         g_round(2, 29, 236, 110, C_PANEL);
         if (s == 0u) {                          /* the filter: its response, the cut-off and the resonance's bump */
@@ -964,7 +987,7 @@ static const char *const HELP_EN[P_N][6] = {
     {"ATTACK  FADE IN OF EVERY SLICE", "DECAY  HOLD, OR SHORTER HITS", "LENGTH  HOW MUCH OF THE SLICE", "CHOKE  MONO CUTS, POLY RINGS", "", ""},
     {"CHANCE  ANOTHER SLICE (SAME KIND)", "REV ROLL SKIP  HOW OFTEN", "LFO AGAIN  JUMPS, SMART, LOCK", "LOCK  THE RANDOM REPEATS", "LFO AGAIN  GENERATE A PATTERN", "OCT-  UNDO"},
     {"WHITE KEYS  16 FLEX PATTERNS", "THE SAME KEY AGAIN  OFF", "MODE  LATCH / HOLD / ONE BAR", "QUANT  STARTS ON STEP BEAT BAR", "DEPTH  HOW DEEP THE GATE", "BLACK KEYS  PUNCH EFFECTS"},
-    {"FILTER  LEFT LOW, RIGHT HIGH", "RESO DRIVE CRUSH  THE DIRT", "FX AGAIN  DELAY AND PUNCH", "BLACK KEYS  PUNCH EFFECTS", "", ""},
+    {"FILTER  LEFT LOW, RIGHT HIGH", "RESO DRIVE CRUSH  THE DIRT", "FX AGAIN  DELAY AND PUNCH", "FX 3RD TIME  WRECK", "WRECK: HOLD WHITE KEYS (16)", "BLACK KEYS  PUNCH EFFECTS"},
     {"BPM SWING  (ALGO: TEMPO TOO)", "TEMPO  CHOP OR VARI", "METRONOME  OFF / REC / ON", "OCT+  TAP THE TEMPO", "GLO AGAIN  CLOCK LANGUAGE THEME", ""},
     {"SELECT  SLOT   KNOB 1  ACTION", "SAVE AGAIN  DO IT", "WHITE KEYS  PATTERN 1-16", "HOLD ONE + OTHERS  A CHAIN", "OCT-  UNDO   OCT+  NO CHAIN", "AUTO SAVES ITSELF WHEN STOPPED"},
 };
@@ -976,7 +999,7 @@ static const char *const HELP_FR[P_N][6] = {
     {"ATTACK  ENTREE DE CHAQUE TRANCHE", "DECAY  TENUE, OU PLUS COURT", "LONGUEUR  QUELLE PART JOUER", "CHOKE  MONO COUPE, POLY RESONNE", "", ""},
     {"CHANCE  UNE AUTRE TRANCHE", "REV ROLL SKIP  A QUELLE FREQUENCE", "LFO ENCORE  SAUTS, SMART, LOCK", "LOCK  LE HASARD SE REPETE", "LFO ENCORE  GENERER UN PATTERN", "OCT-  ANNULER"},
     {"BLANCHES  16 FLEX PATTERNS", "LA MEME TOUCHE  ARRET", "MODE  LATCH / HOLD / 1 MESURE", "QUANT  DEPART: PAS TEMPS MESURE", "PROFONDEUR  DU GATE", "NOIRES  EFFETS PUNCH"},
-    {"FILTER  GAUCHE BAS, DROITE HAUT", "RESO DRIVE CRUSH  LA SALETE", "FX ENCORE  DELAY ET PUNCH", "NOIRES  EFFETS PUNCH", "", ""},
+    {"FILTER  GAUCHE BAS, DROITE HAUT", "RESO DRIVE CRUSH  LA SALETE", "FX ENCORE  DELAY ET PUNCH", "FX 3E FOIS  CASSE", "CASSE: TENIR LES BLANCHES (16)", "NOIRES  EFFETS PUNCH"},
     {"BPM SWING  (ALGO: TEMPO AUSSI)", "TEMPO  CHOP OU VARI", "METRONOME  OFF / REC / ON", "OCT+  TAPER LE TEMPO", "GLO ENCORE  HORLOGE LANGUE THEME", ""},
     {"SELECT  SLOT   KNOB 1  ACTION", "SAVE ENCORE  LE FAIRE", "BLANCHES  PATTERN 1-16", "TENIR + AUTRES  UNE CHAINE", "OCT-  ANNULER  OCT+  SANS CHAINE", "SAUVE TOUT SEUL A L'ARRET"},
 };
@@ -1097,6 +1120,9 @@ static void leds_update(void)
         case P_FLEX:
             lv = i == flex_on ? 2u : i == flex_sel ? (blink ? 2u : 1u) : 1u;
             break;
+        case P_FX:
+            lv = sub[P_FX] == 2u ? (wreck_keys >> i & 1u ? 2u : 1u) : 0u;
+            break;
         case P_SAVE: {
             uint32_t k, inch = 0;
             for (k = 0; k < prj.nchain; k++) inch |= prj.chain[k] == i;
@@ -1120,6 +1146,7 @@ static void page_set(uint32_t p)
 {
     if (p == page) sub[p] = (uint8_t)((sub[p] + 1u) % PAGE_SUBS[p]);
     page = (uint8_t)p;
+    if (page != P_FX || sub[P_FX] != 2u) wreck_keys = 0;   /* WRECK's keys let go with their page */
     held_step = -1;
     gen_kept = 0;
     save_arm = 0;
@@ -1149,6 +1176,7 @@ static void key_down(uint32_t key)
         return;
     }
     if (w < 0) return;
+    if (page == P_FX && sub[P_FX] == 2u) { wreck_keys |= 1u << w; return; }   /* WRECK: held, it acts */
     switch (page) {
     case P_SEQ: {
         uint32_t s = seq_page * 16u + (uint32_t)w;
@@ -1207,6 +1235,7 @@ static void key_up(uint32_t key)
     pat_t *pt = cur_pat();
     if (bk >= 0) { punch_keys &= ~(1u << bk); return; }
     if (w < 0) return;
+    wreck_keys &= ~(1u << w);
     if (page == P_SEQ && held_step >= 0 && (uint32_t)held_step == seq_page * 16u + (uint32_t)w) {
         if (!held_used) {                       /* a tap on a full step: cleared */
             pt->st[(uint32_t)held_step % NSTEP].sl = 0;

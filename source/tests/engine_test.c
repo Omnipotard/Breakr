@@ -227,6 +227,46 @@ static void t_dice(void)
     }
 }
 
+/* WRECK (FX, third page): each of the 16 alone, then all, with the master's knobs at their ends; the gates
+ * cut, FREEZE loops its grain, NO KICK / NO SNARE leave those slices out */
+static void t_wreck(void)
+{
+    uint32_t f, i, quiet, win, kicks, snares;
+    int32_t *o;
+    for (f = 0; f <= WK_N; f++) {
+        boot();
+        bpm10_set(1200);
+        prj.p.drive = (uint8_t)(f & 1u ? 15 : 0); prj.p.crush = (uint8_t)(f & 2u ? 15 : 0); prj.p.dly_mix = 8;
+        tlog_n = 0;
+        ev_push(EV_PLAY, 0, 0, 0);
+        if (f == WK_FREEZE) { prj.p.dly_mix = 0; o = render(13230u); free(o); }   /* (it freezes what just played: play first; no echo over it) */
+        wreck_keys = f < WK_N ? 1u << f : (1u << WK_N) - 1u;
+        o = render(44100u);
+        for (i = 0, quiet = 0, win = 0; i + 44u <= 44100u; i += 44u, win++) {   /* 1 ms windows from 0.25 s on */
+            uint32_t j, pk = 0;
+            if (i < 11025u) { win--; continue; }
+            for (j = 0; j < 44u; j++) { int32_t a = o[2u * (i + j)]; a = a < 0 ? -a : a; if ((uint32_t)a > pk) pk = (uint32_t)a; }
+            quiet += pk < 300u;
+            for (j = 0; j < 88u; j++) CHECK(o[2u * i + j] >= -32767 && o[2u * i + j] <= 32767, "WRECK %u: out of range", f);
+        }
+        for (i = 0, kicks = snares = 0; i < tlog_n; i++) { uint32_t c = sl_class(0, tlog[i].k); kicks += c == CL_K; snares += c == CL_S; }
+        if (f == WK_GATE16 || f == WK_GATE32)
+            CHECK(quiet * 100u >= win * 30u, "WRECK gate %u: silent %u of %u ms", f, quiet, win);
+        if (f == WK_NOKICK) CHECK(!kicks && snares, "NO KICK: %u kicks, %u snares", kicks, snares);
+        if (f == WK_NOSNARE) CHECK(!snares && kicks, "NO SNARE: %u kicks, %u snares", kicks, snares);
+        if (f == WK_FREEZE) {                    /* the grain: the same 2048 frames again and again */
+            double num = 0, da = 0, db = 0;
+            for (i = 22050u; i < 22050u + 8192u; i++) { double a = o[2u * i], b = o[2u * (i + 2048u)]; num += a * b; da += a * a; db += b * b; }
+            CHECK(da > 1e6 && num / sqrt(da * db + 1) > 0.95, "FREEZE does not loop its grain");
+            printf("wreck     FREEZE loops its 2048-frame grain (corr %.3f)\n", num / sqrt(da * db + 1));
+        }
+        if (f == WK_GATE16) printf("wreck     GATE 1/16: %u of %u ms silent\n", quiet, win);
+        free(o);
+    }
+    wreck_keys = 0;
+    printf("wreck     16 effects alone and all together, master knobs at their ends: ran\n");
+}
+
 static void t_effects(void)
 {
     static const uint16_t BPMS[2] = {400, 3000};
@@ -355,6 +395,7 @@ int main(void)
     t_fidelity();
     t_timing();
     t_dice();
+    t_wreck();
     t_effects();
     t_slicing();
     t_generators();

@@ -14,14 +14,25 @@ static const char *const PUNCH_LONG[NPUNCH] = {"REPEAT 1/4", "REPEAT 1/8", "REPE
                                                "TRIPLET 6/8", "REVERSE", "OCTAVE DOWN", "OCTAVE UP", "UNISON",
                                                "SCRATCH", "TAPE"};
 
-/* BEAT (FX, third page): K-GLITCH's BEAT bank, 16 programs over the bar on the white keys (brk_beat.c) */
-static const char *const BEAT_NAME[16][2] = {
+/* DESTROY and BEAT (FX, third and fourth pages): K-GLITCH's two glitch banks, 16 effects each on the white
+ * keys (brk_beat.c); two lines for the screen's tiles, one for the toasts and the steps */
+static const char *const BEAT_NAME[32][2] = {
+    {"LOOP", "DESTROY"}, {"STUTTR", "X"}, {"GLITCH", ""}, {"SCRTCH", ""}, {"REVRSE", "X"}, {"PITCH", "MAD"},
+    {"GATE", "X"}, {"FILTER", "CHAOS"}, {"BEAT", "REPEAT"}, {"BEAT", "SKIP"}, {"MICRO", "STUTTR"}, {"TIME", "STRTCH"},
+    {"RING", "MOD"}, {"FUZZ", ""}, {"RANDOM", "IZER"}, {"TOTAL", "CHAOS"},
     {"RND", "STUTTR"}, {"RND", "BAR"}, {"RND", "FILL"}, {"ROLL", "UP"}, {"SKIP", "8TH"}, {"STAM-", "MER"},
     {"GATE", "8"}, {"GATE", "16"}, {"GATE", "3-3-2"}, {"GATE", "RAMP"}, {"REV", "BEAT"}, {"REV", "OFF 8"},
     {"SCRTCH", "BAR"}, {"SCRTCH", "CUT"}, {"TAPE", "STOP"}, {"HALF", "TIME"}};
-static const char *const BEAT_LONG[16] = {"RND STUTTER", "RND BAR", "RND FILL", "ROLL UP", "SKIP 8TH", "STAMMER",
+static const char *const BEAT_LONG[32] = {"LOOP DESTROY", "STUTTER X", "GLITCH", "SCRATCH",
+    "REVERSE X", "PITCH MAD", "GATE X", "FILTER CHAOS", "BEAT REPEAT", "BEAT SKIP", "MICRO STUT", "TIME STRETCH",
+    "RING MOD", "FUZZ", "RANDOMIZER", "TOTAL CHAOS", "RND STUTTER", "RND BAR", "RND FILL", "ROLL UP", "SKIP 8TH", "STAMMER",
     "GATE 8", "GATE 16", "GATE 3-3-2", "GATE RAMP", "REV BEAT", "REV OFFBEAT", "SCRATCH BAR", "SCRATCH CUT",
     "TAPE STOP", "HALF TIME"};
+
+/* the step's condition and its ratchet's ramp (SEQ, second page) */
+static const char *const COND_NAME[CO_N] = {"ALWAYS", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4",
+                                            "1:8", "8:8", "FIRST", "!FIRST", "PRE", "!PRE"};
+static const char *const RAMP_NAME[RP_N] = {"NONE", "UP", "DOWN", "OCT UP", "OCT DN", "RANDOM", "FADE", "REV ALT"};
 
 /* the flex patterns (Flex Beat / Gross Beat style): over a bar of 16 steps, which step plays (map), how loud
  * every 1/32 is (gate, 0..15), a pitch per step, and a speed ramp.
@@ -76,9 +87,10 @@ static const char *const FLEX_MODE[3] = {"LATCH", "HOLD", "1 BAR"};
 static const char *const FLEX_QUANT[3] = {"STEP", "BEAT", "BAR"};
 
 /* the generator's styles (DICE, third page) */
-enum { GS_ORIG, GS_SHUFFLE, GS_JUNGLE, GS_HALF, GS_BOOM, GS_2STEP, GS_GLITCH, GS_BUILD, GS_N };
+enum { GS_ORIG, GS_SHUFFLE, GS_JUNGLE, GS_HALF, GS_BOOM, GS_2STEP, GS_GLITCH, GS_BUILD, GS_DRILL, GS_CORE, GS_IDM,
+       GS_N };
 static const char *const GEN_STYLE[GS_N] = {"ORIGINAL", "SHUFFLE", "JUNGLE", "HALF", "BOOM BAP", "2-STEP",
-                                            "GLITCH", "BUILD UP"};
+                                            "GLITCH", "BUILD UP", "DRILL", "BREAKCORE", "IDM"};
 static const char *const CLASS_NAME[4] = {"-", "K", "S", "H"};
 static const char *const RATE_NAME[RATE_N] = {"1/16", "1/8", "1/32", "1/16T"};
 static const char *const SLM_NAME[SLM_N] = {"AS IS", "GRID", "AUTO"};

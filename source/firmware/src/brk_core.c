@@ -48,17 +48,30 @@ static brk_t brk[NBRK];
 static volatile uint32_t nbrk_user;             /* user breaks present (the bank) */
 
 /* a step: 6 bytes */
-enum { SF_REV = 1u, SF_ACC = 2u };              /* flags: reverse, accent; bits 2-3 ratchet-1; bits 4-6 chance (0 = always) */
+enum { SF_REV = 1u, SF_ACC = 2u };              /* flags: reverse, accent; bits 2-3 and 7 the ratchet (RAT_N); bits 4-6 chance */
 typedef struct {
     uint8_t sl;                                 /* 0: rest; 1..32: slice */
     int8_t pitch;                               /* semitones -24..24 */
     uint8_t fl;                                 /* SF_*, ratchet, chance */
-    uint8_t fx;                                 /* 0: none; 1..11: the punch effect locked on this step */
+    uint8_t fx;                                 /* 0: none; 1..11: a punch effect; 12..43: a DESTROY / BEAT effect locked */
     int8_t nudge;                               /* early / late by nudge/256 of a step: the groove of a break in order */
-    uint8_t pad;
+    uint8_t xt;                                 /* bits 0-3: the condition (COND_*); bits 4-6: the ratchet's ramp (RAMP_*) */
 } step_t;
-#define ST_RAT(s) ((((s).fl >> 2) & 3u) + 1u)
+static const uint8_t RAT_N[8] = {1, 2, 3, 4, 6, 8, 12, 16};   /* the ratchets: hits a step */
+#define ST_RI(s) ((((s).fl >> 2) & 3u) | (((s).fl >> 5) & 4u))
+#define ST_RAT(s) ((uint32_t)RAT_N[ST_RI(s)])
+#define ST_SET_RI(st, i) ((st)->fl = (uint8_t)(((st)->fl & ~0x8Cu) | ((uint32_t)(i) & 3u) << 2 | ((uint32_t)(i) & 4u) << 5))
 #define ST_CH(s) (((s).fl >> 4) & 7u)           /* 0 always, k: (8-k)/8 of the time */
+#define ST_COND(s) ((s).xt & 15u)
+#define ST_RAMP(s) (((s).xt >> 4) & 7u)
+/* the conditions: A:B plays on the A-th of every B loops of the pattern; FIRST its first loop; PRE as the last
+ * conditional step went (and !PRE the other way) */
+enum { CO_ALWAYS, CO_1_2, CO_2_2, CO_1_3, CO_2_3, CO_3_3, CO_1_4, CO_2_4, CO_3_4, CO_4_4, CO_1_8, CO_8_8,
+       CO_FIRST, CO_NFIRST, CO_PRE, CO_NPRE, CO_N };
+/* the ratchet's ramp: the pitch up or down a semitone a hit, up or down an octave over the step, random,
+ * fading, or every other hit backwards */
+enum { RP_NONE, RP_UP, RP_DOWN, RP_OCTUP, RP_OCTDN, RP_RAND, RP_FADE, RP_REVALT, RP_N };
+#define FX_GL 12u                               /* step fx 12..43: DESTROY 0..15, BEAT 16..31 */
 typedef struct {
     step_t st[NSTEP];
     uint8_t len;                                /* 1..64 */
@@ -110,7 +123,7 @@ typedef struct {
     uint8_t metro;          /* 0 off, 1 when recording, 2 always */
     uint8_t clock;          /* 0 internal, 1 MIDI */
     uint8_t vol;            /* 0..15 */
-    uint8_t bt_int[16];     /* the BEAT bank: each effect's INTENSITY, 0..100 */
+    uint8_t bt_int[32];     /* DESTROY (0..15) and BEAT (16..31): each effect's INTENSITY, 0..100 */
     uint8_t pad[3];
 } params_t;
 
@@ -135,7 +148,7 @@ static ev_t evq[NEV];
 static volatile uint32_t ev_w, ev_r;            /* main writes ev_w, the interrupt ev_r */
 
 static volatile uint32_t punch_keys;            /* bit k: punch effect k held (the black keys) */
-static volatile uint32_t beat_keys;             /* bit k: BEAT effect k held (FX's third page, the white keys) */
+static volatile uint32_t beat_keys;             /* bit k: DESTROY (0..15) / BEAT (16..31) effect k held (FX's pages 3, 4) */
 static volatile uint32_t flex_sel = 0xFF;       /* the flex pattern asked for (0..15), 0xFF none */
 static volatile uint32_t flex_on = 0xFF;        /* the one playing (the interrupt sets it at the launch) */
 static volatile uint32_t audio_hold;            /* 1: the interrupt is silent and touches nothing (flash writes) */

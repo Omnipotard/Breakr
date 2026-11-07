@@ -81,6 +81,25 @@ function eq(a, b) { if (a.length !== b.length) return false; for (let i = 0; i <
   if ((await BRK.info(tr)).count !== 0) fail("ERASE count");
   console.log("erase     ok");
 
+  // RESAMPLE on the FM-1 itself: SAVE page, KNOB 1 to RESAMPLE, SAVE: a bar of the output becomes a user break
+  {
+    const run = (blocks) => { for (let i = 0; i < blocks; i++) { ex.breakr_audio(); if (i % 2 === 0) ex.breakr_step(); } };
+    const press = (id) => { ex.breakr_button(id, 1); run(4); ex.breakr_button(id, 0); run(4); };
+    press(8);                                   // (the start screen goes)
+    press(9);                                   // SAVE: the page
+    ex.breakr_turn(2, 5); run(4);               // KNOB 1: ACTION .. RESAMPLE
+    press(9);                                   // SAVE again: armed, the pattern starts
+    run(Math.ceil(44100 * 2.6 / 256));          // a bar at the break's tempo, and the next bar's start
+    for (let i = 0; i < 400; i++) { ex.breakr_audio(); ex.breakr_step(); }
+    const l3 = await BRK.list(tr);
+    if (l3.length !== 1 || !/^RS /.test(l3[0].name)) fail("RESAMPLE: " + JSON.stringify(l3));
+    const rb = await BRK.readBank(tr);
+    const pcm = BRK.imaDecode(rb[0].data, rb[0].frames);
+    let peak = 0; for (const v of pcm) peak = Math.max(peak, Math.abs(v));
+    if (rb[0].rate !== 22050 || rb[0].frames < 22050 || peak < 1000) fail("RESAMPLE take: " + rb[0].frames + " frames, peak " + peak);
+    console.log("resample  " + l3[0].name + ": " + rb[0].frames + " frames, " + l3[0].slices + " slices, peak " + peak);
+  }
+
   // a bad frame and a write out of order are refused, not crashing
   if (ex.breakr_sysex(0) !== 0) fail("empty frame answered");
   const d = BRK.parse(await tr.request(BRK.frame(BRK.CMD.WRITE, [0, 1, 0, 1, 2, 3])));

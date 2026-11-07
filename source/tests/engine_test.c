@@ -26,6 +26,7 @@ static volatile uint32_t fm1_ms;
 #include "brk_snd.c"
 #include "brk_fx.c"
 #include "brk_beat.c"
+#include "brk_rsmp.c"
 #include "brk_seq.c"
 #include "brk_slice.c"
 #include "brk_edit.c"
@@ -228,7 +229,7 @@ static void t_dice(void)
     }
 }
 
-/* BEAT (FX, third page; K-GLITCH's bank): every program at 3 tempos and 3 intensities against the same groove
+/* DESTROY and BEAT (FX, pages 3 and 4; K-GLITCH's banks): every effect at 3 tempos and 3 intensities against the same groove
  * without it: it changes the sound while held, stays in range, lets go cleanly; the gates cut on the bar */
 static void t_beat(void)
 {
@@ -242,14 +243,14 @@ static void t_beat(void)
         bpm10_set(BPMS[bi]);
         ev_push(EV_PLAY, 0, 0, 0);
         dry = render(tot);
-        for (e = 0; e < 16u; e++) {
+        for (e = 0; e < DD_N; e++) {
             for (ii = 0; ii < 3u; ii++) {
                 int32_t *a, *b, *c;
                 double de = 0, dd = 0;
                 uint32_t quiet = 0, win = 0;
                 boot();
                 bpm10_set(BPMS[bi]);
-                for (i = 0; i < 16u; i++) prj.p.bt_int[i] = INT[ii];
+                for (i = 0; i < DD_N; i++) prj.p.bt_int[i] = INT[ii];
                 ev_push(EV_PLAY, 0, 0, 0);
                 a = render(pre);                 /* a bar of the groove, then the program held 2 bars, then let go */
                 bt_key(e, 1);
@@ -267,11 +268,11 @@ static void t_beat(void)
                     for (j = 0; j < 441u; j++) { int32_t v = b[2u * (i + j)]; v = v < 0 ? -v : v; if ((uint32_t)v > pk) pk = (uint32_t)v; }
                     quiet += pk < 200u;
                 }
-                if ((e == BT_GATE8 || e == BT_GATE16) && ii == 1u)
+                if ((e == DD_GATE8 || e == DD_GATE16) && ii == 1u)
                     CHECK(quiet * 100u >= win * 25u && quiet * 100u <= win * 75u, "BEAT gate %u at %u: %u of %u windows silent", e, BPMS[bi], quiet, win);
                 runs++;
                 changed += de > dd * 0.01;
-                if (de <= dd * 0.01 && ii) printf("beat      %-12s %3u%% at %u: no change?\n", BEAT_LONG[e], INT[ii], BPMS[bi] / 10u);
+                if (de <= dd * 0.01 && ii) printf("glitch    %-12s %3u%% at %u: no change?\n", BEAT_LONG[e], INT[ii], BPMS[bi] / 10u);
                 for (i = 2u * 11025u; i < 2u * 22050u; i++)   /* let go: it fades (no stuck effect) */
                     CHECK(kd.cur < 0, "BEAT %u still playing after its key", e);
                 free(a); free(b); free(c);
@@ -279,8 +280,8 @@ static void t_beat(void)
         }
         free(dry);
     }
-    printf("beat      16 programs x 3 tempos x 3 intensities: %u of %u change the groove\n", changed, runs);
-    CHECK(changed * 100u >= runs * 85u, "BEAT: too few programs change the sound");
+    printf("glitch    32 effects (DESTROY, BEAT) x 3 tempos x 3 intensities: %u of %u change the groove\n", changed, runs);
+    CHECK(changed * 100u >= runs * 85u, "DESTROY / BEAT: too few effects change the sound");
 }
 
 static void t_effects(void)
@@ -382,6 +383,42 @@ static void t_ima(void)
     printf("ima       encoder / decoder round trip on 8 breaks: ok\n");
 }
 
+/* the steps' conditions and ratchets: 1:2 plays every other loop, 3:4 once in four, FIRST once; x16 with its ramp */
+static void t_steps(void)
+{
+    uint32_t bar, i, c1[6] = {0}, c3[6] = {0}, cf[6] = {0}, rk[6] = {0};
+    int32_t *o;
+    pat_t *p;
+    boot();
+    bpm10_set(1200);
+    p = &prj.pat[0];
+    prj.cur_pat = 0;
+    memset(p->st, 0, sizeof p->st);
+    p->len = 16; p->rate = RATE_16; p->autog = 0;
+    p->st[0].sl = 1; p->st[0].xt = CO_1_2;
+    p->st[4].sl = 2; p->st[4].xt = CO_3_4;
+    p->st[8].sl = 3; p->st[8].xt = CO_FIRST;
+    p->st[12].sl = 4; ST_SET_RI(&p->st[12], 7u); p->st[12].xt = (uint8_t)(RP_OCTUP << 4);
+    tlog_n = 0;
+    ev_push(EV_PLAY, 0, 0, 0);
+    o = render(44100u * 12u + 4096u);          /* 6 bars at 120 */
+    for (i = 0; i < tlog_n; i++) {
+        bar = tlog[i].t / 384u;
+        if (bar >= 6u) continue;
+        if (tlog[i].k == 0u) c1[bar]++;
+        if (tlog[i].k == 1u) c3[bar]++;
+        if (tlog[i].k == 2u) cf[bar]++;
+        if (tlog[i].k == 3u) rk[bar]++;
+    }
+    printf("steps     1:2 %u%u%u%u%u%u  3:4 %u%u%u%u%u%u  FIRST %u%u%u%u%u%u  x16 %u %u\n", c1[0], c1[1], c1[2], c1[3], c1[4], c1[5],
+           c3[0], c3[1], c3[2], c3[3], c3[4], c3[5], cf[0], cf[1], cf[2], cf[3], cf[4], cf[5], rk[0], rk[1]);
+    CHECK(c1[0] == 1u && c1[1] == 0u && c1[2] == 1u && c1[3] == 0u && c1[4] == 1u, "condition 1:2");
+    CHECK(c3[2] == 1u && c3[0] + c3[1] + c3[3] == 0u && c3[5] == 0u, "condition 3:4");
+    CHECK(cf[0] == 1u && cf[1] + cf[2] + cf[3] + cf[4] + cf[5] == 0u, "condition FIRST");
+    CHECK(rk[0] == 16u && rk[1] == 16u, "ratchet x16: %u, %u hits", rk[0], rk[1]);
+    free(o);
+}
+
 static void t_generators(void)
 {
     uint32_t b, s, r, bad = 0, total = 0;
@@ -395,7 +432,7 @@ static void t_generators(void)
                 for (i = 0; i < pat_len(&p); i++) {
                     if (p.st[i].sl > sl_count(b)) bad++;
                     notes += p.st[i].sl != 0;
-                    if (p.st[i].fx > NPUNCH) bad++;
+                    if (p.st[i].fx >= FX_GL + DD_N || ST_COND(p.st[i]) >= CO_N) bad++;
                 }
                 if (!notes) bad++;
                 total++;
@@ -414,6 +451,7 @@ int main(void)
     t_beat();
     t_effects();
     t_slicing();
+    t_steps();
     t_generators();
     printf(fails ? "\n%d CHECK(S) FAILED\n" : "\nALL ENGINE CHECKS PASSED\n", fails);
     return fails != 0;

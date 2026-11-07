@@ -162,6 +162,51 @@ static void bank_boot(void)
     bank_crc = h.crc_data ^ h.crc_dir;
 }
 
+/* a break appended to the bank (RESAMPLE): its sound from the next sector after the bank's, its entry, then the
+ * header rewritten last (a cut write leaves the old bank's header gone: the bank then reads empty, as after a cut
+ * upload). 0: done, its index in the bank in *at; -1 no store, -2 the bank is full, -3 no room, -4 flash. */
+static uint8_t ent_tmp[NUSER * 224u];
+static int bank_append(const uint8_t *data, uint32_t len, const bank_ent_t *e0, uint32_t *at)
+{
+    bank_hdr_t h;
+    bank_ent_t e = *e0;
+    uint32_t n = 0, off = 0, i;
+    int rc = 0;
+    if (!store_ok()) return -1;
+    if (!st_rd(BANK_AT, &h, sizeof h) && h.magic == BANK_MAGIC && h.version == 1u && h.n <= NUSER && h.data_len <= BANK_CAP &&
+        bank_crc) {                             /* (a bank that bank_boot took: kept) */
+        n = h.n;
+        off = (h.data_len + 0xFFFu) & ~0xFFFu;
+        st_rd(ENT_AT(0), ent_tmp, n * 224u);
+    }
+    if (n >= NUSER) return -2;
+    if (off + len > BANK_CAP) return -3;
+    e.off = off;
+    e.len = len;
+    e.crc = crc_of(data, len);
+    memcpy(ent_tmp + n * 224u, &e, 224u);
+    sound_hold();
+    for (i = 0; i < len && !rc; i += 0x1000u) rc = st_erase(BANK_DATA + off + i);
+    if (!rc) rc = st_prog(BANK_DATA + off, data, len);
+    if (!rc) {
+        h.magic = BANK_MAGIC;
+        h.version = 1u;
+        h.n = n + 1u;
+        h.data_len = off + len;
+        h.crc_data = crc_of(st_xip(BANK_DATA), h.data_len);
+        h.crc_dir = crc_of(ent_tmp, h.n * 224u);
+        h.rsv[0] = h.rsv[1] = 0;
+        rc = st_erase(BANK_AT);
+        if (!rc) rc = st_prog(ENT_AT(0), ent_tmp, h.n * 224u);
+        if (!rc) rc = st_prog(BANK_AT, &h, sizeof h);
+    }
+    sound_free();
+    bank_boot();
+    if (rc) return -4;
+    *at = n;
+    return 0;
+}
+
 /* the factory breaks into brk[0..] */
 static void fact_boot(void)
 {

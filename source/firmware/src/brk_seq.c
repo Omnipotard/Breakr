@@ -9,8 +9,8 @@
  * the dice (another slice, backwards, a roll, a skip, a jump of pitch; FREE or LOCKed on a seed so the
  * variation repeats), its own chance, then its triggers are scheduled (the swing, the ratchets). */
 
-typedef struct { uint32_t t; uint8_t b, k, rev, acc; int8_t pitch; uint8_t sub, pad[2]; } trig_t;
-#define NTRIG 16u
+typedef struct { uint32_t t; uint8_t b, k, rev, acc; int8_t pitch; uint8_t sub, pad[2]; } trig_t;   /* acc: bit 0 accent, 1-4 quieter */
+#define NTRIG 24u
 #define NPEND 8u
 static struct {
     uint32_t tick;                              /* the current tick (since PLAY; free-running when stopped) */
@@ -23,6 +23,8 @@ static struct {
     uint32_t rep_n, rep_base, rep_cnt;          /* repeat: steps looped (0: none) */
     uint32_t trip;
     uint32_t cur_fx;                            /* the punch effect locked on the step that plays */
+    int32_t nom_bt;                             /* the DESTROY / BEAT effect the prepared step locks (-1 none) */
+    uint32_t loop, pre;                         /* the pattern's loops since PLAY (conditions); the last condition's result */
     trig_t tr[NTRIG];
     uint32_t ntr;
     trig_t pend[NPEND];                         /* due inside the current tick: in frames from now (.t) */
@@ -72,7 +74,8 @@ static void trigger(uint32_t b, uint32_t k, int32_t pitch, uint32_t rev, uint32_
     }
     if (fx >> PX_REV & 1u) rev ^= 1u;
     TLOG(k, rev);
-    if (acc) gain = gain * 3 / 2;
+    if (acc & 1u) gain = gain * 3 / 2;
+    if (acc >> 1) gain = gain * (int32_t)(16u - ((acc >> 1) & 15u)) / 16;   /* (a fading ratchet) */
     if (prj.p.choke) vo_choke();
     if (fx >> PX_UNI & 1u) {
         vo_start(b, k, (speed >> 8) * 65159u >> 8, rev, gain * 3 / 4, -48, 0, key, live);
@@ -156,12 +159,28 @@ static void fire_step(uint32_t idx, uint32_t t, uint32_t plen, uint32_t odd, uin
         if (code == FX_REST) { vo_choke(); return; }
         s = pat->st[(sq.flex_base + (code & 15u)) % len];
         if (code & RV) s.fl ^= SF_REV;
-        if (code & R4) s.fl = (uint8_t)(s.fl | 3u << 2);
-        else if (code & R2) s.fl = (uint8_t)((s.fl & ~0x0Cu) | 1u << 2);
+        if (code & R4) ST_SET_RI(&s, 3u);
+        else if (code & R2) ST_SET_RI(&s, 1u);
         if (prj.p.fl_pitch) s.pitch = (int8_t)(s.pitch + f->pitch[bp]);
     }
     sq.nom_fx = s.fx && s.fx <= NPUNCH ? 1u << (s.fx - 1u) : 0;
+    sq.nom_bt = s.fx >= FX_GL && s.fx < FX_GL + DD_N ? (int32_t)(s.fx - FX_GL) : -1;
+    if (sq_rec && sq_play && beat_keys) {       /* REC: a DESTROY / BEAT effect held is written on the step */
+        int32_t w = bt_want();
+        if (w >= 0) { ((pat_t *)pat)->st[idx].fx = (uint8_t)(FX_GL + (uint32_t)w); ((pat_t *)pat)->autog = 0; }
+    }
     if (!s.sl) return;
+    if (ST_COND(s)) {                           /* the condition: on which loops of the pattern */
+        static const uint8_t A[CO_N] = {0, 1, 2, 1, 2, 3, 1, 2, 3, 4, 1, 8}, B[CO_N] = {1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 8, 8};
+        uint32_t c = ST_COND(s), ok;
+        if (c < CO_FIRST) ok = sq.loop % B[c] == (uint32_t)(A[c] - 1u);
+        else if (c == CO_FIRST) ok = sq.loop == 0u;
+        else if (c == CO_NFIRST) ok = sq.loop != 0u;
+        else if (c == CO_PRE) ok = sq.pre;
+        else ok = !sq.pre;
+        if (c < CO_PRE) sq.pre = ok;
+        if (!ok) return;
+    }
     if (sq.rec_skip == idx) { sq.rec_skip = 0xFFFFu; return; }
     k = s.sl - 1u;
     pitch = s.pitch;
@@ -180,7 +199,7 @@ static void fire_step(uint32_t idx, uint32_t t, uint32_t plen, uint32_t odd, uin
     /* the step's own chance */
     if (ST_CH(s) && dice(9) % 8u < ST_CH(s)) return;
     if ((punch_keys | sq.nom_fx) >> PX_ROLL & 1u) rat *= 2u;
-    if (rat > 8u) rat = 8u;
+    if (rat > 16u) rat = 16u;
     n = sl_count(b);
     if (k >= n) return;
     /* when: the swing (odd steps), the nudge (the break's own groove: early or late), never before now;
@@ -191,8 +210,21 @@ static void fire_step(uint32_t idx, uint32_t t, uint32_t plen, uint32_t odd, uin
     when = (uint32_t)((int32_t)(t * 256u) + d);
     if ((int32_t)(when - now * 256u) < 0) when = now * 256u;
     if ((int32_t)(when - end) >= 0) when = end - 1u;
-    for (i = 0; i < rat; i++)
-        sched(when + i * (end - when) / rat, b, k, pitch, rev, acc && i == 0u);
+    for (i = 0; i < rat; i++) {                 /* the ratchets, and their ramp */
+        int32_t p = pitch;
+        uint32_t rv = rev, lvl = 0;
+        switch (ST_RAMP(s)) {
+        case RP_UP: p += (int32_t)i; break;
+        case RP_DOWN: p -= (int32_t)i; break;
+        case RP_OCTUP: p += rat > 1u ? (int32_t)(i * 12u / (rat - 1u)) : 0; break;
+        case RP_OCTDN: p -= rat > 1u ? (int32_t)(i * 12u / (rat - 1u)) : 0; break;
+        case RP_RAND: if (i) p += (int32_t)(dice(10 + i) % 15u) - 7; break;
+        case RP_FADE: lvl = rat > 1u ? i * 13u / (rat - 1u) : 0u; break;
+        case RP_REVALT: rv ^= i & 1u; break;
+        default: break;
+        }
+        sched(when + i * (end - when) / rat, b, k, p, rv, (acc && i == 0u ? 1u : 0u) | lvl << 1);
+    }
 }
 
 /* ---- the transport */
@@ -213,6 +245,10 @@ static void seq_reset(void)
     sq.ntr = 0;
     sq.npend = 0;
     sq.cur_fx = 0;
+    sq.nom_bt = -1;
+    sq.loop = 0;
+    sq.pre = 1;
+    bt_seq = -1;
     sq.flex_cnt = 0;
     sq.rec_skip = 0xFFFFu;
     sq.gate1_t = sq.gate2_t = 0xFFFFFFFFu;
@@ -277,6 +313,7 @@ static void tick(uint32_t t)
         if (sq.p_next == sq.m_next && sq.m_pos == 0u && sq.m_cnt) {   /* the pattern ends: the next, the chain */
             uint32_t was = prj.cur_pat;
             next_pattern();
+            sq.loop = prj.cur_pat != was ? 0u : sq.loop + 1u;
             if (prj.cur_pat != was) {
                 pat = &prj.pat[prj.cur_pat];
                 len = pat_len(pat);
@@ -316,6 +353,7 @@ static void tick(uint32_t t)
     if (sq.prepped && (int32_t)(t - sq.p_next) >= 0) {
         sq_pos = sq.p_last = sq.nom_idx;
         sq.cur_fx = sq.nom_fx;
+        bt_seq = (int8_t)sq.nom_bt;
         sq.p_cur = sq.p_next;
         sq.p_next += sq.nom_len;
         sq.p_cnt++;
@@ -411,6 +449,7 @@ static void handle_ev(const ev_t *e)
         sq.ntr = 0;
         sq.npend = 0;
         sq.cur_fx = 0;
+        bt_seq = -1;
         sq_pos = 0xFF;
         mx.gate_t = 32767;
         if (flex_on < NFLEX) flex_on = 0xFF;
@@ -419,6 +458,7 @@ static void handle_ev(const ev_t *e)
         sq_play = 0;
         sq_rec = 0;
         sq.ntr = 0;
+        bt_seq = -1;
         vo_off_key(0xFF);
         break;
     default:
@@ -519,6 +559,7 @@ static void app_audio(int32_t *out, uint32_t n)
     }
     bt_process(mixL, mixR, n);                 /* the BEAT bank, then the master */
     fx_master(mixL, mixR, n);
+    rs_tap(mixL, mixR, n);                      /* RESAMPLE: what comes out */
     for (i = 0; i < n; i++) {
         out[2u * i] = mixL[i];
         out[2u * i + 1u] = mixR[i];

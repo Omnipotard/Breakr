@@ -56,8 +56,16 @@ static void put(pat_t *p, uint32_t at, uint32_t k, int32_t pitch, uint32_t fl, u
     p->st[at].fl = (uint8_t)fl;
     p->st[at].fx = (uint8_t)fx;
     p->st[at].nudge = 0;
+    p->st[at].xt = 0;
 }
 #define RAT(n) ((uint32_t)((n) - 1u) << 2)
+static void put_rat(pat_t *p, uint32_t at, uint32_t ri, uint32_t ramp)   /* a ratchet (RAT_N index) and its ramp */
+{
+    if (at >= NSTEP || !p->st[at].sl) return;
+    ST_SET_RI(&p->st[at], ri);
+    p->st[at].xt = (uint8_t)((p->st[at].xt & 15u) | (ramp & 7u) << 4);
+}
+static uint32_t euclid(uint32_t k, uint32_t n, uint32_t i) { return n && (i * k) % n < k; }   /* k hits over n */
 
 /* write pattern p for break b in a style; roll: which roll of the dice (0: the same as ORIG for most) */
 static void gen_pattern(pat_t *p, uint32_t b, uint32_t style, uint32_t roll, uint32_t dens, uint32_t var)
@@ -150,6 +158,65 @@ static void gen_pattern(pat_t *p, uint32_t b, uint32_t style, uint32_t roll, uin
             if (gpct(var / 4u)) p->st[i].sl = 0;
         }
         break;
+    case GS_DRILL:                              /* drill'n'bass: the break's hits, drilled (ratchets that climb or fall) */
+        for (i = 0; i < len; i++) p->st[i].sl = 0;
+        for (bar = 0; bar * 16u < len; bar++) {
+            uint32_t o16 = bar * 16u, db = 1u + (grand() % 2u) * 2u, end = (bar & 1u) || len <= 16u;
+            static const uint8_t RMP[4] = {RP_UP, RP_DOWN, RP_OCTUP, RP_FADE};
+            put(p, o16, K, 0, SF_ACC, 0);
+            put(p, o16 + 4u, S, 0, SF_ACC, 0);
+            put(p, o16 + 12u, S, 0, SF_ACC, 0);
+            if (gpct(60u)) put(p, o16 + 10u, pick_class(b, CL_K, K), 0, 0, 0);
+            if (gpct(30u + var / 4u)) put(p, o16 + 7u, pick_class(b, CL_K, K), 0, 0, 0);
+            for (i = 1; i < 16u; i++) {          /* the gaps: hats and ghosts, some drilled */
+                uint32_t at = o16 + i;
+                if (p->st[at].sl || !gpct(dens)) continue;
+                put(p, at, gpct(60u) ? pick_class(b, CL_H, H) : grand() % n, gpct(var / 4u) ? ((grand() & 1u) ? 12 : -12) : 0, 0, 0);
+                if (gpct(var / 2u)) put_rat(p, at, 1u + grand() % 5u, RMP[grand() % 4u]);
+            }
+            for (i = 1; i < 4u; i++)             /* a snare drill on one beat */
+                if (gpct(55u + var / 3u)) { put(p, o16 + db * 4u + i, pick_class(b, CL_S, S), 0, 0, 0); put_rat(p, o16 + db * 4u + i, 2u + grand() % 4u, RP_UP); }
+            if (end) {                           /* the phrase's end: 12 and 16 hits up an octave */
+                put(p, o16 + 14u, S, 0, SF_ACC, 0);
+                put_rat(p, o16 + 14u, 6u, RP_OCTUP);
+                put(p, o16 + 15u, pick_class(b, CL_S, S), gpct(var) ? 5 : 0, 0, 0);
+                put_rat(p, o16 + 15u, 7u, gpct(50u) ? RP_OCTUP : RP_DOWN);
+            }
+        }
+        break;
+    case GS_CORE:                               /* breakcore: four on the floor under amen edits, rolls, glitches */
+        for (i = 0; i < len; i++) {
+            uint32_t q = i % 16u;
+            if (q % 4u == 0u) { put(p, i, K, q == 0u ? 0 : -3, SF_ACC, 0); continue; }
+            if (q == 4u || q == 12u) { put(p, i, S, 0, SF_ACC, 0); continue; }
+            if (!gpct(40u + dens / 2u)) { p->st[i].sl = 0; continue; }
+            put(p, i, grand() % n, gpct(var / 5u) ? 7 : 0, gpct(var / 3u) ? SF_REV : 0, 0);
+            if (gpct(20u + var / 3u)) put_rat(p, i, 3u + grand() % 5u, gpct(50u) ? RP_FADE : RP_DOWN);
+            if (gpct(var / 6u)) p->st[i].fx = (uint8_t)(FX_GL + (gpct(50u) ? 16u + 0u : 1u));   /* RND STUTTER / STUTTER X */
+        }
+        for (bar = 0; bar * 16u < len; bar++)
+            if ((bar & 1u) || len <= 16u) {      /* the end of the phrase: a scratch, a roll */
+                p->st[bar * 16u + 13u].fx = (uint8_t)(FX_GL + 3u);   /* SCRATCH */
+                put(p, bar * 16u + 15u, S, 0, SF_ACC, 0);
+                put_rat(p, bar * 16u + 15u, 7u, RP_OCTUP);
+            }
+        break;
+    case GS_IDM: {                              /* IDM: an odd length against the bar, euclidean hits, conditions */
+        uint32_t L = len - 1u - grand() % 3u, kk = 3u + grand() % 3u, ss = 2u + grand() % 2u, rot = grand() % 4u;
+        for (i = 0; i < len; i++) p->st[i].sl = 0;
+        p->len = (uint8_t)L;
+        for (i = 0; i < L; i++) {
+            if (euclid(kk, L, i)) put(p, i, pick_class(b, CL_K, K), 0, i == 0u ? SF_ACC : 0, 0);
+            else if (euclid(ss, L, (i + L - rot - 4u) % L)) put(p, i, pick_class(b, CL_S, S), 0, 0, 0);
+            else if (gpct(dens)) put(p, i, gpct(50u) ? pick_class(b, CL_H, H) : grand() % n, gpct(var / 4u) ? -5 : 0, 0, 0);
+            else continue;
+            p->st[i].nudge = (int8_t)((int32_t)(grand() % 61u) - 30);
+            if (gpct(var / 3u)) p->st[i].xt = (uint8_t)(CO_1_2 + grand() % 6u);
+            if (gpct(var / 3u)) put_rat(p, i, 2u + grand() % 2u, RP_REVALT);
+            if (gpct(var / 8u)) p->st[i].fx = (uint8_t)(FX_GL + (gpct(50u) ? 2u : 10u));   /* GLITCH / MICRO STUTTER */
+        }
+        break;
+    }
     case GS_BUILD:
         for (i = 0; i < len; i++) {
             uint32_t q = i % 16u;
@@ -326,7 +393,7 @@ static void prj_defaults(void)
     prj.p.fl_depth = 100;
     prj.p.fl_pitch = 1;
     prj.p.vol = 12;
-    for (i = 0; i < 16u; i++) prj.p.bt_int[i] = 50;
+    for (i = 0; i < 32u; i++) prj.p.bt_int[i] = 50;
     for (i = 0; i < NBRK; i++) { prj.sc[i].count = 16; prj.sc[i].sens = 5; prj.sc[i].bars = brk[i].bars; }
     for (i = 0; i < 8u; i++) {
         uint32_t b = i < NFACT && brk[i].data ? i : 0;
@@ -379,7 +446,7 @@ static void prj_sanitize(void)
     if (p->metro > 2u) p->metro = 0;
     if (p->clock > 1u) p->clock = 0;
     if (p->vol > 15u) p->vol = 12;
-    for (i = 0; i < 16u; i++) if (p->bt_int[i] > 100u) p->bt_int[i] = 50;
+    for (i = 0; i < 32u; i++) if (p->bt_int[i] > 100u) p->bt_int[i] = 50;
     for (i = 0; i < NPAT; i++) {
         pat_t *pt = &prj.pat[i];
         if (pt->len < 1u || pt->len > NSTEP) pt->len = 16;

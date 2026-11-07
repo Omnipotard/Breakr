@@ -2,7 +2,10 @@
 /* BREAKR: drawing. The screen is drawn in 8 bands of 240 x 30 (everything outside a band is clipped), each
  * band cut in 3 tiles of 80 x 30, hashed, and only the tiles that changed are sent (the panel's SPI runs at
  * 12 MHz: a whole screen is ~77 ms, a tile ~3 ms). One band a pass of the main loop, so the keys are never
- * kept waiting. Colours RGB565, anti-aliased text from Inter (gen/brk_fonts.h). After KAWA's renderer. */
+ * kept waiting. Colours RGB565, anti-aliased text (gen/brk_fonts.h). After KAWA's renderer.
+ * The look: a rack's panel at night. Ink black, one signal colour a theme (and a second one for what is
+ * armed), boxes with two corners cut like tape labels, a narrow grotesque for what is read and pixel type for
+ * the small marks that say what a control does. */
 #define BAND_H 30u
 #define NBAND 8u
 #define TILE_W 80u
@@ -16,20 +19,21 @@ static uint8_t g_force = 1, g_txi, g_band;
 /* ---- colours: a dark panel, the accent of the theme, a colour a knob, one a slice */
 typedef struct { const char *name; uint16_t acc, acc2; } theme_t;
 static const theme_t THEMES[] = {
-    {"AMBER", RGB(255, 150, 30), RGB(255, 214, 120)},
-    {"ACID", RGB(170, 255, 40), RGB(220, 255, 150)},
-    {"CYAN", RGB(40, 210, 255), RGB(160, 236, 255)},
-    {"PINK", RGB(255, 80, 170), RGB(255, 170, 214)},
+    {"WARP", RGB(232, 255, 46), RGB(255, 64, 48)},        /* acid yellow, signal red */
+    {"RAVE", RGB(255, 45, 149), RGB(0, 229, 255)},        /* magenta, cyan */
+    {"AMEN", RGB(255, 122, 26), RGB(255, 232, 196)},      /* orange, cream */
+    {"PHOSPHOR", RGB(57, 255, 136), RGB(190, 255, 214)},  /* green on black */
+    {"MONO", RGB(244, 244, 244), RGB(255, 64, 48)},       /* white, a red dot */
 };
-#define NTHEME 4u
+#define NTHEME 5u
 static uint8_t theme;
-#define C_BG RGB(10, 11, 14)
-#define C_PANEL RGB(24, 26, 32)
-#define C_PANEL2 RGB(36, 39, 48)
-#define C_EDGE RGB(54, 58, 70)
-#define C_TXT RGB(236, 238, 242)
-#define C_SUB RGB(150, 156, 170)
-#define C_DIMT RGB(92, 98, 112)
+#define C_BG RGB(7, 8, 11)
+#define C_PANEL RGB(19, 21, 28)
+#define C_PANEL2 RGB(32, 35, 45)
+#define C_EDGE RGB(50, 54, 68)
+#define C_TXT RGB(242, 243, 245)
+#define C_SUB RGB(150, 156, 172)
+#define C_DIMT RGB(90, 96, 112)
 #define C_ACC (THEMES[theme].acc)
 #define C_ACC2 (THEMES[theme].acc2)
 #define C_REC RGB(255, 60, 60)
@@ -96,8 +100,22 @@ static void g_pxb(int32_t x, int32_t y, uint16_t c, uint32_t t)
     }
 }
 
-/* a rounded box (radius 3, the corners blended) */
+/* a box with its top-left and bottom-right corners cut (3 px, the diagonal blended): a tape label */
 static void g_round(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)
+{
+    int32_t r;
+    if (!g_vis(y, h)) return;
+    if (w < 8 || h < 8) { g_rect(x, y, w, h, c); return; }
+    for (r = 0; r < 3; r++) {
+        g_rect(x + 3 - r, y + r, w - 3 + r, 1, c);
+        g_pxb(x + 2 - r, y + r, c, 110);
+        g_rect(x, y + h - 1 - r, w - 3 + r, 1, c);
+        g_pxb(x + w - 3 + r, y + h - 1 - r, c, 110);
+    }
+    g_rect(x, y + 3, w, h - 6, c);
+}
+/* the rounded box of before (radius 3), for the round things */
+static void g_soft(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)
 {
     if (!g_vis(y, h) || w < 6 || h < 6) { if (g_vis(y, h)) g_rect(x, y, w, h, c); return; }
     g_rect(x + 3, y, w - 6, h, c);
@@ -116,14 +134,25 @@ static void g_round(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)
     g_rect(x + w - 3, y + h - 1, 1, 1, c); g_rect(x + w - 1, y + h - 3, 1, 1, c);
     g_pxb(x + w - 2, y + h - 1, c, 140); g_pxb(x + w - 1, y + h - 2, c, 140);
 }
-static void g_outline(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)
+static void g_outline(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)   /* (the label's edge) */
 {
     if (!g_vis(y, h)) return;
-    g_rect(x + 2, y, w - 4, 1, c);
-    g_rect(x + 2, y + h - 1, w - 4, 1, c);
-    g_rect(x, y + 2, 1, h - 4, c);
-    g_rect(x + w - 1, y + 2, 1, h - 4, c);
-    g_px(x + 1, y + 1, c); g_px(x + w - 2, y + 1, c); g_px(x + 1, y + h - 2, c); g_px(x + w - 2, y + h - 2, c);
+    g_rect(x + 3, y, w - 3, 1, c);
+    g_rect(x, y + h - 1, w - 3, 1, c);
+    g_rect(x, y + 3, 1, h - 3, c);
+    g_rect(x + w - 1, y, 1, h - 3, c);
+    g_px(x + 2, y + 1, c); g_px(x + 1, y + 2, c);
+    g_px(x + w - 2, y + h - 2, c); g_px(x + w - 3, y + h - 1 - 0, c); g_px(x + w - 1, y + h - 3, c);
+}
+/* diagonal hatching (armed, recording, held): 2 lines of 6 */
+static void g_hatch(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c, uint32_t t, uint32_t ph)
+{
+    int32_t i, j, y1 = y + h;
+    if (y < g_y0) y = g_y0;
+    if (y1 > g_y0 + (int32_t)BAND_H) y1 = g_y0 + (int32_t)BAND_H;
+    for (j = y; j < y1; j++)
+        for (i = x < 0 ? 0 : x; i < x + w && i < 240; i++)
+            if ((uint32_t)(i + j + (int32_t)ph) % 6u < 2u) g_pxb(i, j, c, t);
 }
 
 /* text in a font (gen/brk_fonts.h), the glyph's levels blended into what is under it; returns the end x */

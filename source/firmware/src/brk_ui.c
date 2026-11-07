@@ -239,7 +239,7 @@ static void knob_info(uint32_t k, kv_t *o)
         } else {
             if (k == 0) kv_txt(o, TR("HORLOGE", "CLOCK"), p->clock ? "MIDI" : "INT", p->clock * 1000);
             if (k == 1) kv_txt(o, TR("LANGUE", "LANG"), lang ? "ENGLISH" : "FRANCAIS", lang * 1000);
-            if (k == 2) kv_txt(o, TR("THEME", "THEME"), THEMES[theme % NTHEME].name, (int32_t)theme * 333);
+            if (k == 2) kv_txt(o, TR("THEME", "THEME"), THEMES[theme % NTHEME].name, (int32_t)theme * 250);
             if (k == 3) kv_int(o, "VOL", p->vol, 0, 15, 0);
         }
         break;
@@ -553,61 +553,145 @@ static void draw_header(void)
 {
     char t[28];
     int32_t x, w;
-    uint32_t b = cur_brk();
-    if (!g_vis(0, 26)) return;
-    g_rect(0, 0, 240, 25, C_BG);
-    w = g_tw(&FONT_BM, PAGE_NAME[page]) + 14;
-    g_round(3, 3, w, 19, C_ACC);
-    g_text(&FONT_BM, 10, 5, PAGE_NAME[page], C_BG);
-    x = 3 + w + 6;
-    if (PAGE_SUBS[page] > 1u) {
-        uint32_t i;
-        for (i = 0; i < PAGE_SUBS[page]; i++) g_rect(x + (int32_t)i * 6, 11, 4, 4, i == sub[page] ? C_ACC2 : C_EDGE);
-        x += (int32_t)PAGE_SUBS[page] * 6 + 4;
+    uint32_t b = cur_brk(), i;
+    if (g_vis(0, 25)) {
+        g_rect(0, 0, 240, 25, C_BG);
+        w = g_tw(&FONT_BM, PAGE_NAME[page]) + 16;   /* the page: a label in the signal colour */
+        g_round(0, 2, w, 21, C_ACC);
+        g_text(&FONT_BM, 7, 3, PAGE_NAME[page], C_BG);
+        x = w + 5;
+        t[0] = 0;                                /* the pattern (> the next one), the page's part */
+        str_cat(t, "PAT ");
+        fmt_u(t + str_len(t), prj.cur_pat + 1u, 2);
+        if (pat_next < NPAT) { str_cat(t, ">"); fmt_u(t + str_len(t), pat_next + 1u, 2); }
+        g_text(&FONT_PX, x, 2, t, pat_next < NPAT && (fm1_ms / 200u & 1u) ? C_ACC : C_SUB);
+        if (PAGE_SUBS[page] > 1u)
+            for (i = 0; i < PAGE_SUBS[page]; i++) g_rect(x + 50 + (int32_t)i * 6, 4, 4, 3, i == sub[page] ? C_ACC : C_EDGE);
+        g_textw(&FONT_BS, x, 10, 172 - x, brk[b].name, C_TXT);
+        fmt_bpm(t, bpm10());                     /* the tempo; the transport */
+        g_textr(&FONT_BM, 220, 3, t, prj.p.clock ? C_ACC2 : C_TXT);
+        g_text(&FONT_PX, 180, 18, prj.p.clock ? "MIDI" : "BPM", C_DIMT);
+        if (sq_rec) g_dot(230, 12, 5, (fm1_ms / 300u & 1u) || !sq_play ? C_REC : RGB(120, 20, 20));
+        else if (sq_play) g_play(225, 5, 15, C_ACC);
+        else g_rect(225, 7, 10, 10, C_SUB);
     }
-    t[0] = 'P';
-    fmt_u(t + 1, prj.cur_pat + 1u, 2);
-    if (pat_next < NPAT) { str_cat(t, " > "); fmt_u(t + str_len(t), pat_next + 1u, 2); }
-    g_text(&FONT_BS, x, 0, t, pat_next < NPAT && (fm1_ms / 200u & 1u) ? C_ACC : C_SUB);
-    g_textw(&FONT_BS, x, 12, 168 - x, brk[b].name, C_DIMT);
-    fmt_bpm(t, bpm10());
-    g_textr(&FONT_BM, 220, 5, t, prj.p.clock ? C_ACC2 : C_TXT);
-    if (sq_rec) g_dot(230, 12, 5, (fm1_ms / 300u & 1u) || !sq_play ? C_REC : RGB(120, 20, 20));
-    else if (sq_play) g_play(226, 6, 13, C_PLAY);
-    else g_rect(225, 7, 10, 10, C_SUB);
-    g_rect(0, 25, 240, 1, C_EDGE);
+    if (g_vis(25, 3)) {                          /* the bar: 16 steps, the one playing lit, the beats marked */
+        uint32_t at = sq_play && sq_pos < NSTEP ? sq_pos % 16u : 0xFFu;
+        g_rect(0, 25, 240, 3, C_BG);
+        for (i = 0; i < 16u; i++) {
+            int32_t xx = (int32_t)i * 15;
+            uint16_t c = i == at ? C_ACC : at != 0xFFu && i < at ? g_mix(C_PANEL2, C_ACC, 70) : (i & 3u) ? C_PANEL2 : C_EDGE;
+            g_rect(xx, 25, 14, i == at ? 3 : 2, c);
+        }
+    }
 }
 
+/* what each control does on this page, short (the strip over the knobs, the emulator's labels) */
+enum { H_SEL, H_ALG, H_PRE, H_OCTD, H_OCTU, H_WHITE, H_BLACK, H_REC, H_N };
+static const char *hint(uint32_t c)
+{
+    uint32_t s = sub[page];
+    switch (c) {
+    case H_ALG: return "TEMPO";
+    case H_PRE: return "PATTERN";
+    case H_REC: return page == P_SAVE && save_act == 5u ? "RESAMPLE" : TR("ENREG.", "RECORD");
+    case H_BLACK: return page == P_SEQ && held_step >= 0 ? "FX LOCK" : "PUNCH";
+    default: break;
+    }
+    switch (page) {
+    case P_SEQ:
+        if (c == H_SEL) return TR("PINCEAU", "BRUSH");
+        if (c == H_OCTD || c == H_OCTU) return "17-64";
+        if (c == H_WHITE) return held_step >= 0 ? TR("TENU", "HELD") : TR("PAS", "STEPS");
+        break;
+    case P_CHOP:
+        if (c == H_SEL) return TR("TRANCHE", "SLICE");
+        if (c == H_OCTD) return TR("JOINDRE", "JOIN");
+        if (c == H_OCTU) return TR("COUPER", "SPLIT");
+        break;
+    case P_DICE:
+        if (c == H_OCTD) return TR("ANNULER", "UNDO");
+        if (c == H_OCTU) return "-";
+        break;
+    case P_FLEX:
+        if (c == H_SEL) return "FLEX";
+        if (c == H_WHITE) return "FLEX";
+        if (c == H_OCTD || c == H_OCTU) return "-";
+        break;
+    case P_FX:
+        if (s >= 2u && c == H_WHITE) return s == 2u ? "DESTROY" : "BEAT";
+        if (c == H_OCTD || c == H_OCTU) return "-";
+        break;
+    case P_GLOBAL:
+        if (c == H_OCTU) return TR("TAP", "TAP");
+        if (c == H_OCTD) return "-";
+        break;
+    case P_SAVE:
+        if (c == H_SEL) return "SLOT";
+        if (c == H_OCTD) return TR("ANNULER", "UNDO");
+        if (c == H_OCTU) return TR("SANS CH.", "NOCHAIN");
+        if (c == H_WHITE) return "PATTERN";
+        break;
+    default:
+        break;
+    }
+    if (c == H_SEL) return "BREAK";
+    if (c == H_OCTD) return "1-16";
+    if (c == H_OCTU) return "17-32";
+    if (c == H_WHITE) return TR("TRANCHES", "SLICES");
+    return "";
+}
+
+/* the strip over the knobs: SEL, OCT, the white keys, the black ones, in pixel type */
+static void draw_hints(void)
+{
+    static const char *const KEY[4] = {"SEL", "OCT", "WHT", "BLK"};
+    static const uint8_t WHAT[4] = {H_SEL, H_OCTU, H_WHITE, H_BLACK};
+    uint32_t i;
+    if (!g_vis(185, 12)) return;
+    g_rect(0, 185, 240, 12, C_BG);
+    for (i = 0; i < 4u; i++) {
+        int32_t x = (int32_t)i * 60 + 1;
+        const char *w = hint(WHAT[i]);
+        if (i == 1u && (page == P_DICE || page == P_SAVE || w[0] == '-')) w = hint(H_OCTD);
+        if (i == 1u && page == P_CHOP) w = "JOIN/CUT";
+        x = g_text(&FONT_PX, x, 187, KEY[i], C_ACC);
+        g_textw(&FONT_PX, x + 2, 187, 59 - (x + 2 - ((int32_t)i * 60 + 1)), w, C_SUB);
+    }
+}
 static void draw_knobs(void)
 {
     uint32_t k;
-    if (!g_vis(198, 42)) return;
+    if (!g_vis(197, 43)) return;
     g_rect(0, 197, 240, 43, C_BG);
-    g_rect(0, 197, 240, 1, C_EDGE);
     for (k = 0; k < 4u; k++) {
         kv_t o;
         int32_t x = (int32_t)k * 60;
         knob_info(k, &o);
+        g_rect(x + 1, 197, 58, 2, o.name[0] ? KNOB_C[k] : C_PANEL);   /* the knob's colour, on top of its cell */
         if (!o.name[0]) continue;
-        g_rect(x + 4, 201, 52, 3, C_PANEL2);
+        g_round(x + 1, 200, 58, 39, C_PANEL);
+        g_rect(x + 4, 233, 52, 3, C_PANEL2);     /* where it is: a bar along the bottom */
         if (o.frac >= 0) {
             if (o.bip) {
                 int32_t m = x + 30, e = x + 4 + o.frac * 52 / 1000;
-                if (e >= m) g_rect(m, 201, e - m + 1, 3, KNOB_C[k]);
-                else g_rect(e, 201, m - e, 3, KNOB_C[k]);
-                g_rect(m, 200, 1, 5, C_SUB);
+                if (e >= m) g_rect(m, 233, e - m + 1, 3, KNOB_C[k]);
+                else g_rect(e, 233, m - e, 3, KNOB_C[k]);
+                g_rect(m, 232, 1, 5, C_TXT);
             } else {
-                g_rect(x + 4, 201, 2 + o.frac * 50 / 1000, 3, KNOB_C[k]);
+                g_rect(x + 4, 233, 2 + o.frac * 50 / 1000, 3, KNOB_C[k]);
             }
         } else {
-            g_rect(x + 4, 201, 52, 3, g_mix(C_PANEL2, KNOB_C[k], 90));
+            g_hatch(x + 4, 233, 52, 3, KNOB_C[k], 160, 0);
         }
-        g_textw(&FONT_BS, x + 4, 207, 54, o.name, g_mix(C_SUB, KNOB_C[k], 70));
-        g_fit(x + 3, 222, 56, o.val, C_TXT);
-        if (k < 3u) g_rect(x + 59, 206, 1, 30, C_PANEL2);
+        {
+            char n[3] = {'K', (char)('1' + k), 0};
+            int32_t e = g_text(&FONT_PX, x + 5, 203, n, KNOB_C[k]);
+            g_textw(&FONT_PX, e + 4, 203, x + 56 - e - 4, o.name, C_SUB);
+        }
+        g_fit(x + 4, 212, 54, o.val, C_TXT);
     }
 }
-
 /* the waveform of break b in [y, y+h): the slices tinted, their numbers, the playing ones lit */
 static void draw_wave(int32_t y, int32_t h, uint32_t b, uint32_t numbers)
 {
@@ -688,18 +772,19 @@ static void draw_fx_chips(int32_t y)            /* the 11 punch effects, laid ou
 static void draw_play(void)
 {
     uint32_t b = cur_brk(), i, act = fx_active;
-    draw_wave(29, 70, b, 1);
-    draw_pads(102, b, bank16 * 16u);
-    draw_fx_chips(140);
-    if (g_vis(182, 14)) {                       /* the state: what acts now */
+    draw_wave(30, 64, b, 1);
+    draw_pads(97, b, bank16 * 16u);
+    draw_fx_chips(133);
+    if (g_vis(172, 13)) {                       /* the state: what acts now */
         char t[40];
         t[0] = 0;
         for (i = 0; i < NPUNCH; i++) if (act >> i & 1u) { str_cat(t, PUNCH_LONG[i]); break; }
         if (!t[0] && flex_on < NFLEX) { str_cat(t, "FLEX "); str_cat(t, FLEX[flex_on].name); }
         if (!t[0] && prj.p.d_chance) { str_cat(t, TR("DES ", "DICE ")); fmt_u(t + str_len(t), prj.p.d_chance, 0); str_cat(t, "%"); }
-        g_text(&FONT_BS, 5, 183, t, C_ACC2);
-        if (sl_count(b) > 16u) g_textr(&FONT_BS, 236, 183, bank16 ? TR("TRANCHES 17-32", "SLICES 17-32") : TR("TRANCHES 1-16", "SLICES 1-16"), C_DIMT);
-        else if (sq_rec) g_textr(&FONT_BS, 236, 183, "REC", C_REC);
+        if (!t[0] && kd.cur >= 0) str_cat(t, BEAT_LONG[kd.cur % 32]);
+        g_text(&FONT_BS, 5, 172, t, C_ACC2);
+        if (sl_count(b) > 16u) g_textr(&FONT_BS, 236, 172, bank16 ? TR("TRANCHES 17-32", "SLICES 17-32") : TR("TRANCHES 1-16", "SLICES 1-16"), C_DIMT);
+        else if (sq_rec) g_textr(&FONT_BS, 236, 172, "REC", C_REC);
     }
 }
 
@@ -710,7 +795,7 @@ static void draw_seq(void)
     char t[24];
     if (seq_page >= pages) seq_page = (uint8_t)(pages ? pages - 1u : 0u);
     if (g_vis(28, 16)) {
-        g_rect(0, 26, 240, 18, C_BG);
+        g_rect(0, 28, 240, 16, C_BG);
         for (i = 0; i < 4u; i++) {
             uint32_t have = i < pages;
             g_round(4 + (int32_t)i * 30, 30, 26, 10, i == seq_page ? C_ACC : have ? C_PANEL2 : C_PANEL);
@@ -736,31 +821,34 @@ static void draw_seq(void)
         else if (i % 4u == 0u) g_rect(x + 2, y + 50, 23, 1, C_EDGE);
         if (st->sl) {
             fmt_u(t, st->sl, 0);
-            g_textc(&FONT_BM, x + 14, y + 6, t, here ? C_BG : C_TXT);
-            g_textc(&FONT_BS, x + 14, y + 23, CLASS_NAME[sl_class(b, st->sl - 1u)], here ? C_BG : CLS_C[sl_class(b, st->sl - 1u)]);
-            if (ST_RAT(*st) > 1u) { uint32_t r; for (r = 0; r < ST_RAT(*st); r++) g_rect(x + 4 + (int32_t)r * 5, y + 38, 3, 3, C_ACC2); }
-            if (st->fl & SF_REV) g_text(&FONT_BS, x + 3, y + 36, "<", C_ACC);
-            if (st->pitch) { fmt_s(t, st->pitch); g_textc(&FONT_BS, x + 14, y + 36, t, C_ACC2); }
-            if (ST_CH(*st)) g_rect(x + 3, y + 46, 21 - (int32_t)ST_CH(*st) * 3, 2, C_SUB);
-            if (st->fx) g_dot(x + 22, y + 6, 2, C_ACC);
+            g_textc(&FONT_BM, x + 14, y + 2, t, here ? C_BG : C_TXT);
+            g_textc(&FONT_BS, x + 14, y + 18, CLASS_NAME[sl_class(b, st->sl - 1u)], here ? C_BG : CLS_C[sl_class(b, st->sl - 1u)]);
+            if (ST_RAT(*st) > 1u) { t[0] = 'X'; fmt_u(t + 1, ST_RAT(*st), 0); g_text(&FONT_PX, x + 3, y + 32, t, here ? C_BG : C_ACC2); }
+            if (st->fl & SF_REV) g_textr(&FONT_PX, x + 25, y + 32, "<", here ? C_BG : C_ACC);
+            if (ST_COND(*st)) g_textc(&FONT_PX, x + 14, y + 41, COND_NAME[ST_COND(*st)], here ? C_BG : C_ACC);
+            else if (st->pitch) { fmt_s(t, st->pitch); g_textc(&FONT_PX, x + 14, y + 41, t, here ? C_BG : C_ACC2); }
+            if (ST_CH(*st)) g_rect(x + 3, y + 49, 21 - (int32_t)ST_CH(*st) * 3, 2, C_SUB);
+            if (st->fx) g_rect(x + 21, y + 3, 4, 4, st->fx >= FX_GL ? C_ACC2 : C_ACC);
         } else {
             g_textc(&FONT_BS, x + 14, y + 20, "-", C_DIMT);
         }
     }
-    if (g_vis(162, 34)) {
+    if (g_vis(160, 25)) {
         if (held_step >= 0) {
             const step_t *st = &pt->st[(uint32_t)held_step % NSTEP];
             t[0] = 0;
             str_cat(t, TR("PAS ", "STEP "));
             fmt_u(t + str_len(t), (uint32_t)held_step + 1u, 0);
-            g_text(&FONT_BM, 6, 168, t, C_TXT);
-            g_text(&FONT_BS, 80, 171, st->fx ? PUNCH_LONG[(st->fx - 1u) % NPUNCH] : TR("NOIRES: EFFET", "BLACK: FX LOCK"), st->fx ? C_ACC : C_DIMT);
+            g_hatch(0, 161, 240, 22, C_ACC, 60, fm1_ms / 80u);
+            g_text(&FONT_BM, 6, 163, t, C_TXT);
+            g_text(&FONT_BS, 80, 166, !st->fx ? TR("NOIRES: EFFET", "BLACK: FX LOCK") : st->fx <= NPUNCH ? PUNCH_LONG[(st->fx - 1u) % NPUNCH] :
+                   BEAT_LONG[(st->fx - FX_GL) % 32u], st->fx ? C_ACC : C_DIMT);
         } else {
-            g_text(&FONT_BS, 6, 166, TR("BLANCHES: POSER / OTER", "WHITE: PUT / CLEAR"), C_DIMT);
-            g_text(&FONT_BS, 6, 180, TR("TENIR UN PAS: L'EDITER", "HOLD A STEP: EDIT IT"), C_DIMT);
+            g_text(&FONT_BS, 6, 160, sub[P_SEQ] ? TR("STEP+: TIENS UN PAS", "STEP+: HOLD A STEP") : TR("BLANCHES: POSER / OTER", "WHITE: PUT / CLEAR"), C_DIMT);
+            g_text(&FONT_BS, 6, 172, sub[P_SEQ] ? TR("COND  RAMPE  FX  NUDGE", "COND  RAMP  FX  NUDGE") : TR("TENIR UN PAS: L'EDITER", "HOLD A STEP: EDIT IT"), C_DIMT);
             fmt_u(t, brush, 0);
-            g_round(196, 165, 40, 26, slice_col(brush - 1u));
-            g_textc(&FONT_BM, 216, 170, t, C_BG);
+            g_round(196, 160, 40, 24, slice_col(brush - 1u));
+            g_textc(&FONT_BM, 216, 163, t, C_BG);
         }
     }
 }
@@ -794,7 +882,6 @@ static void draw_slice(void)
                                  sc->mode == SLM_GRID ? TR("GRILLE: PARTS EGALES", "GRID: EQUAL PARTS") :
                                  TR("TEL QUEL: SES COUPES", "AS IS: ITS OWN CUTS"), C_DIMT);
         if (slice_want_b < NBRK || an.busy) g_textr(&FONT_BS, 236, 172, TR("ANALYSE...", "LOOKING..."), C_ACC);
-        g_text(&FONT_BS, 6, 184, TR("SELECT: CHANGER DE BREAK", "SELECT: ANOTHER BREAK"), C_DIMT);
     }
 }
 
@@ -850,16 +937,15 @@ static void draw_chop(void)
         g_text(&FONT_BM, 6, 164, t, slice_col(k));
         g_textr(&FONT_BS, 236, 166, CLASS_NAME[sl_class(b, k)][0] == '-' ? TR("AUTRE", "OTHER") :
                 sl_class(b, k) == CL_K ? "KICK" : sl_class(b, k) == CL_S ? "SNARE" : "HAT", CLS_C[sl_class(b, k)]);
-        g_text(&FONT_BS, 6, 184, TR("OCT+ COUPER   OCT- JOINDRE", "OCT+ SPLIT   OCT- JOIN"), C_DIMT);
     }
 }
 
 static void draw_amp(void)
 {
     params_t *p = &prj.p;
-    if (g_vis(29, 120)) {
-        int32_t x0 = 12, base = 140, top = 44, xa, xh, i;
-        g_round(2, 29, 236, 120, C_PANEL);
+    if (g_vis(29, 112)) {
+        int32_t x0 = 12, base = 132, top = 42, xa, xh, i;
+        g_round(2, 29, 236, 112, C_PANEL);
         xa = x0 + (int32_t)p->attack * 4 + 2;
         xh = 30 + (int32_t)p->length * 12;
         if (xh < xa + 4) xh = xa + 4;
@@ -878,12 +964,12 @@ static void draw_amp(void)
         }
         g_rect(x0, base, 216, 1, C_EDGE);
     }
-    if (g_vis(152, 44)) {
+    if (g_vis(144, 41)) {
         uint32_t j, used = 0;
         for (j = 0; j < NVOICE; j++) used += vo[j].on;
-        g_text(&FONT_BM, 6, 156, p->choke ? TR("MONO: COUPE", "MONO: CHOPS") : TR("POLY: RESONNE", "POLY: RINGS"), C_TXT);
-        for (j = 0; j < NVOICE; j++) g_round(160 + (int32_t)j * 13, 157, 10, 12, j < used ? C_ACC : C_PANEL2);
-        g_text(&FONT_BS, 6, 178, p->gate ? TR("GATE: TANT QUE TENUE", "GATE: WHILE HELD") : TR("AMP ENCORE: GATE", "AMP AGAIN: GATE"), C_DIMT);
+        g_text(&FONT_BM, 6, 147, p->choke ? TR("MONO: COUPE", "MONO: CHOPS") : TR("POLY: RESONNE", "POLY: RINGS"), C_TXT);
+        for (j = 0; j < NVOICE; j++) g_rect(160 + (int32_t)j * 13, 150, 10, 12, j < used ? C_ACC : C_PANEL2);
+        g_text(&FONT_BS, 6, 168, p->gate ? TR("GATE: TANT QUE TENUE", "GATE: WHILE HELD") : TR("AMP ENCORE: GATE", "AMP AGAIN: GATE"), C_DIMT);
     }
 }
 
@@ -905,10 +991,10 @@ static void draw_dice(void)
             if (h > 0) g_round(x + 2, 134 - h, 46, h, g_mix(C_PANEL, KNOB_C[i], 150));
             g_textc(&FONT_BS, x + 25, 140, s ? N1[i] : N0[i], C_SUB);
         }
-        if (g_vis(156, 40)) {
-            g_text(&FONT_BS, 6, 160, s == 0u ? TR("LE HASARD, A CHAQUE PAS", "RANDOM, ON EVERY STEP") :
+        if (g_vis(156, 29)) {
+            g_text(&FONT_BS, 6, 158, s == 0u ? TR("LE HASARD, A CHAQUE PAS", "RANDOM, ON EVERY STEP") :
                                        TR("LOCK: LE HASARD SE REPETE", "LOCK: THE RANDOM REPEATS"), C_DIMT);
-            g_text(&FONT_BS, 6, 174, TR("LFO ENCORE: PAGE SUIVANTE", "LFO AGAIN: NEXT PAGE"), C_DIMT);
+            g_text(&FONT_BS, 6, 171, TR("LFO ENCORE: PAGE SUIVANTE", "LFO AGAIN: NEXT PAGE"), C_DIMT);
             if (s == 0u && sq_play) { g_dot(226, 166, 6, sq_bar_step & 1u ? C_ACC : C_ACC2); }
         }
     } else {
@@ -931,10 +1017,10 @@ static void draw_dice(void)
                 g_round(x, y, 13, 30, C_PANEL);
             }
         }
-        if (g_vis(156, 40)) {
-            g_text(&FONT_BS, 6, 160, TR("CHAQUE CRAN: UN NOUVEAU", "EVERY CLICK: A NEW ONE"), C_DIMT);
-            g_text(&FONT_BS, 6, 174, TR("OCT-: ANNULER", "OCT-: UNDO"), C_DIMT);
-            g_text(&FONT_BS, 140, 174, "K S H", C_SUB);
+        if (g_vis(156, 29)) {
+            g_text(&FONT_BS, 6, 158, TR("CHAQUE CRAN: UN NOUVEAU", "EVERY CLICK: A NEW ONE"), C_DIMT);
+            g_text(&FONT_BS, 6, 171, TR("OCT-: ANNULER", "OCT-: UNDO"), C_DIMT);
+            g_text(&FONT_BS, 140, 171, "K S H", C_SUB);
         }
     }
 }
@@ -955,14 +1041,14 @@ static void draw_flex(void)
         }
         g_textw(&FONT_BS, x + 4, y + 13, 50, nm, a ? C_BG : C_TXT);
     }
-    if (g_vis(150, 46)) {                       /* the gate of the one playing (or chosen): 32 bars */
+    if (g_vis(150, 35)) {                       /* the gate of the one playing (or chosen): 32 bars */
         uint32_t f = on < NFLEX ? on : sel < NFLEX ? sel : 0;
-        g_round(2, 150, 236, 44, C_PANEL);
+        g_round(2, 150, 236, 34, C_PANEL);
         for (i = 0; i < 32u; i++) {
             uint32_t lv = (i & 1u) ? FLEX[f].gate[i / 2u] & 15u : FLEX[f].gate[i / 2u] >> 4;
-            int32_t h = (int32_t)lv * 30 / 15, x = 6 + (int32_t)i * 7;
+            int32_t h = (int32_t)lv * 26 / 15, x = 6 + (int32_t)i * 7;
             uint32_t cur = on < NFLEX && ((sq_bar_step + 15u) % 16u) == i / 2u;
-            g_rect(x, 186 - h, 5, h, cur ? C_TXT : g_mix(C_PANEL, C_ACC, on < NFLEX ? 200 : 90));
+            g_rect(x, 180 - h, 5, h, cur ? C_TXT : g_mix(C_PANEL, C_ACC, on < NFLEX ? 200 : 90));
         }
         if (on >= NFLEX && sel >= NFLEX) g_textc(&FONT_BS, 120, 160, TR("BLANCHES: 16 FLEX", "WHITE KEYS: 16 FLEX"), C_SUB);
     }
@@ -984,10 +1070,6 @@ static void draw_beat(void)
             g_textw(&FONT_BS, x + 4, y + 15, 50, BEAT_NAME[base + i][1], lit ? C_BG : C_SUB);
             g_rect(x + 4, y + 30, 49 * (int32_t)it / 100, 2, lit ? C_BG : C_ACC2);
         }
-    }
-    if (g_vis(182, 14)) {
-        g_rect(0, 182, 240, 14, C_BG);
-        g_textc(&FONT_BS, 120, 182, base ? TR("BEAT: TIENS UNE BLANCHE", "BEAT: HOLD A WHITE KEY") : TR("DESTROY: TIENS UNE BLANCHE", "DESTROY: HOLD A WHITE KEY"), C_DIMT);
     }
 }
 
@@ -1031,7 +1113,6 @@ static void draw_fx(void)
         g_text(&FONT_BS, 6, 144, s == 0u ? TR("DRIVE, CRUSH: LA SALETE", "DRIVE, CRUSH: THE DIRT") : TR("PUNCH: COMPRESSEUR", "PUNCH: THE COMPRESSOR"), C_DIMT);
         g_round(6, 162, 228, 10, C_PANEL);
         g_rect(6, 164, lv, 6, lv > 210 ? C_REC : C_PLAY);
-        g_text(&FONT_BS, 6, 178, TR("FX ENCORE: PAGE SUIVANTE", "FX AGAIN: NEXT PAGE"), C_DIMT);
     }
 }
 
@@ -1047,7 +1128,7 @@ static void draw_global(void)
             if (sq_play) { uint32_t i, beat = (sq_bar_step / 4u) % 4u; for (i = 0; i < 4u; i++) g_dot(84 + (int32_t)i * 24, 118, 5, i == beat ? C_ACC : C_PANEL2); }
         } else {
             {
-                int32_t x0 = 120 - (int32_t)LOGO_W / 2, y0 = 50, gy, gx;
+                int32_t x0 = 120 - (int32_t)LOGO_W / 2, y0 = 44, gy, gx;
                 uint32_t bpr = (LOGO_W + 1u) / 2u;
                 for (gy = 0; gy < (int32_t)LOGO_H; gy++) {
                     if (!g_vis(y0 + gy, 1)) continue;
@@ -1058,14 +1139,14 @@ static void draw_global(void)
                     }
                 }
             }
-            g_textc(&FONT_BS, 120, 96, "BREAKBEAT SLICER  " APP_VER, C_SUB);
-            g_textc(&FONT_BS, 120, 112, "GPL-3.0  BY OMNIPOTARD", C_DIMT);
+            g_textc(&FONT_PX, 120, 112, "BREAKBEAT SLICER  V" APP_VER, C_SUB);
+            g_textc(&FONT_PX, 120, 124, "GPL-3.0  OMNIPOTARD", C_DIMT);
         }
     }
     if (g_vis(142, 54)) {
-        g_text(&FONT_BS, 6, 146, TR("ALGO: LE TEMPO PARTOUT", "ALGO: THE TEMPO, ANYWHERE"), C_DIMT);
-        g_text(&FONT_BS, 6, 160, TR("OCT+: TAPER LE TEMPO", "OCT+: TAP THE TEMPO"), C_DIMT);
-        g_text(&FONT_BS, 6, 174, TR("GLO ENCORE: SYSTEME", "GLO AGAIN: SYSTEM"), C_DIMT);
+        g_text(&FONT_BS, 6, 145, TR("ALGO: LE TEMPO PARTOUT", "ALGO: THE TEMPO, ANYWHERE"), C_DIMT);
+        g_text(&FONT_BS, 6, 158, TR("OCT+: TAPER LE TEMPO", "OCT+: TAP THE TEMPO"), C_DIMT);
+        g_text(&FONT_BS, 6, 171, TR("GLO ENCORE: SYSTEME", "GLO AGAIN: SYSTEM"), C_DIMT);
     }
 }
 
@@ -1102,71 +1183,92 @@ static void draw_save(void)
         } else {
             str_cat(t, TR("TENIR + AUTRES: CHAINE", "HOLD + OTHERS: CHAIN"));
         }
-        g_text(&FONT_BS, 6, 128, t, prj.nchain > 1u ? C_ACC2 : C_DIMT);
-        g_text(&FONT_BS, 6, 146, TR("SAVE ENCORE: FAIRE L'ACTION", "SAVE AGAIN: DO THE ACTION"), C_SUB);
-        g_text(&FONT_BS, 6, 160, TR("OCT-: ANNULER  OCT+: CHAINE OFF", "OCT-: UNDO  OCT+: NO CHAIN"), C_DIMT);
-        if (pat_dirty) g_text(&FONT_BS, 6, 176, TR("* NON SAUVE", "* NOT SAVED"), C_ACC);
+        g_text(&FONT_BS, 6, 126, t, prj.nchain > 1u ? C_ACC2 : C_DIMT);
+        if (rs_state != RS_IDLE) {               /* RESAMPLE: armed, taking, writing */
+            g_hatch(0, 141, 240, 30, C_REC, 90, fm1_ms / 60u);
+            g_text(&FONT_BM, 6, 147, rs_state == RS_ARMED ? TR("RESAMPLE: MESURE SUIVANTE", "RESAMPLE: NEXT BAR") :
+                                     rs_state == RS_REC ? TR("RESAMPLE: J'ENREGISTRE", "RESAMPLE: RECORDING") : TR("ECRITURE...", "WRITING..."), C_TXT);
+        } else {
+            g_text(&FONT_BS, 6, 142, save_act == 5u ? TR("SAVE: LA SORTIE DEVIENT UN BREAK", "SAVE: THE OUTPUT BECOMES A BREAK") :
+                                     TR("SAVE ENCORE: FAIRE L'ACTION", "SAVE AGAIN: DO THE ACTION"), C_SUB);
+            if (save_act == 5u) { char u[24]; u[0] = 0; fmt_u(u, NUSER - nbrk_user, 0); str_cat(u, TR(" PLACES LIBRES", " FREE SLOTS")); g_text(&FONT_BS, 6, 156, u, C_DIMT); }
+        }
+        if (pat_dirty) g_text(&FONT_BS, 6, 172, TR("* NON SAUVE", "* NOT SAVED"), C_ACC);
     }
 }
 
 /* HOME held: what this page does */
 static const char *const HELP_EN[P_N][6] = {
     {"WHITE KEYS  PLAY SLICES 1-16", "OCT- / OCT+  SLICES 17-32", "BLACK KEYS  PUNCH EFFECTS", "SELECT  BREAK   ALGO  TEMPO", "PRESETS  PATTERN   REC  RECORD", "HOME + PLAY  STOP EVERYTHING"},
-    {"WHITE KEYS  STEPS: PUT / CLEAR", "HOLD A STEP + KNOBS  EDIT IT", "HOLD A STEP + BLACK  FX LOCK", "OCT- / OCT+  STEPS 17-64", "SELECT  THE SLICE TO PUT", "PLAY + REC  RECORD LIVE"},
+    {"WHITE KEYS  STEPS: PUT / CLEAR", "HOLD A STEP + KNOBS  EDIT IT", "HOLD A STEP + BLACK  FX LOCK", "SEQ AGAIN  STEP+: COND RAMP FX", "STEP+ NO STEP HELD  ROTATE ...", "PLAY + REC  RECORD LIVE"},
     {"SELECT  CHOOSE THE BREAK", "MODE  AS IS / GRID / AUTO HITS", "COUNT  GRID SLICES  SENS  AUTO", "BARS  GIVE THE BREAK ITS TEMPO", "TEMPO  CHOP KEEPS THE PITCH", "        VARI FOLLOWS THE TEMPO"},
     {"SELECT OR A KEY  A SLICE", "START / FINE  MOVE ITS START", "PITCH / GAIN  OF THIS SLICE", "OCT+  SPLIT IT IN TWO", "OCT-  JOIN IT TO THE ONE BEFORE", "EDIT AGAIN  REVERSE, CLASS"},
     {"ATTACK  FADE IN OF EVERY SLICE", "DECAY  HOLD, OR SHORTER HITS", "LENGTH  HOW MUCH OF THE SLICE", "CHOKE  MONO CUTS, POLY RINGS", "", ""},
     {"CHANCE  ANOTHER SLICE (SAME KIND)", "REV ROLL SKIP  HOW OFTEN", "LFO AGAIN  JUMPS, SMART, LOCK", "LOCK  THE RANDOM REPEATS", "LFO AGAIN  GENERATE A PATTERN", "OCT-  UNDO"},
     {"WHITE KEYS  16 FLEX PATTERNS", "THE SAME KEY AGAIN  OFF", "MODE  LATCH / HOLD / ONE BAR", "QUANT  STARTS ON STEP BEAT BAR", "DEPTH  HOW DEEP THE GATE", "BLACK KEYS  PUNCH EFFECTS"},
-    {"FILTER  LEFT LOW, RIGHT HIGH", "RESO DRIVE CRUSH  THE DIRT", "FX AGAIN  DELAY AND PUNCH", "FX 3RD TIME  BEAT: 16 ON WHITE", "BEAT  KNOB 1: INTENSITY", "BLACK KEYS  PUNCH EFFECTS"},
+    {"FILTER  LEFT LOW, RIGHT HIGH", "FX AGAIN  DELAY AND PUNCH", "FX 3RD: DESTROY  4TH: BEAT", "HOLD A WHITE KEY  ITS EFFECT", "KNOB 1  ITS INTENSITY", "REC + HOLD  ON THE STEPS"},
     {"BPM SWING  (ALGO: TEMPO TOO)", "TEMPO  CHOP OR VARI", "METRONOME  OFF / REC / ON", "OCT+  TAP THE TEMPO", "GLO AGAIN  CLOCK LANGUAGE THEME", ""},
-    {"SELECT  SLOT   KNOB 1  ACTION", "SAVE AGAIN  DO IT", "WHITE KEYS  PATTERN 1-16", "HOLD ONE + OTHERS  A CHAIN", "OCT-  UNDO   OCT+  NO CHAIN", "AUTO SAVES ITSELF WHEN STOPPED"},
+    {"SELECT  SLOT   KNOB 1  ACTION", "SAVE AGAIN  DO IT", "WHITE KEYS  PATTERN 1-16", "HOLD ONE + OTHERS  A CHAIN", "RESAMPLE  THE OUTPUT, A NEW BREAK", "AUTO SAVES ITSELF WHEN STOPPED"},
 };
 static const char *const HELP_FR[P_N][6] = {
     {"BLANCHES  TRANCHES 1-16", "OCT- / OCT+  TRANCHES 17-32", "NOIRES  EFFETS PUNCH", "SELECT  BREAK   ALGO  TEMPO", "PRESETS  PATTERN   REC  ENREG.", "HOME + PLAY  TOUT ARRETER"},
-    {"BLANCHES  PAS: POSER / OTER", "TENIR UN PAS + KNOBS  L'EDITER", "TENIR UN PAS + NOIRE  EFFET", "OCT- / OCT+  PAS 17-64", "SELECT  LA TRANCHE A POSER", "PLAY + REC  ENREGISTRER"},
+    {"BLANCHES  PAS: POSER / OTER", "TENIR UN PAS + KNOBS  L'EDITER", "TENIR UN PAS + NOIRE  EFFET", "SEQ ENCORE  STEP+: COND RAMPE FX", "STEP+ SANS PAS  DECALER ...", "PLAY + REC  ENREGISTRER"},
     {"SELECT  CHOISIR LE BREAK", "MODE  TEL QUEL / GRILLE / AUTO", "NOMBRE  GRILLE  SENS  AUTO", "MESURES  DONNENT SON TEMPO", "TEMPO  CHOP GARDE LA HAUTEUR", "        VARI SUIT LE TEMPO"},
     {"SELECT OU UNE TOUCHE  TRANCHE", "START / FIN  DEPLACER LE DEBUT", "PITCH / GAIN  DE CETTE TRANCHE", "OCT+  LA COUPER EN DEUX", "OCT-  LA JOINDRE A LA PRECEDENTE", "EDIT ENCORE  ENVERS, GENRE"},
     {"ATTACK  ENTREE DE CHAQUE TRANCHE", "DECAY  TENUE, OU PLUS COURT", "LONGUEUR  QUELLE PART JOUER", "CHOKE  MONO COUPE, POLY RESONNE", "", ""},
     {"CHANCE  UNE AUTRE TRANCHE", "REV ROLL SKIP  A QUELLE FREQUENCE", "LFO ENCORE  SAUTS, SMART, LOCK", "LOCK  LE HASARD SE REPETE", "LFO ENCORE  GENERER UN PATTERN", "OCT-  ANNULER"},
     {"BLANCHES  16 FLEX PATTERNS", "LA MEME TOUCHE  ARRET", "MODE  LATCH / HOLD / 1 MESURE", "QUANT  DEPART: PAS TEMPS MESURE", "PROFONDEUR  DU GATE", "NOIRES  EFFETS PUNCH"},
-    {"FILTER  GAUCHE BAS, DROITE HAUT", "RESO DRIVE CRUSH  LA SALETE", "FX ENCORE  DELAY ET PUNCH", "FX 3E FOIS  BEAT: 16 BLANCHES", "BEAT  KNOB 1: INTENSITE", "NOIRES  EFFETS PUNCH"},
+    {"FILTER  GAUCHE BAS, DROITE HAUT", "FX ENCORE  DELAY ET PUNCH", "FX 3E: DESTROY  4E: BEAT", "TENIR UNE BLANCHE  SON EFFET", "KNOB 1  SON INTENSITE", "REC + TENIR  SUR LES PAS"},
     {"BPM SWING  (ALGO: TEMPO AUSSI)", "TEMPO  CHOP OU VARI", "METRONOME  OFF / REC / ON", "OCT+  TAPER LE TEMPO", "GLO ENCORE  HORLOGE LANGUE THEME", ""},
-    {"SELECT  SLOT   KNOB 1  ACTION", "SAVE ENCORE  LE FAIRE", "BLANCHES  PATTERN 1-16", "TENIR + AUTRES  UNE CHAINE", "OCT-  ANNULER  OCT+  SANS CHAINE", "SAUVE TOUT SEUL A L'ARRET"},
+    {"SELECT  SLOT   KNOB 1  ACTION", "SAVE ENCORE  LE FAIRE", "BLANCHES  PATTERN 1-16", "TENIR + AUTRES  UNE CHAINE", "RESAMPLE  LA SORTIE, UN BREAK", "SAUVE TOUT SEUL A L'ARRET"},
 };
 
 static void draw_help(void)
 {
     uint32_t i;
     g_rect(0, g_y0, 240, BAND_H, C_BG);
-    if (g_vis(16, 30)) {
-        g_round(12, 18, 216, 26, C_ACC);
-        g_textc(&FONT_BM, 120, 23, PAGE_NAME[page], C_BG);
+    if (g_vis(0, 30)) {
+        g_round(0, 4, 240, 24, C_ACC);
+        g_text(&FONT_BM, 8, 7, PAGE_NAME[page], C_BG);
+        g_textr(&FONT_PX, 232, 13, TR("AIDE  HOME TENU", "HELP  HOME HELD"), C_BG);
     }
     for (i = 0; i < 6u; i++) {
         const char *s = lang ? HELP_EN[page][i] : HELP_FR[page][i];
-        if (s[0]) g_text(&FONT_BS, 14, 58 + (int32_t)i * 22, s, i % 2u ? C_SUB : C_TXT);
+        if (!s[0]) continue;
+        g_rect(8, 42 + (int32_t)i * 22, 3, 13, i % 2u ? C_ACC2 : C_ACC);
+        g_text(&FONT_BS, 16, 41 + (int32_t)i * 22, s, i % 2u ? C_SUB : C_TXT);
     }
-    g_textc(&FONT_BS, 120, 196, TR("BREAKR  " APP_VER "  AIDE", "BREAKR  " APP_VER "  HELP"), C_DIMT);
+    if (g_vis(176, 64)) {                       /* every control on this page, as the strip says */
+        static const char *const KEY[8] = {"SEL", "ALG", "PRE", "OCT-", "OCT+", "WHITE", "BLACK", "REC"};
+        for (i = 0; i < H_N; i++) {
+            int32_t x = 8 + (int32_t)(i % 2u) * 116, y = 178 + (int32_t)(i / 2u) * 14;
+            int32_t e = g_text(&FONT_PX, x, y, KEY[i], C_ACC);
+            g_text(&FONT_PX, e + 5, y, hint(i), C_TXT);
+        }
+    }
 }
-
 static void draw_toast(void)
 {
     int32_t w;
-    if (!toast_until || (int32_t)(fm1_ms - toast_until) > 0 || !g_vis(94, 34)) return;
+    if (!toast_until || (int32_t)(fm1_ms - toast_until) > 0 || !g_vis(92, 36)) return;
     w = g_tw(&FONT_BM, toast_s) + 30;
-    if (w > 232) w = 232;
-    g_round(120 - w / 2, 96, w, 30, C_ACC);
-    g_round(120 - w / 2 + 2, 98, w - 4, 26, C_PANEL);
-    g_textc(&FONT_BM, 120, 103, toast_s, C_TXT);
+    if (w > 236) w = 236;
+    g_round(120 - w / 2, 94, w, 32, C_ACC);
+    g_round(120 - w / 2 + 3, 97, w - 6, 26, C_BG);
+    g_rect(120 - w / 2 + 3, 97, 3, 26, C_ACC2);
+    g_textc(&FONT_BM, 121, 101, toast_s, C_TXT);
 }
-
 static void draw_splash(void)
 {
-    int32_t x0 = 120 - (int32_t)LOGO_W / 2, y0 = 82, gy, gx;
+    int32_t x0 = 120 - (int32_t)LOGO_W / 2, y0 = 70, gy, gx;
     uint32_t bpr = (LOGO_W + 1u) / 2u, t = fm1_ms - boot_ms;
     g_rect(0, g_y0, 240, BAND_H, C_BG);
-    for (gy = 0; gy < (int32_t)LOGO_H; gy++) {
+    if (g_vis(40, 20)) {
+        g_text(&FONT_PX, 8, 46, "OMNIPOTARD / FM-1", C_DIMT);
+        g_textr(&FONT_PX, 232, 46, "V" APP_VER, C_DIMT);
+        g_rect(8, 56, 224, 1, C_EDGE);
+    }
+    for (gy = 0; gy < (int32_t)LOGO_H; gy++) {  /* the name, chopped; it fills in like a break played */
         if (!g_vis(y0 + gy, 1)) continue;
         for (gx = 0; gx < (int32_t)LOGO_W; gx++) {
             uint32_t v = LOGO[(uint32_t)gy * bpr + (uint32_t)gx / 2u];
@@ -1174,13 +1276,18 @@ static void draw_splash(void)
             if (v) g_pxb(x0 + gx, y0 + gy, gx * 1000 / (int32_t)LOGO_W < (int32_t)t ? C_ACC : C_PANEL2, v * 17u);
         }
     }
-    if (g_vis(126, 40)) {
+    if (g_vis(130, 50)) {
         int32_t i;
-        for (i = 0; i < 16; i++) g_round(8 + i * 14, 132, 12, 12, (int32_t)t / 60 > i ? slice_col((uint32_t)i) : C_PANEL);
-        g_textc(&FONT_BS, 120, 152, "BREAKBEAT SLICER FOR THE FM-1", C_SUB);
+        for (i = 0; i < 16; i++) {               /* sixteen steps */
+            uint16_t c = (int32_t)t / 60 > i ? (i % 4 == 0 ? C_ACC : g_mix(C_PANEL2, C_ACC, 110)) : C_PANEL;
+            g_rect(8 + i * 14, 136, 12, i % 4 == 0 ? 10 : 6, c);
+        }
+        g_rect(8, 150, 224, 1, C_EDGE);
+        g_text(&FONT_PX, 8, 156, TR("DECOUPEUR DE BREAKS", "BREAKBEAT SLICER"), C_SUB);
+        g_textr(&FONT_PX, 232, 156, "DESTROY / BEAT", C_ACC2);
+        g_text(&FONT_PX, 8, 168, "GPL-3.0", C_DIMT);
     }
 }
-
 static void draw_screen(void)
 {
     if (splash) { draw_splash(); return; }
@@ -1199,6 +1306,7 @@ static void draw_screen(void)
     case P_SAVE: draw_save(); break;
     default: break;
     }
+    draw_hints();
     draw_knobs();
     if (help_on) draw_help();
     draw_toast();
@@ -1589,6 +1697,8 @@ WASM_EXPORT("breakr_knob_label") const char *breakr_knob_label(uint32_t i)
     w_lab[i][n] = 0;
     return w_lab[i];
 }
+WASM_EXPORT("breakr_hint") const char *breakr_hint(uint32_t i) { return i < H_N ? hint(i) : ""; }   /* what a control does now (H_*) */
+WASM_EXPORT("breakr_sub") uint32_t breakr_sub(void) { return sub[page < P_N ? page : 0]; }
 WASM_EXPORT("breakr_store") uint8_t *breakr_store(void) { return host_store; }
 WASM_EXPORT("breakr_store_size") uint32_t breakr_store_size(void) { return STORE_HI - STORE_LO; }
 WASM_EXPORT("breakr_store_gen") uint32_t breakr_store_gen(void) { return store_gen; }

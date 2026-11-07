@@ -4,241 +4,213 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BREAKR Emulator</title>
 <meta name="description" content="BREAKR by Omnipotard: a breakbeat slicer firmware for the M-VAVE FM-1, running in the browser.">
-<meta name="theme-color" content="#131316">
+<meta name="theme-color" content="#07080b">
 <meta name="color-scheme" content="dark">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2334313b'/%3E%3Crect x='5' y='7' width='22' height='12' rx='2' fill='%230a0b0e'/%3E%3Cpath d='M7 13h2l1-4 2 8 1-6 2 4 1-2h2l1-3 2 6 1-3h2' fill='none' stroke='%23ff8a1e' stroke-width='1.6'/%3E%3Ccircle cx='10' cy='25' r='2.4' fill='%23FF5454'/%3E%3Ccircle cx='16' cy='25' r='2.4' fill='%23FFCE3C'/%3E%3Ccircle cx='22' cy='25' r='2.4' fill='%2350DC78'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2307080b'/%3E%3Cpath d='M4 6h24v8H4z' fill='%23e8ff2e'/%3E%3Cpath d='M8 16h20v4H8z' fill='%23e8ff2e'/%3E%3Cpath d='M4 22h24v4H4z' fill='%23e8ff2e'/%3E%3Ccircle cx='10' cy='25' r='2.4' fill='%23FF5454'/%3E%3Ccircle cx='16' cy='25' r='2.4' fill='%23FFCE3C'/%3E%3Ccircle cx='22' cy='25' r='2.4' fill='%2350DC78'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;600&family=Silkscreen&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
-/* Layout: the FM-1 lies on a dark desk; its panel is laid out as the real one (left knobs, screen,
-   right knobs and buttons, the keybed below) and restacks on a phone, the screen first. One dark look.
-   Below it: the breaks, the saved projects, the guide, a word from the author. */
+/* BREAKR's look, shared with the site: a rack's panel at night. Ink black, one signal colour (acid yellow,
+   or the theme the FM-1 shows), a second one for what is armed (signal red); boxes with two corners cut
+   like tape labels; Barlow Condensed for what is read, Silkscreen for the small marks under the controls. */
 :root {
-  --desk: #131316;
-  --desk-2: #1c1c21;
-  --desk-3: #25252c;
-  --body: #34313b;
-  --body-hi: #45414e;
-  --bezel: #09080c;
-  --label: #b4adc4;
-  --ink: #f1ecfb;
-  --muted: #8d86a0;
-  --text-2: #d9d3e6;
-  --hot: #ff8a1e;
-  --amber: #ffb03a;
-  --cyan: #3ed8ff;
-  --green: #7ef0a8;
-  --led-off: #2a2731;
-  --k1: #FF5C5C;
-  --k2: #FFCC40;
-  --k3: #5CE274;
-  --k4: #54A4FF;
-  --display: "Silkscreen", "Courier New", monospace;
-  --text: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --ink: #07080b;
+  --ink-2: #0f1117;
+  --ink-3: #171a22;
+  --panel: #1d2029;
+  --panel-hi: #2a2e3a;
+  --rule: #323746;
+  --paper: #f2f3f5;
+  --text-2: #c9cdd6;
+  --muted: #8c93a3;
+  --sig: #e8ff2e;
+  --sig-ink: #0b0c08;
+  --arm: #ff4030;
+  --hot: var(--sig);
+  --k1: #FF5454;
+  --k2: #FFCE3C;
+  --k3: #50DC78;
+  --k4: #4696FF;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --text: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --pixel: "Silkscreen", "Courier New", monospace;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --cut: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  --cut-s: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html, body { background: var(--desk); color: var(--ink); }
-body { margin: 0; font-family: var(--text); font-size: 15px; line-height: 1.5; padding-inline: 16px; padding-block: 20px 40px; overflow-x: hidden; }
-.wrap { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+html, body { background: var(--ink); color: var(--paper); }
+body {
+  margin: 0; font-family: var(--text); font-size: 16px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 18px 48px; overflow-x: hidden;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0 / 48px 48px,
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px) 0 0 / 48px 48px,
+    var(--ink);
+}
+.wrap { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
 .vh { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
-a { color: var(--cyan); }
-a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+a { color: var(--sig); }
+a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid var(--sig); outline-offset: 2px; }
 
-/* ---- the header, the beta */
-header.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 18px; }
-.brand { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-h1 { font-family: var(--display); font-weight: 700; font-size: clamp(30px, 6vw, 46px); letter-spacing: 0.04em; margin: 0; line-height: 1; color: var(--ink); }
-h1 span { color: var(--hot); }
-.beta { font-family: var(--mono); font-weight: 600; font-size: 12px; letter-spacing: 0.12em; line-height: 1; color: #1a1026; background: var(--amber); border-radius: 999px; padding: 6px 10px 5px; white-space: nowrap; }
-.tag { font-family: var(--mono); font-size: 13px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
-.langs { display: flex; gap: 4px; background: var(--desk-2); border-radius: 10px; padding: 3px; }
-.langs button { appearance: none; border: 0; background: none; color: var(--muted); font-family: var(--mono); font-weight: 600; font-size: 13px; letter-spacing: 0.08em; padding: 5px 10px; border-radius: 7px; cursor: pointer; }
-.langs button[aria-pressed="true"] { background: var(--hot); color: #1a1026; }
-.note { display: flex; gap: 12px; align-items: flex-start; margin: 0; padding: 12px 16px; border-radius: 14px; color: #ece6f6; font-size: 14.5px;
-  background: linear-gradient(90deg, rgba(255,176,58,.14), rgba(255,176,58,.04)); border: 1px solid rgba(255,176,58,.38); }
-.note svg { flex: none; width: 22px; height: 22px; color: var(--amber); margin-top: 1px; }
-.note b { color: var(--amber); }
+/* ---- the header: the chopped name */
+header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 10px 20px; padding-bottom: 12px; border-bottom: 1px solid var(--rule); }
+.brand { display: flex; align-items: end; gap: 14px; flex-wrap: wrap; }
+.logo { position: relative; font-family: var(--display); font-weight: 800; font-size: clamp(44px, 9vw, 76px); line-height: .82; letter-spacing: .01em; color: var(--sig); margin: 0; }
+.logo .cut { position: absolute; inset: 0; color: var(--sig); clip-path: inset(41% 0 39% 0); transform: translateX(.09em); }
+.logo .base { clip-path: polygon(0 0, 100% 0, 100% 40%, 0 40%, 0 62%, 100% 62%, 100% 100%, 0 100%); display: block; }
+.beta { font-family: var(--pixel); font-size: 11px; letter-spacing: .06em; color: var(--sig-ink); background: var(--arm); padding: 4px 8px 3px; clip-path: var(--cut-s); white-space: nowrap; margin-bottom: 6px; }
+.tag { font-family: var(--pixel); font-size: 11px; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; margin-bottom: 6px; }
+.langs { display: flex; gap: 2px; background: var(--ink-3); padding: 3px; clip-path: var(--cut-s); margin-bottom: 4px; }
+.langs button { appearance: none; border: 0; background: none; color: var(--muted); font-family: var(--pixel); font-size: 12px; padding: 5px 10px; cursor: pointer; }
+.langs button[aria-pressed="true"] { background: var(--sig); color: var(--sig-ink); }
+.note { display: flex; gap: 12px; align-items: flex-start; margin: 0; padding: 12px 16px; color: var(--text-2); font-size: 15px;
+  background: repeating-linear-gradient(135deg, rgba(255,64,48,.10) 0 6px, transparent 6px 12px), var(--ink-2); border-left: 3px solid var(--arm); }
+.note svg { flex: none; width: 20px; height: 20px; color: var(--arm); margin-top: 2px; }
+.note b { color: var(--paper); }
 
 /* ---- the device */
 .device {
   position: relative;
-  background: linear-gradient(170deg, var(--body-hi), var(--body) 38%, #2b2831);
-  border-radius: 26px;
+  background: linear-gradient(175deg, #2b2d33, #1f2127 45%, #18191e);
   padding: 26px 26px 22px;
-  box-shadow: 0 30px 60px -20px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.08), inset 0 -2px 0 rgba(0,0,0,.35);
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr) 330px;
-  grid-template-areas: "left screen right" "keys keys keys";
-  gap: 22px 26px;
-  user-select: none;
-  -webkit-user-select: none;
-  touch-action: manipulation;
+  clip-path: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07);
+  display: grid; grid-template-columns: 240px minmax(0, 1fr) 330px; grid-template-areas: "left screen right" "keys keys keys";
+  gap: 22px 26px; user-select: none; -webkit-user-select: none; touch-action: manipulation;
 }
+.device::before { content: "BREAKR // FM-1"; position: absolute; top: 8px; right: 26px; font-family: var(--pixel); font-size: 10px; color: rgba(255,255,255,.22); letter-spacing: .08em; }
 .zone-left { grid-area: left; display: flex; flex-direction: column; gap: 16px; }
 .zone-screen { grid-area: screen; display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; }
 .zone-right { grid-area: right; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .zone-keys { grid-area: keys; }
 .knobs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 10px; }
 .knobs.row { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 6px; }
-.knob { --ring: #4b4756; display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: ns-resize; touch-action: none; min-width: 0; border-radius: 12px; }
-.knob .lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; color: var(--label); text-transform: uppercase; white-space: nowrap; }
-.knob .fn { font-family: var(--mono); font-size: 10px; color: var(--amber); letter-spacing: 0.05em; min-height: 1.25em; text-align: center; line-height: 1.25; }
-.knob .fn.live { color: var(--ring); min-height: 2.5em; max-width: 100%; white-space: pre-line; overflow-wrap: anywhere; font-weight: 600; }
-.ring { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; border: 3px solid var(--ring); transition: box-shadow .15s, border-color .15s; }
-.knob.col .ring { box-shadow: 0 0 10px -4px var(--ring), inset 0 0 6px -3px var(--ring); }
+.knob { --ring: #4b4d58; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: ns-resize; touch-action: none; min-width: 0; }
+.knob .lbl { font-family: var(--pixel); font-size: 10px; letter-spacing: .04em; color: var(--muted); text-transform: uppercase; white-space: nowrap; }
+.knob .fn { font-family: var(--pixel); font-size: 9.5px; color: var(--sig); letter-spacing: .02em; min-height: 1.3em; text-align: center; line-height: 1.3; }
+.knob .fn.live { color: var(--ring); min-height: 2.6em; max-width: 100%; white-space: pre-line; overflow-wrap: anywhere; }
+.ring { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; border: 3px solid var(--ring); transition: box-shadow .15s; }
+.knob.col .ring { box-shadow: 0 0 12px -5px var(--ring); }
 .knob.col .lbl { color: var(--ring); }
-.knob.hot .ring { box-shadow: 0 0 18px 0 var(--ring), inset 0 0 8px -2px var(--ring); }
+.knob.hot .ring { box-shadow: 0 0 20px 0 var(--ring); }
 .cap {
-  --a: 0deg;
-  width: 54px; height: 54px; border-radius: 50%;
-  background:
-    radial-gradient(circle at 50% 50%, #5b5765 0 44%, transparent 45%),
-    repeating-conic-gradient(from 0deg, #23212a 0 6deg, #3c3944 6deg 12deg);
-  box-shadow: 0 6px 10px rgba(0,0,0,.55), inset 0 2px 2px rgba(255,255,255,.12);
-  position: relative;
-  transform: rotate(var(--a));
-  transition: transform .06s linear;
+  --a: 0deg; width: 54px; height: 54px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, #55575f 0 44%, transparent 45%), repeating-conic-gradient(from 0deg, #1e1f24 0 6deg, #34353c 6deg 12deg);
+  box-shadow: 0 6px 10px rgba(0,0,0,.6), inset 0 2px 2px rgba(255,255,255,.1);
+  position: relative; transform: rotate(var(--a)); transition: transform .06s linear;
 }
-.cap::after { content: ""; position: absolute; left: 50%; top: 7px; width: 3px; height: 13px; margin-left: -1.5px; border-radius: 2px; background: var(--ink); }
+.cap::after { content: ""; position: absolute; left: 50%; top: 7px; width: 3px; height: 13px; margin-left: -1.5px; background: var(--paper); }
 .knob:focus-visible { outline: none; }
-.knob:focus-visible .ring { outline: 2px solid var(--cyan); outline-offset: 3px; }
-.btn:focus-visible, .key:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+.knob:focus-visible .ring { outline: 2px solid var(--sig); outline-offset: 3px; }
+.btn:focus-visible, .key:focus-visible { outline: 2px solid var(--sig); outline-offset: 3px; }
 
 .btns { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px 8px; align-items: start; }
 .oct { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-.btn {
-  appearance: none; border: 0; cursor: pointer; color: var(--label); border-radius: 9px;
-  display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 0; background: none;
-  font: inherit; min-width: 0;
-}
+.btn { appearance: none; border: 0; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 0; background: none; font: inherit; min-width: 0; color: var(--text-2); }
 .btn .face {
-  width: 100%; height: 30px; border-radius: 9px;
-  background: linear-gradient(180deg, #2a2730, #1f1d24);
-  box-shadow: 0 3px 0 #121016, inset 0 1px 0 rgba(255,255,255,.07);
-  display: grid; place-items: center;
-  font-family: var(--mono); font-weight: 600; font-size: 11px; letter-spacing: 0.06em; color: var(--label);
-  transition: transform .04s, box-shadow .04s, background .12s, color .12s;
+  width: 100%; height: 30px; background: linear-gradient(180deg, #2c2e35, #202228); clip-path: var(--cut-s);
+  display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 14px; letter-spacing: .06em; color: var(--text-2);
+  transition: transform .04s, background .12s, color .12s;
 }
-.btn .fn { font-family: var(--mono); font-size: 9.5px; color: var(--amber); letter-spacing: 0.03em; text-align: center; line-height: 1.2; margin-top: 2px; }
-.btn .alt { font-family: var(--mono); font-size: 8.5px; color: var(--muted); letter-spacing: 0.02em; text-align: center; line-height: 1.15; }
-.btn.on .face { box-shadow: 0 3px 0 #121016, 0 0 14px -2px var(--glow, var(--hot)), inset 0 0 0 1px var(--glow, var(--hot)); color: var(--ink); }
-.btn.dim .face { color: #d6d0e3; box-shadow: 0 3px 0 #121016, inset 0 0 0 1px rgba(255,138,30,.28); }
-.btn.down .face { transform: translateY(2px); box-shadow: 0 1px 0 #121016; }
+.btn .fn { font-family: var(--pixel); font-size: 9px; color: var(--sig); text-align: center; line-height: 1.25; margin-top: 2px; min-height: 1.25em; }
+.btn .alt { font-family: var(--pixel); font-size: 8px; color: var(--muted); text-align: center; line-height: 1.2; }
+.btn.on .face { background: var(--glow, var(--hot)); color: var(--sig-ink); }
+.btn.dim .face { color: var(--paper); background: linear-gradient(180deg, #33363f, #26282f); }
+.btn.down .face { transform: translateY(2px); filter: brightness(1.2); }
 .btn[data-id="12"] { --glow: #60ff96; }
-.btn[data-id="13"] { --glow: #ff4060; }
+.btn[data-id="13"] { --glow: var(--arm); }
 
-.bezel {
-  background: var(--bezel); border-radius: 18px; padding: 16px;
-  box-shadow: inset 0 0 0 2px #000, 0 1px 0 rgba(255,255,255,.08);
-  width: min(100%, 392px);
-  position: relative;
-}
-.glass { position: relative; aspect-ratio: 1; width: 100%; border-radius: 6px; overflow: hidden; background: #0a0b0e; }
+.bezel { background: #000; padding: 14px; width: min(100%, 392px); position: relative; clip-path: var(--cut); box-shadow: inset 0 0 0 1px #2a2c33; }
+.glass { position: relative; aspect-ratio: 1; width: 100%; max-width: 100%; overflow: hidden; background: #07080b; }
 .glass canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
-.glass::after { content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(135deg, rgba(255,255,255,.07), transparent 40%), repeating-linear-gradient(0deg, rgba(0,0,0,.08) 0 1px, transparent 1px 3px); }
-.power {
-  position: absolute; inset: 16px; border-radius: 6px; display: grid; place-items: center; align-content: center; gap: 14px;
-  background: radial-gradient(circle at 50% 38%, #2a2016, #0a0b0e 70%); text-align: center; padding: 18px;
-}
-.power p { margin: 0; color: var(--label); font-size: 14px; max-width: 26ch; }
-.power button {
-  font-family: var(--display); font-size: 17px; letter-spacing: 0.06em; color: #1a1026; background: var(--hot);
-  border: 0; border-radius: 12px; padding: 12px 20px; cursor: pointer; box-shadow: 0 4px 0 #a5520c;
-}
-.power button:active { transform: translateY(2px); box-shadow: 0 2px 0 #a5520c; }
+.glass::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(135deg, rgba(255,255,255,.05), transparent 40%), repeating-linear-gradient(0deg, rgba(0,0,0,.10) 0 1px, transparent 1px 3px); }
+.power { position: absolute; inset: 14px; display: grid; place-items: center; align-content: center; gap: 14px; text-align: center; padding: 18px;
+  background: repeating-linear-gradient(135deg, rgba(232,255,46,.05) 0 6px, transparent 6px 12px), #07080b; }
+.power p { margin: 0; color: var(--text-2); font-size: 15px; max-width: 26ch; }
+.power button { font-family: var(--display); font-weight: 800; font-size: 22px; letter-spacing: .08em; color: var(--sig-ink); background: var(--sig); border: 0; padding: 12px 24px; cursor: pointer; clip-path: var(--cut-s); }
+.power button:active { transform: translateY(2px); }
 .power button:disabled { opacity: .7; cursor: progress; }
-.power .err { color: var(--amber); font-size: 13px; }
-.scrinfo { width: min(100%, 392px); display: flex; justify-content: space-between; align-items: center; gap: 10px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--muted); min-height: 26px; }
-.scrinfo .pg { --acc: var(--hot); color: var(--ink); background: #1f1b27; border-radius: 8px; padding: 3px 10px; border-left: 3px solid var(--acc); font-weight: 600; white-space: nowrap; }
+.power .err { color: var(--arm); font-size: 14px; }
+.scrinfo { width: min(100%, 392px); display: flex; justify-content: space-between; align-items: center; gap: 10px; font-family: var(--pixel); font-size: 11px; color: var(--muted); min-height: 24px; }
+.scrinfo .pg { --acc: var(--sig); color: var(--sig-ink); background: var(--acc); padding: 3px 10px; clip-path: var(--cut-s); white-space: nowrap; }
 .scrinfo .pg:empty { visibility: hidden; }
-.scrinfo .trk { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scrinfo .trk { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-2); }
 
-/* the keybed: 16 white keys, 11 black, F3 to G5 */
-.keybed { position: relative; height: 150px; background: #24212a; border-radius: 16px; padding: 10px; box-shadow: inset 0 2px 6px rgba(0,0,0,.6); }
+/* the keybed: 16 white keys, 11 black, F3 to G5; what they do written over it */
+.keycap { display: flex; justify-content: space-between; gap: 10px; font-family: var(--pixel); font-size: 10px; color: var(--muted); margin: 0 4px 6px; }
+.keycap b { color: var(--sig); font-weight: 400; }
+.keybed { position: relative; height: 150px; background: #121317; padding: 10px; box-shadow: inset 0 2px 8px rgba(0,0,0,.7); clip-path: var(--cut); }
 .keys { position: relative; height: 100%; }
-.key { position: absolute; bottom: 0; border-radius: 10px; cursor: pointer; touch-action: none; display: flex; justify-content: center; }
-.key.w { top: 52px; background: linear-gradient(180deg, #3d3945, #302d36); box-shadow: 0 3px 0 #17151b, inset 0 1px 0 rgba(255,255,255,.06); }
-.key.b { top: 0; height: 64px; background: linear-gradient(180deg, #34313a, #29262e); box-shadow: 0 3px 0 #141217, inset 0 1px 0 rgba(255,255,255,.05); z-index: 2; }
-.key::before { content: ""; position: absolute; top: 12px; width: 4px; height: 34%; border-radius: 3px; background: var(--led-off); transition: background .08s, box-shadow .08s; }
+.key { position: absolute; bottom: 0; cursor: pointer; touch-action: none; display: flex; justify-content: center; }
+.key.w { top: 52px; background: linear-gradient(180deg, #35373f, #2a2c33); clip-path: var(--cut-s); }
+.key.b { top: 0; height: 64px; background: linear-gradient(180deg, #2a2b31, #1f2025); z-index: 2; clip-path: var(--cut-s); }
+.key::before { content: ""; position: absolute; top: 12px; width: 4px; height: 34%; background: #2b2d34; transition: background .08s, box-shadow .08s; }
 .key.w::before { top: 18px; }
-.key.dim::before { background: #7a4a1e; }
+.key.dim::before { background: color-mix(in srgb, var(--hot) 35%, #2b2d34); }
 .key.on::before { background: var(--hot); box-shadow: 0 0 10px var(--hot); }
-.key.down { filter: brightness(1.25); transform: translateY(2px); }
-.key .kn { position: absolute; bottom: 6px; font-family: var(--mono); font-size: 9px; color: var(--muted); }
+.key.down { filter: brightness(1.3); transform: translateY(2px); }
+.key .kn { position: absolute; bottom: 6px; font-family: var(--pixel); font-size: 9px; color: var(--muted); }
 
-/* ---- panels: the breaks, the projects */
-.panel { background: var(--desk-2); border-radius: 16px; padding: 18px 20px; min-width: 0; }
-.panel h2, .guide h2 { font-family: var(--display); font-size: 16px; letter-spacing: 0.05em; margin: 0 0 10px; font-weight: 400; }
-.panel p { margin: 0 0 8px; color: var(--text-2); font-size: 14.5px; max-width: 86ch; }
-.breaks h2 { color: var(--cyan); }
-.slots { list-style: none; margin: 14px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.slot { position: relative; background: var(--desk-3); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; border: 1px dashed transparent; transition: border-color .12s, background .12s; }
-body.dragging .slot { border-color: rgba(62,216,255,.45); }
-.slot.over { border-color: var(--cyan); background: #262838; }
+/* ---- panels */
+.panel { background: var(--ink-2); padding: 20px 22px; min-width: 0; clip-path: var(--cut); border-top: 2px solid var(--rule); }
+.panel h2, .guide h2 { font-family: var(--display); font-weight: 800; font-size: 26px; letter-spacing: .03em; margin: 0 0 8px; text-transform: uppercase; line-height: 1; }
+.panel p { margin: 0 0 8px; color: var(--text-2); font-size: 15.5px; max-width: 70ch; }
+.panel p b { color: var(--paper); }
+.breaks h2 { color: var(--sig); }
+.slots { list-style: none; margin: 14px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.slot { background: var(--ink-3); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; clip-path: var(--cut-s); }
 .slot .shead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.slot .sid { font-family: var(--mono); font-weight: 600; font-size: 12px; letter-spacing: 0.1em; color: var(--hot); }
-.slot .smeta { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
-.slot .sname { font-family: var(--display); font-size: 15px; letter-spacing: 0.03em; color: var(--ink); overflow-wrap: anywhere; min-height: 1.5em; line-height: 1.5; }
-.slot.empty .sname { color: var(--muted); }
-.slot .sacts { display: grid; gap: 6px; }
-.sbtn { appearance: none; border: 0; cursor: pointer; font: 600 12px/1.25 var(--mono); letter-spacing: 0.03em; color: var(--ink); background: #37314b; border-radius: 9px; padding: 8px 10px; text-align: center; display: block; width: 100%; transition: background .12s; }
-.sbtn:hover { background: #443d5d; }
-.sbtn.hot { background: var(--cyan); color: #0c1a22; }
-.sbtn.hot:hover { background: #6fe3ff; }
-.sbtn:disabled { opacity: .42; cursor: default; background: #37314b; color: var(--ink); }
-label.sbtn:focus-within { outline: 2px solid var(--cyan); outline-offset: 2px; }
-.slot progress { width: 100%; height: 6px; appearance: none; -webkit-appearance: none; border: 0; border-radius: 3px; background: #15111d; overflow: hidden; }
-.slot progress::-webkit-progress-bar { background: #15111d; border-radius: 3px; }
-.slot progress::-webkit-progress-value { background: var(--cyan); border-radius: 3px; }
-.slot progress::-moz-progress-bar { background: var(--cyan); border-radius: 3px; }
-.slot .smsg { font-size: 12.5px; color: #cfc8dc; line-height: 1.35; }
-.slot .smsg:empty { display: none; }
-.smsg.err, .pmsg.err { color: var(--amber); }
-.smsg.ok, .pmsg.ok { color: var(--green); }
-.midi-pick { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; }
-.midi-pick label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--label); min-width: 0; max-width: 100%; }
-select { font: 13px var(--mono); background: var(--desk-3); color: var(--ink); border: 1px solid #4a4458; border-radius: 8px; padding: 6px 8px; max-width: 100%; }
-.projects h2 { color: var(--hot); }
+.slot .sid { font-family: var(--pixel); font-size: 10px; color: var(--sig); }
+.slot .smeta { font-family: var(--pixel); font-size: 9px; color: var(--muted); white-space: nowrap; }
+.slot .sname { font-family: var(--display); font-weight: 700; font-size: 20px; letter-spacing: .02em; color: var(--paper); overflow-wrap: anywhere; min-height: 1.3em; line-height: 1.2; }
+.slot.empty .sname { color: var(--muted); font-weight: 600; }
+.slot .scls { display: flex; gap: 2px; height: 4px; overflow: hidden; background: #0b0c10; }
+.slot .scls i { flex: 1; }
+.sbtn { appearance: none; border: 0; cursor: pointer; font: 700 15px/1.2 var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--paper); background: var(--panel-hi); padding: 10px 16px; text-align: center; display: inline-block; clip-path: var(--cut-s); text-decoration: none; transition: background .12s; }
+.sbtn:hover { background: #3a3f4f; }
+.sbtn.hot { background: var(--sig); color: var(--sig-ink); }
+.sbtn.hot:hover { filter: brightness(1.06); }
+.sbtn:disabled { opacity: .45; cursor: default; }
+label.sbtn:focus-within { outline: 2px solid var(--sig); outline-offset: 2px; }
+.bacts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.pmsg { font-family: var(--pixel); font-size: 11px; color: var(--muted); margin: 10px 0 0; }
+.pmsg:empty { display: none; }
+.pmsg.err { color: var(--arm); }
+.pmsg.ok { color: #60ff96; }
+.projects h2 { color: var(--paper); }
 .proj { display: flex; flex-wrap: wrap; gap: 12px 22px; align-items: center; justify-content: space-between; }
 .proj > div:first-child { flex: 1 1 380px; min-width: 0; }
 .proj .acts { display: flex; gap: 10px; flex-wrap: wrap; }
-.proj .sbtn { width: auto; padding: 9px 14px; }
-.pmsg { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
-.pmsg:empty { display: none; }
 
 /* ---- the guide */
-.guide { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
-.guide section { background: var(--desk-2); border-radius: 16px; padding: 18px 20px; min-width: 0; }
-.guide h2 { color: var(--hot); }
-.guide section:nth-child(2) h2 { color: var(--amber); }
-.guide section:nth-child(3) h2 { color: var(--cyan); }
-.guide li { color: var(--text-2); font-size: 14.5px; }
+.guide { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.guide section { background: var(--ink-2); padding: 18px 20px; min-width: 0; clip-path: var(--cut); border-top: 2px solid var(--sig); }
+.guide section:nth-child(2) { border-top-color: var(--arm); }
+.guide section:nth-child(3) { border-top-color: var(--k4); }
+.guide h2 { font-size: 22px; }
+.guide li { color: var(--text-2); font-size: 15px; }
 .guide ul { margin: 0; padding-left: 18px; display: grid; gap: 7px; }
-.guide b { color: var(--ink); }
-kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-radius: 5px; padding: 1px 6px; color: var(--ink); white-space: nowrap; }
-.k1 { color: var(--k1); } .k2 { color: var(--k2); } .k3 { color: var(--k3); } .k4 { color: var(--k4); }
+.guide b { color: var(--paper); }
+kbd { font-family: var(--mono); font-size: 12px; background: var(--panel); padding: 1px 6px; color: var(--paper); white-space: nowrap; }
 
 /* ---- a word from the author */
-.donate {
-  border-radius: 18px; padding: 22px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 28px;
-  background: radial-gradient(circle at 8% 0%, rgba(255,138,30,.20), transparent 55%), radial-gradient(circle at 100% 100%, rgba(255,176,58,.18), transparent 50%), var(--desk-2);
-  border: 1px solid rgba(255,176,58,.22);
-}
+.donate { padding: 22px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 28px; clip-path: var(--cut);
+  background: repeating-linear-gradient(135deg, rgba(232,255,46,.06) 0 8px, transparent 8px 16px), var(--ink-2); }
 .donate > div { flex: 1 1 320px; min-width: 0; }
-.donate h2 { font-family: var(--display); font-weight: 400; font-size: 20px; letter-spacing: 0.04em; margin: 0 0 6px; color: var(--amber); }
-.donate p { margin: 0; color: #ebe4f6; font-size: 15.5px; max-width: 56ch; }
+.donate h2 { font-family: var(--display); font-weight: 800; font-size: 28px; text-transform: uppercase; margin: 0 0 6px; color: var(--sig); line-height: 1; }
+.donate p { margin: 0; color: var(--text-2); font-size: 16px; max-width: 56ch; }
 .donate .sig { color: var(--muted); font-size: 13.5px; margin-top: 6px; }
-.kofi { display: inline-flex; align-items: center; gap: 10px; background: var(--amber); color: #1a1026; font: 700 15.5px/1.2 var(--text); text-decoration: none; padding: 13px 22px; border-radius: 999px; box-shadow: 0 4px 0 #a5660c; transition: filter .12s; }
+.kofi { display: inline-flex; align-items: center; gap: 10px; background: var(--sig); color: var(--sig-ink); font: 800 18px/1.2 var(--display); letter-spacing: .05em; text-transform: uppercase; text-decoration: none; padding: 13px 22px; clip-path: var(--cut-s); }
 .kofi:hover { filter: brightness(1.07); }
-.kofi:active { transform: translateY(2px); box-shadow: 0 2px 0 #a5660c; }
-.kofi:focus-visible { outline: 2px solid var(--cyan); outline-offset: 4px; }
+.kofi:focus-visible { outline: 2px solid var(--paper); outline-offset: 4px; }
 .kofi svg { width: 24px; height: 24px; flex: none; }
 .foot { color: var(--muted); font-size: 13.5px; max-width: 86ch; margin: 0; }
+.foot a { color: var(--text-2); }
 
 @media (max-width: 940px) {
   .device { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "screen screen" "right right" "left left" "keys keys"; padding: 18px; }
@@ -248,39 +220,27 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
   .slots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 520px) {
-  body { padding-block: 14px 32px; }
-  .device { padding: 14px; border-radius: 20px; gap: 16px; }
+  .device { padding: 14px; gap: 16px; }
   .ring { width: 52px; height: 52px; }
   .cap { width: 42px; height: 42px; }
   .cap::after { top: 5px; height: 10px; }
-  .knob .lbl { font-size: 9.5px; letter-spacing: 0.04em; }
-  .knob .fn { font-size: 9.5px; }
   .btns { gap: 8px 5px; }
-  .btn .face { font-size: 10px; height: 28px; }
-  .btn .fn { font-size: 8.5px; letter-spacing: 0; }
-  .btn .alt { font-size: 8px; letter-spacing: 0; }
+  .btn .face { font-size: 12px; height: 28px; }
+  .btn .fn, .btn .alt { font-size: 7.5px; }
   .zone-left { grid-template-columns: minmax(0, 1fr); }
   .keybed { height: 128px; padding: 6px; }
   .key.w { top: 44px; }
   .key.b { height: 54px; }
   .key .kn { display: none; }
   .panel, .guide section { padding: 16px; }
-  .slots { gap: 10px; }
-  .slot { padding: 10px; }
   .donate { padding: 18px; }
 }
-@media (prefers-reduced-motion: reduce) { .cap, .btn .face, .key::before, .ring, .slot, .sbtn { transition: none; } }
-.slots.eight { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.slot .scls { display: flex; gap: 2px; height: 6px; border-radius: 3px; overflow: hidden; background: #15151a; }
-.slot .scls i { flex: 1; }
-.bacts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
-.bacts .sbtn { width: auto; padding: 9px 14px; }
-.bacts a.sbtn { text-decoration: none; }
+@media (prefers-reduced-motion: reduce) { .cap, .btn .face, .key::before, .ring, .sbtn { transition: none; } }
 </style>
 <div class="wrap">
   <header class="top">
     <div class="brand">
-      <h1>BREA<span>KR</span></h1>
+      <h1 class="logo" aria-label="BREAKR"><span class="base" aria-hidden="true">BREAKR</span><span class="cut" aria-hidden="true">BREAKR</span></h1>
       <span class="beta" id="beta-badge">__BREAKR_VER__ BETA</span>
     </div>
     <div class="tag" data-t="tag"></div>
@@ -314,7 +274,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
       <div class="knobs row" id="knobs-right"></div>
       <div class="btns" id="btns"></div>
     </div>
-    <div class="zone-keys"><div class="keybed"><div class="keys" id="keys"></div></div></div>
+    <div class="zone-keys"><div class="keycap"><span>WHITE <b id="hint-white"></b></span><span>BLACK <b id="hint-black"></b></span></div><div class="keybed"><div class="keys" id="keys"></div></div></div>
   </div>
 
   <section class="panel breaks" id="breaks" aria-labelledby="brk-h">
@@ -373,7 +333,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
   const BTN = {OCTD: 0, OCTU: 1, FX: 2, SCL: 3, ENV: 4, LFO: 5, EDIT: 6, GLO: 7, HOME: 8, SAVE: 9, ARP: 10, SEQ: 11, PLAY: 12, REC: 13};
   const ENC = {SELECT: 0, ALGORITHM: 1, K1: 2, K2: 3, K3: 4, K4: 5, PRESETS: 6};
   const KNOB_COL = ["#FF5454", "#FFCE3C", "#50DC78", "#4696FF"];   /* the firmware's KNOB_C */
-  const THEME_ACC = ["#ff961e", "#aaff28", "#28d2ff", "#ff50aa"];   /* AMBER, ACID, CYAN, PINK */
+  const THEME_ACC = ["#e8ff2e", "#ff2d95", "#ff7a1a", "#39ff88", "#f4f4f4"];   /* WARP, RAVE, AMEN, PHOSPHOR, MONO (brk_gfx.c) */
   const CLS_COL = ["#aaaab9", "#ff6e50", "#ffc846", "#5ac8ff"];    /* other, kick, snare, hat */
   const SECTOR = 4096, SLOTS_LEN = 4 * 0x3000;                      /* the project slots: the start of the store */
   const LS_STORE = "breakr-store-v1", LS_LANG = "breakr-lang", LS_PENDING = "breakr-bank-pending";
@@ -465,8 +425,9 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
       if (lk !== this.ledKey) { this.ledKey = lk; this.emit({t: "leds", leds: leds.slice()}); }
       const labels = [0, 1, 2, 3].map((i) => this.str(x.breakr_knob_label(i), 24));
       const page = x.breakr_page(), theme = x.breakr_theme(), sgen = x.breakr_store_gen();
-      const uk = page + "|" + theme + "|" + labels.join("|");
-      if (uk !== this.uiKey) { this.uiKey = uk; this.emit({t: "ui", page, theme, labels}); }
+      const hints = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => this.str(x.breakr_hint(i), 16));
+      const uk = page + "|" + theme + "|" + labels.join("|") + "|" + hints.join("|");
+      if (uk !== this.uiKey) { this.uiKey = uk; this.emit({t: "ui", page, theme, labels, hints}); }
       if (sgen !== this.storeGen) { this.storeGen = sgen; this.storeDue = true; }
       if (this.storeDue && this.frames - this.storeAt >= 2 * 44100) this.sendStore(false);   /* at most every 2 s */
     }
@@ -530,8 +491,8 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
       err: "Sound could not start in this browser. Try a recent Chrome, Edge or Firefox.",
       pages: ["PLAY", "STEPS", "SLICE", "CHOP", "AMP", "DICE", "FLEX", "FX", "GLOBAL", "SAVE"],
       "k.master": "VOLUME", "k.select": "BREAK / SLICE", "k.presets": "PATTERN", "k.algo": "TEMPO", "k.unused": "unused",
-      "b.octd": "SLICES 1-16", "b.octd.alt": "CHOP: JOIN", "b.octu": "SLICES 17-32", "b.octu.alt": "CHOP: SPLIT", "b.fx": "FX", "b.scl": "SLICE", "b.env": "AMP", "b.lfo": "DICE", "b.edit": "CHOP", "b.glo": "GLOBAL",
-      "b.home": "PLAY", "b.home.alt": "HOLD: HELP", "b.save": "SAVE", "b.arp": "FLEX", "b.seq": "STEPS", "b.play": "PLAY", "b.rec": "REC",
+      "b.octd": "SLICES 1-16", "b.octd.alt": "CHOP: JOIN", "b.octu": "SLICES 17-32", "b.octu.alt": "CHOP: SPLIT", "b.fx": "4 PAGES", "b.scl": "SLICE", "b.env": "AMP", "b.lfo": "DICE", "b.edit": "CHOP", "b.glo": "GLOBAL",
+      "b.home": "PLAY", "b.home.alt": "HOLD: HELP", "b.save": "SAVE · RESAMPLE", "b.arp": "FLEX", "b.seq": "STEPS · STEP+", "b.play": "PLAY", "b.rec": "REC",
       colours: ["red", "yellow", "green", "blue"],
       "tt.MASTER": "MASTER: the volume of this page (wheel, drag, or the arrow keys when it has the focus).",
       "tt.SELECT": "SELECT picks the break on PLAY and SLICE, the slice to put on STEPS, the slice to edit on CHOP, the project slot on SAVE.",
@@ -540,16 +501,16 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
       "tt.K": "KNOB {n} ({c}): what it does on this page is written under it and on the screen's knob bar.",
       "tt.0": "OCT−: the slices (or steps) before; on CHOP it joins the slice to the one before; on DICE and SAVE it undoes.",
       "tt.1": "OCT+: slices 17-32 (or the next steps); on CHOP it splits the slice in two; on GLOBAL it taps the tempo.",
-      "tt.2": "FX: filter, resonance, drive, crush; again: delay, feedback, mix, punch; a third time: BEAT, the 16 programs of K-GLITCH's BEAT bank on the white keys while you hold them (random stutters, random bar, fills, roll up, skips, stammer, gates, reverses, scratches, tape stop, half time). KNOB 1 sets the intensity of the last one pressed.",
+      "tt.2": "FX, four pages: TONE (filter, resonance, drive, crush), SPACE (delay, feedback, mix, punch), DESTROY and BEAT, K-GLITCH's two glitch banks: 16 effects each on the white keys while you hold them. KNOB 1 sets the intensity of the last one pressed. REC + an effect held writes it on the steps.",
       "tt.3": "SCL opens SLICE: how the break is cut (as is, a grid, its hits), its bars and its tempo.",
       "tt.4": "ENV opens AMP: attack, decay, length, choke.",
       "tt.5": "LFO opens DICE: random slices, backwards, rolls, skips, jumps; LOCK repeats the random; again: generate a pattern (8 styles).",
       "tt.6": "EDIT opens CHOP: one slice, its start, pitch, gain, backwards and class (kick, snare, hat).",
       "tt.7": "GLO opens GLOBAL: tempo, swing, tempo mode (CHOP keeps the pitch, VARI follows the tempo), metronome; again: clock, language, theme, volume.",
       "tt.8": "HOME opens PLAY: the slices on the white keys, the punch effects on the black ones. Hold it for the help of the page. HOME + PLAY stops everything.",
-      "tt.9": "SAVE: 4 project slots, the patterns and their chain. It saves itself when stopped.",
+      "tt.9": "SAVE: 4 project slots, the patterns and their chain; KNOB 1 picks the action, SAVE again does it. RESAMPLE records what comes out for 1, 2 or 4 bars into a new break of your bank: no computer needed. It saves itself when stopped.",
       "tt.10": "ARP opens FLEX: 16 flex patterns on the white keys (half time, tape stop, gates, juggles...).",
-      "tt.11": "SEQ opens STEPS: the pattern, 16 steps on the white keys; hold a step and turn the knobs to edit it.",
+      "tt.11": "SEQ opens STEPS: the pattern, 16 steps on the white keys; hold a step and turn the knobs (slice, pitch, ratchet up to x16, chance). SEQ again: STEP+, the held step's condition (1:2, 3:4, FIRST, PRE…), the ratchet's ramp, an effect locked on it, its timing; no step held: rotate, humanize, ratchets, reverse.",
       "tt.12": "PLAY starts and stops the pattern.",
       "tt.13": "REC records what you play on the keys into the pattern.",
       "b.h": "The breaks",
@@ -578,7 +539,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
       "p.done": "Projects imported.",
       "p.later": "Projects imported: they load when you power on.",
       g1: "Play", g1l: "<li><b>White keys</b>: the slices 1-16 of the break; <b>OCT+</b> for 17-32.</li><li><b>Black keys</b>: 11 punch effects, held.</li><li><b>SELECT</b> picks the break, <b>ALGORITHM</b> the tempo.</li><li><b>HOME</b> held: the help of the page.</li>",
-      g2: "Make a beat", g2l: "<li><b>SEQ</b>: the 16 steps on the white keys, 64 with OCT.</li><li>In order, the pattern plays the break as it was, with its own groove.</li><li><b>LFO</b>: DICE, the random; LOCK it to repeat; GENERATE a pattern.</li><li><b>ARP</b>: FLEX, 16 patterns on the white keys.</li><li><b>FX</b> three times: BEAT, 16 programs over the bar on the white keys, held; KNOB 1 their intensity.</li>",
+      g2: "Make a beat", g2l: "<li><b>SEQ</b>: the 16 steps on the white keys, 64 with OCT.</li><li>In order, the pattern plays the break as it was, with its own groove.</li><li><b>LFO</b>: DICE, the random; LOCK it to repeat; GENERATE a pattern.</li><li><b>ARP</b>: FLEX, 16 patterns on the white keys.</li><li><b>FX</b> 3 and 4 times: DESTROY and BEAT, 32 glitch effects on the white keys, held; KNOB 1 their intensity.</li><li><b>DICE</b> third page: DRILL, BREAKCORE and IDM generators.</li>",
       g3: "Computer keyboard", g3l: "<li><kbd>Z</kbd> … <kbd>/</kbd> and <kbd>Q</kbd> … <kbd>O</kbd>: the keys (by position, AZERTY too).</li><li><kbd>Space</kbd> PLAY · <kbd>Enter</kbd> REC · <kbd>Esc</kbd> HOME · <kbd>-</kbd> <kbd>=</kbd> OCT · <kbd>Shift</kbd> FX.</li><li><kbd>↑</kbd> <kbd>↓</kbd> SELECT · <kbd>←</kbd> <kbd>→</kbd> ALGORITHM · <kbd>PgUp</kbd> <kbd>PgDn</kbd> PRESETS · <kbd>F1</kbd> help.</li><li>The mouse wheel on a knob, or drag it up and down.</li>",
       "d.h": "Buy me a beer?",
       "d.p": "If you like what I do, think about supporting me! Every little gesture means a lot!",
@@ -597,8 +558,8 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
       err: "Le son n’a pas pu démarrer dans ce navigateur. Essaie un Chrome, Edge ou Firefox récent.",
       pages: ["PLAY", "PAS", "DÉCOUPE", "CHOP", "AMP", "DÉS", "FLEX", "FX", "GLOBAL", "SAUVER"],
       "k.master": "VOLUME", "k.select": "BREAK / TRANCHE", "k.presets": "PATTERN", "k.algo": "TEMPO", "k.unused": "inutilisé",
-      "b.octd": "TRANCHES 1-16", "b.octd.alt": "CHOP : JOINDRE", "b.octu": "TRANCHES 17-32", "b.octu.alt": "CHOP : COUPER", "b.fx": "FX", "b.scl": "DÉCOUPE", "b.env": "AMP", "b.lfo": "DÉS", "b.edit": "CHOP", "b.glo": "GLOBAL",
-      "b.home": "PLAY", "b.home.alt": "TENU : AIDE", "b.save": "SAUVER", "b.arp": "FLEX", "b.seq": "PAS", "b.play": "LECTURE", "b.rec": "ENREG.",
+      "b.octd": "TRANCHES 1-16", "b.octd.alt": "CHOP : JOINDRE", "b.octu": "TRANCHES 17-32", "b.octu.alt": "CHOP : COUPER", "b.fx": "4 PAGES", "b.scl": "DÉCOUPE", "b.env": "AMP", "b.lfo": "DÉS", "b.edit": "CHOP", "b.glo": "GLOBAL",
+      "b.home": "PLAY", "b.home.alt": "TENU : AIDE", "b.save": "SAUVER · RESAMPLE", "b.arp": "FLEX", "b.seq": "PAS · STEP+", "b.play": "LECTURE", "b.rec": "ENREG.",
       colours: ["rouge", "jaune", "vert", "bleu"],
       "tt.MASTER": "MASTER : le volume de cette page (molette, glisser, ou les flèches quand il a le focus).",
       "tt.SELECT": "SELECT choisit le break sur PLAY et DÉCOUPE, la tranche à poser sur PAS, la tranche à éditer sur CHOP, l’emplacement sur SAUVER.",
@@ -607,16 +568,16 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
       "tt.K": "KNOB {n} ({c}) : ce qu’il fait sur cette page est écrit dessous et dans la barre des knobs de l’écran.",
       "tt.0": "OCT− : les tranches (ou les pas) d’avant ; sur CHOP, joint la tranche à la précédente ; sur DÉS et SAUVER, annule.",
       "tt.1": "OCT+ : les tranches 17-32 (ou les pas suivants) ; sur CHOP, coupe la tranche en deux ; sur GLOBAL, tape le tempo.",
-      "tt.2": "FX : filtre, résonance, drive, crush ; encore : delay, feedback, mix, punch ; une 3e fois : BEAT, les 16 programmes de la banque BEAT de K-GLITCH sur les touches blanches tant que tu les tiens (stutters au hasard, mesure au hasard, fills, roll up, skips, stammer, gates, reverses, scratches, tape stop, half time). Le KNOB 1 règle l'intensité du dernier appuyé.",
+      "tt.2": "FX, quatre pages : TONE (filtre, résonance, drive, crush), SPACE (delay, feedback, mix, punch), DESTROY et BEAT, les deux banques glitch de K-GLITCH : 16 effets chacune sur les touches blanches tant que tu les tiens. Le KNOB 1 règle l’intensité du dernier appuyé. REC + un effet tenu l’écrit sur les pas.",
       "tt.3": "SCL ouvre DÉCOUPE : comment le break est coupé (tel quel, grille, ses frappes), ses mesures et son tempo.",
       "tt.4": "ENV ouvre AMP : attaque, decay, longueur, choke.",
       "tt.5": "LFO ouvre DÉS : tranches au hasard, envers, rolls, sauts ; LOCK répète le hasard ; encore : générer un pattern (8 styles).",
       "tt.6": "EDIT ouvre CHOP : une tranche, son début, sa hauteur, son gain, l’envers et son genre (kick, caisse claire, charleston).",
       "tt.7": "GLO ouvre GLOBAL : tempo, swing, mode de tempo (CHOP garde la hauteur, VARI suit le tempo), métronome ; encore : horloge, langue, thème, volume.",
       "tt.8": "HOME ouvre PLAY : les tranches sur les touches blanches, les effets punch sur les noires. Maintiens-le pour l’aide de la page. HOME + PLAY arrête tout.",
-      "tt.9": "SAVE : 4 emplacements de projet, les patterns et leur chaîne. Il sauve tout seul à l’arrêt.",
+      "tt.9": "SAVE : 4 emplacements de projet, les patterns et leur chaîne ; le KNOB 1 choisit l’action, SAVE encore la fait. RESAMPLE enregistre la sortie sur 1, 2 ou 4 mesures dans un nouveau break de ta banque : sans ordinateur. Il sauve tout seul à l’arrêt.",
       "tt.10": "ARP ouvre FLEX : 16 patterns flex sur les touches blanches (half time, tape stop, gates, juggles…).",
-      "tt.11": "SEQ ouvre PAS : le pattern, 16 pas sur les touches blanches ; tiens un pas et tourne les knobs pour l’éditer.",
+      "tt.11": "SEQ ouvre PAS : le pattern, 16 pas sur les touches blanches ; tiens un pas et tourne les knobs (tranche, hauteur, ratchet jusqu’à ×16, chance). SEQ encore : STEP+, la condition du pas tenu (1:2, 3:4, FIRST, PRE…), la rampe du ratchet, un effet verrouillé dessus, son décalage ; sans pas tenu : décaler, humaniser, ratchets, inverser.",
       "tt.12": "PLAY lance et arrête le pattern.",
       "tt.13": "REC enregistre dans le pattern ce que tu joues sur les touches.",
       "b.h": "Les breaks",
@@ -645,7 +606,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
       "p.done": "Projets importés.",
       "p.later": "Projets importés : ils se chargent à l’allumage.",
       g1: "Jouer", g1l: "<li><b>Touches blanches</b> : les tranches 1-16 du break ; <b>OCT+</b> pour 17-32.</li><li><b>Touches noires</b> : 11 effets punch, tenus.</li><li><b>SELECT</b> choisit le break, <b>ALGORITHM</b> le tempo.</li><li><b>HOME</b> tenu : l’aide de la page.</li>",
-      g2: "Faire un beat", g2l: "<li><b>SEQ</b> : les 16 pas sur les touches blanches, 64 avec OCT.</li><li>Dans l’ordre, le pattern rejoue le break d’origine, avec son groove.</li><li><b>LFO</b> : DÉS, le hasard ; LOCK pour le répéter ; GÉNÉRER un pattern.</li><li><b>ARP</b> : FLEX, 16 patterns sur les touches blanches.</li><li><b>FX</b> trois fois : BEAT, 16 programmes sur la mesure, touches blanches tenues ; KNOB 1 leur intensité.</li>",
+      g2: "Faire un beat", g2l: "<li><b>SEQ</b> : les 16 pas sur les touches blanches, 64 avec OCT.</li><li>Dans l’ordre, le pattern rejoue le break d’origine, avec son groove.</li><li><b>LFO</b> : DÉS, le hasard ; LOCK pour le répéter ; GÉNÉRER un pattern.</li><li><b>ARP</b> : FLEX, 16 patterns sur les touches blanches.</li><li><b>FX</b> 3 et 4 fois : DESTROY et BEAT, 32 effets glitch sur les touches blanches, tenues ; KNOB 1 leur intensité.</li><li><b>DÉS</b> 3e page : générateurs DRILL, BREAKCORE et IDM.</li>",
       g3: "Clavier de l’ordinateur", g3l: "<li><kbd>W</kbd> … <kbd>!</kbd> et <kbd>A</kbd> … <kbd>O</kbd> : les touches (par position, QWERTY aussi).</li><li><kbd>Espace</kbd> PLAY · <kbd>Entrée</kbd> REC · <kbd>Échap</kbd> HOME · <kbd>)</kbd> <kbd>=</kbd> OCT · <kbd>Maj</kbd> FX.</li><li><kbd>↑</kbd> <kbd>↓</kbd> SELECT · <kbd>←</kbd> <kbd>→</kbd> ALGORITHM · <kbd>PgUp</kbd> <kbd>PgDn</kbd> PRESETS · <kbd>F1</kbd> aide.</li><li>La molette sur un knob, ou glisse-le vers le haut et le bas.</li>",
       "d.h": "Tu m’offres une bière ?",
       "d.p": "Si tu aimes ce que je fais, pense à me soutenir ! Chaque petit geste compte énormément !",
@@ -881,7 +842,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
         hotTimers[i] = setTimeout(() => el.classList.remove("hot"), 700);
       }
     }
-    Object.assign(ui, {page: d.page, theme: d.theme, labels: d.labels});
+    Object.assign(ui, {page: d.page, theme: d.theme, labels: d.labels, hints: d.hints || []});
     device.dataset.page = String(d.page);
     renderUi();
   }
@@ -895,6 +856,16 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
     pg.textContent = ui.page >= 0 && ui.page < names.length ? names[ui.page] : "";
     pg.style.setProperty("--acc", THEME_ACC[ui.theme] || THEME_ACC[0]);
     document.documentElement.style.setProperty("--hot", THEME_ACC[ui.theme] || THEME_ACC[0]);
+    if (ui.hints && ui.hints.length) {           /* what SELECT, ALGORITHM, PRESETS, OCT, REC and the keys do on this page */
+      const h = ui.hints, set = (el, v) => { if (el && v) el.textContent = v; };
+      set(knobEls.SELECT.querySelector(".fn"), h[0]);
+      set(knobEls.ALGORITHM.querySelector(".fn"), h[1]);
+      set(knobEls.PRESETS.querySelector(".fn"), h[2]);
+      set(btnEls[BTN.OCTD].querySelector(".fn"), h[3] === "-" ? "—" : h[3]);
+      set(btnEls[BTN.OCTU].querySelector(".fn"), h[4] === "-" ? "—" : h[4]);
+      set(btnEls[BTN.REC].querySelector(".fn"), h[7]);
+      $("hint-white").textContent = h[5] || ""; $("hint-black").textContent = h[6] || "";
+    }
   }
   function onEngine(d) {
     if (d.t === "screen") { drawScreen(d.fb); if (!device.dataset.drawn) device.dataset.drawn = "1"; }

@@ -53,4 +53,44 @@
 13000 btn 8
 13400 shot 18-play-fr
 13500 btn 12
-14000 end
+13600 lang 1
+13700 btn 11
+13800 btn 11
+14000 shot 19-step-plus
+14100 keys 0x10
+14200 enc 2 2
+14300 enc 3 3
+14400 enc 4 14
+14600 shot 20-step-plus-held
+14700 keys 0
+14800 btn 11
+14900 keys 0x10
+15000 enc 4 3
+15100 enc 5 3
+15300 shot 21-step-ratchet
+15400 keys 0
+15500 btn 2
+15600 btn 2
+15900 shot 22-destroy
+16000 keys 0x1
+16600 shot 23-destroy-held
+16700 keys 0
+16800 btn 2
+17000 keys 0x40
+17600 shot 24-beat-held
+17700 keys 0
+17800 btn 5
+18100 enc 2 8
+18200 enc 3 1
+18600 shot 25-generate-drill
+18700 enc 2 1
+19000 shot 26-generate-breakcore
+19100 btn 9
+19200 enc 2 5
+19400 shot 27-resample-set
+19500 btn 9
+20000 shot 28-resample-armed
+20100 lang 0
+20200 btn 8
+20600 shot 29-play-fr
+21000 end

@@ -14,18 +14,14 @@ static const char *const PUNCH_LONG[NPUNCH] = {"REPEAT 1/4", "REPEAT 1/8", "REPE
                                                "TRIPLET 6/8", "REVERSE", "OCTAVE DOWN", "OCTAVE UP", "UNISON",
                                                "SCRATCH", "TAPE"};
 
-/* WRECK (FX, third page): 16 live effects on the white keys, as K-GLITCH's second live bank (CASSE / WRECK):
- * held, they act on the whole output; let go, they stop. They stack. */
-enum { WK_CRUSH, WK_LOFI, WK_LPF, WK_HPF, WK_TAPE, WK_DIVE, WK_GATE16, WK_GATE32, WK_FREEZE, WK_RING, WK_ECHO,
-       WK_DIST, WK_WOB, WK_VINYL, WK_NOKICK, WK_NOSNARE, WK_N };
-static const char *const WRECK_EN[WK_N][2] = {
-    {"CRUSH", "4 BITS"}, {"LO-FI", "RATE"}, {"LOW-P", "SWEEP"}, {"HIGH-P", "SWEEP"}, {"TAPE", "STOP"},
-    {"DIVE", ""}, {"GATE", "1/16"}, {"GATE", "1/32"}, {"FREEZE", ""}, {"RING", ""}, {"ECHO", ""},
-    {"DISTO", ""}, {"WOBBLE", ""}, {"VINYL", ""}, {"NO", "KICK"}, {"NO", "SNARE"}};
-static const char *const WRECK_FR[WK_N][2] = {
-    {"ECRASE", "4 BITS"}, {"DECIME", ""}, {"FILTRE", "BAS"}, {"FILTRE", "HAUT"}, {"STOP", "K7"},
-    {"PIQUE", ""}, {"HACHE", "1/16"}, {"HACHE", "1/32"}, {"GEL", ""}, {"RING", ""}, {"ECHO", ""},
-    {"DISTO", ""}, {"WOBBLE", ""}, {"VINYLE", ""}, {"SANS", "KICK"}, {"SANS", "CAISSE"}};
+/* BEAT (FX, third page): K-GLITCH's BEAT bank, 16 programs over the bar on the white keys (brk_beat.c) */
+static const char *const BEAT_NAME[16][2] = {
+    {"RND", "STUTTR"}, {"RND", "BAR"}, {"RND", "FILL"}, {"ROLL", "UP"}, {"SKIP", "8TH"}, {"STAM-", "MER"},
+    {"GATE", "8"}, {"GATE", "16"}, {"GATE", "3-3-2"}, {"GATE", "RAMP"}, {"REV", "BEAT"}, {"REV", "OFF 8"},
+    {"SCRTCH", "BAR"}, {"SCRTCH", "CUT"}, {"TAPE", "STOP"}, {"HALF", "TIME"}};
+static const char *const BEAT_LONG[16] = {"RND STUTTER", "RND BAR", "RND FILL", "ROLL UP", "SKIP 8TH", "STAMMER",
+    "GATE 8", "GATE 16", "GATE 3-3-2", "GATE RAMP", "REV BEAT", "REV OFFBEAT", "SCRATCH BAR", "SCRATCH CUT",
+    "TAPE STOP", "HALF TIME"};
 
 /* the flex patterns (Flex Beat / Gross Beat style): over a bar of 16 steps, which step plays (map), how loud
  * every 1/32 is (gate, 0..15), a pitch per step, and a speed ramp.

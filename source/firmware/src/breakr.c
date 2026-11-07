@@ -16,6 +16,7 @@
  *   brk_data.c    names, the punch effects, the flex patterns, the generator's styles
  *   brk_snd.c     the voices                                   (audio interrupt)
  *   brk_fx.c      the master                                   (audio interrupt)
+ *   brk_beat.c    the BEAT bank (K-GLITCH's): programs over the bar (audio interrupt)
  *   brk_seq.c     the sequencer, the dice, the flex, app_audio (audio interrupt)
  *   brk_slice.c   looking at a break: waveform, hits, classes
  *   brk_edit.c    slicing, the generators, undo, the defaults
@@ -42,6 +43,7 @@
 #include "brk_data.c"
 #include "brk_snd.c"
 #include "brk_fx.c"
+#include "brk_beat.c"
 #include "brk_seq.c"
 #include "brk_slice.c"
 #include "brk_edit.c"

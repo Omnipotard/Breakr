@@ -326,6 +326,7 @@ static void prj_defaults(void)
     prj.p.fl_depth = 100;
     prj.p.fl_pitch = 1;
     prj.p.vol = 12;
+    for (i = 0; i < 16u; i++) prj.p.bt_int[i] = 50;
     for (i = 0; i < NBRK; i++) { prj.sc[i].count = 16; prj.sc[i].sens = 5; prj.sc[i].bars = brk[i].bars; }
     for (i = 0; i < 8u; i++) {
         uint32_t b = i < NFACT && brk[i].data ? i : 0;
@@ -378,6 +379,7 @@ static void prj_sanitize(void)
     if (p->metro > 2u) p->metro = 0;
     if (p->clock > 1u) p->clock = 0;
     if (p->vol > 15u) p->vol = 12;
+    for (i = 0; i < 16u; i++) if (p->bt_int[i] > 100u) p->bt_int[i] = 50;
     for (i = 0; i < NPAT; i++) {
         pat_t *pt = &prj.pat[i];
         if (pt->len < 1u || pt->len > NSTEP) pt->len = 16;

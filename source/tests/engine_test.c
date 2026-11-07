@@ -25,6 +25,7 @@ static volatile uint32_t fm1_ms;
 #include "brk_data.c"
 #include "brk_snd.c"
 #include "brk_fx.c"
+#include "brk_beat.c"
 #include "brk_seq.c"
 #include "brk_slice.c"
 #include "brk_edit.c"
@@ -227,44 +228,59 @@ static void t_dice(void)
     }
 }
 
-/* WRECK (FX, third page): each of the 16 alone, then all, with the master's knobs at their ends; the gates
- * cut, FREEZE loops its grain, NO KICK / NO SNARE leave those slices out */
-static void t_wreck(void)
+/* BEAT (FX, third page; K-GLITCH's bank): every program at 3 tempos and 3 intensities against the same groove
+ * without it: it changes the sound while held, stays in range, lets go cleanly; the gates cut on the bar */
+static void t_beat(void)
 {
-    uint32_t f, i, quiet, win, kicks, snares;
-    int32_t *o;
-    for (f = 0; f <= WK_N; f++) {
+    static const uint16_t BPMS[3] = {700, 1200, 2400};
+    static const uint8_t INT[3] = {0, 50, 100};
+    uint32_t bi, e, ii, i, changed = 0, runs = 0;
+    for (bi = 0; bi < 3u; bi++) {
+        uint32_t bar = (uint32_t)(44100.0 * 60.0 * 4.0 * 10.0 / BPMS[bi]), pre = (bar + 255u) & ~255u, len = (2u * bar + 255u) & ~255u, tot = pre + len + 22016u;   /* (whole blocks: render() keeps the time) */
+        int32_t *dry;
         boot();
-        bpm10_set(1200);
-        prj.p.drive = (uint8_t)(f & 1u ? 15 : 0); prj.p.crush = (uint8_t)(f & 2u ? 15 : 0); prj.p.dly_mix = 8;
-        tlog_n = 0;
+        bpm10_set(BPMS[bi]);
         ev_push(EV_PLAY, 0, 0, 0);
-        if (f == WK_FREEZE) { prj.p.dly_mix = 0; o = render(13230u); free(o); }   /* (it freezes what just played: play first; no echo over it) */
-        wreck_keys = f < WK_N ? 1u << f : (1u << WK_N) - 1u;
-        o = render(44100u);
-        for (i = 0, quiet = 0, win = 0; i + 44u <= 44100u; i += 44u, win++) {   /* 1 ms windows from 0.25 s on */
-            uint32_t j, pk = 0;
-            if (i < 11025u) { win--; continue; }
-            for (j = 0; j < 44u; j++) { int32_t a = o[2u * (i + j)]; a = a < 0 ? -a : a; if ((uint32_t)a > pk) pk = (uint32_t)a; }
-            quiet += pk < 300u;
-            for (j = 0; j < 88u; j++) CHECK(o[2u * i + j] >= -32767 && o[2u * i + j] <= 32767, "WRECK %u: out of range", f);
+        dry = render(tot);
+        for (e = 0; e < 16u; e++) {
+            for (ii = 0; ii < 3u; ii++) {
+                int32_t *a, *b, *c;
+                double de = 0, dd = 0;
+                uint32_t quiet = 0, win = 0;
+                boot();
+                bpm10_set(BPMS[bi]);
+                for (i = 0; i < 16u; i++) prj.p.bt_int[i] = INT[ii];
+                ev_push(EV_PLAY, 0, 0, 0);
+                a = render(pre);                 /* a bar of the groove, then the program held 2 bars, then let go */
+                bt_key(e, 1);
+                b = render(len);
+                bt_key(e, 0);
+                c = render(22016u);
+                for (i = 0; i < 2u * len; i++) {
+                    double w = b[i], d0 = dry[2u * pre + i];
+                    de += (w - d0) * (w - d0);
+                    dd += d0 * d0;
+                    CHECK(b[i] >= -32767 && b[i] <= 32767, "BEAT %u: out of range", e);
+                }
+                for (i = 0; i + 441u <= len; i += 441u, win++) {   /* 10 ms windows */
+                    uint32_t j, pk = 0;
+                    for (j = 0; j < 441u; j++) { int32_t v = b[2u * (i + j)]; v = v < 0 ? -v : v; if ((uint32_t)v > pk) pk = (uint32_t)v; }
+                    quiet += pk < 200u;
+                }
+                if ((e == BT_GATE8 || e == BT_GATE16) && ii == 1u)
+                    CHECK(quiet * 100u >= win * 25u && quiet * 100u <= win * 75u, "BEAT gate %u at %u: %u of %u windows silent", e, BPMS[bi], quiet, win);
+                runs++;
+                changed += de > dd * 0.01;
+                if (de <= dd * 0.01 && ii) printf("beat      %-12s %3u%% at %u: no change?\n", BEAT_LONG[e], INT[ii], BPMS[bi] / 10u);
+                for (i = 2u * 11025u; i < 2u * 22050u; i++)   /* let go: it fades (no stuck effect) */
+                    CHECK(kd.cur < 0, "BEAT %u still playing after its key", e);
+                free(a); free(b); free(c);
+            }
         }
-        for (i = 0, kicks = snares = 0; i < tlog_n; i++) { uint32_t c = sl_class(0, tlog[i].k); kicks += c == CL_K; snares += c == CL_S; }
-        if (f == WK_GATE16 || f == WK_GATE32)
-            CHECK(quiet * 100u >= win * 30u, "WRECK gate %u: silent %u of %u ms", f, quiet, win);
-        if (f == WK_NOKICK) CHECK(!kicks && snares, "NO KICK: %u kicks, %u snares", kicks, snares);
-        if (f == WK_NOSNARE) CHECK(!snares && kicks, "NO SNARE: %u kicks, %u snares", kicks, snares);
-        if (f == WK_FREEZE) {                    /* the grain: the same 2048 frames again and again */
-            double num = 0, da = 0, db = 0;
-            for (i = 22050u; i < 22050u + 8192u; i++) { double a = o[2u * i], b = o[2u * (i + 2048u)]; num += a * b; da += a * a; db += b * b; }
-            CHECK(da > 1e6 && num / sqrt(da * db + 1) > 0.95, "FREEZE does not loop its grain");
-            printf("wreck     FREEZE loops its 2048-frame grain (corr %.3f)\n", num / sqrt(da * db + 1));
-        }
-        if (f == WK_GATE16) printf("wreck     GATE 1/16: %u of %u ms silent\n", quiet, win);
-        free(o);
+        free(dry);
     }
-    wreck_keys = 0;
-    printf("wreck     16 effects alone and all together, master knobs at their ends: ran\n");
+    printf("beat      16 programs x 3 tempos x 3 intensities: %u of %u change the groove\n", changed, runs);
+    CHECK(changed * 100u >= runs * 85u, "BEAT: too few programs change the sound");
 }
 
 static void t_effects(void)
@@ -395,7 +411,7 @@ int main(void)
     t_fidelity();
     t_timing();
     t_dice();
-    t_wreck();
+    t_beat();
     t_effects();
     t_slicing();
     t_generators();

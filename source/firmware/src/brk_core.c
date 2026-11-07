@@ -110,6 +110,7 @@ typedef struct {
     uint8_t metro;          /* 0 off, 1 when recording, 2 always */
     uint8_t clock;          /* 0 internal, 1 MIDI */
     uint8_t vol;            /* 0..15 */
+    uint8_t bt_int[16];     /* the BEAT bank: each effect's INTENSITY, 0..100 */
     uint8_t pad[3];
 } params_t;
 
@@ -134,7 +135,7 @@ static ev_t evq[NEV];
 static volatile uint32_t ev_w, ev_r;            /* main writes ev_w, the interrupt ev_r */
 
 static volatile uint32_t punch_keys;            /* bit k: punch effect k held (the black keys) */
-static volatile uint32_t wreck_keys;            /* bit k: WRECK effect k held (FX's third page, the white keys) */
+static volatile uint32_t beat_keys;             /* bit k: BEAT effect k held (FX's third page, the white keys) */
 static volatile uint32_t flex_sel = 0xFF;       /* the flex pattern asked for (0..15), 0xFF none */
 static volatile uint32_t flex_on = 0xFF;        /* the one playing (the interrupt sets it at the launch) */
 static volatile uint32_t audio_hold;            /* 1: the interrupt is silent and touches nothing (flash writes) */

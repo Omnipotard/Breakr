@@ -71,14 +71,17 @@
 15400 keys 0
 15500 btn 2
 15600 btn 2
-15900 shot 22-destroy
+15900 shot 22-beat
 16000 keys 0x1
-16600 shot 23-destroy-held
+16600 shot 23-beat-held
 16700 keys 0
 16800 btn 2
 17000 keys 0x40
-17600 shot 24-beat-held
-17700 keys 0
+17600 shot 24-destroy-held
+17650 keys 0
+17680 keys 0x8
+17760 shot 30-punch-window
+17780 keys 0
 17800 btn 5
 18100 enc 2 8
 18200 enc 3 1

@@ -423,6 +423,54 @@ static void t_steps(void)
     free(o);
 }
 
+/* the DJ filter: every position of the knob at three resonances, on white noise. A filter takes away; at the
+ * lowest resonance it never adds (no ringing near the top of the low-pass), at the highest it rings but stays
+ * bounded; and the knob passing the middle back and forth stays clean */
+static void t_filter(void)
+{
+    static const uint8_t RESO[3] = {0, 8, 15};
+    static int32_t L[4096], R[4096];
+    uint32_t ri, f, i, rs = 12345u, bad = 0;
+    double worst[3] = {0, 0, 0};
+    int worst_at[3] = {0, 0, 0};
+    for (ri = 0; ri < 3u; ri++)
+        for (f = 0; f < 128u; f++) {
+            double ein = 0, eout = 0;
+            boot();
+            fx_reset();
+            prj.p.drive = 0; prj.p.crush = 0; prj.p.dly_mix = 0; prj.p.punch = 0;
+            prj.p.reso = RESO[ri];
+            prj.p.filter = (uint8_t)f;
+            for (i = 0; i < 4096u; i++) { rs = rs * 1664525u + 1013904223u; L[i] = R[i] = (int32_t)(rs >> 18) - 8192; }
+            for (i = 0; i < 4096u; i += 256u) fx_master(L + i, R + i, 256u);
+            for (i = 0; i < 4096u; i++) { rs = rs * 1664525u + 1013904223u; L[i] = R[i] = (int32_t)(rs >> 18) - 8192; }
+            for (i = 0; i < 4096u; i++) ein += (double)L[i] * L[i];
+            for (i = 0; i < 4096u; i += 256u) fx_master(L + i, R + i, 256u);
+            for (i = 0; i < 4096u; i++) eout += (double)L[i] * L[i];
+            if (sqrt(eout / ein) > worst[ri]) { worst[ri] = sqrt(eout / ein); worst_at[ri] = (int)f; }
+            if (ri == 0u && eout > ein * 1.10 * 1.10) bad++;
+            if (eout > ein * 3.0 * 3.0) bad++;
+        }
+    printf("filter    loudest out / in: reso 0 %.2f (knob %d), reso 8 %.2f (knob %d), reso 15 %.2f (knob %d)\n",
+           worst[0], worst_at[0], worst[1], worst_at[1], worst[2], worst_at[2]);
+    CHECK(!bad, "the filter adds level (%u knob positions)", bad);
+    {                                           /* the knob through the middle, back and forth, on a sine */
+        int32_t pk = 0;
+        boot();
+        fx_reset();
+        prj.p.drive = 0; prj.p.crush = 0; prj.p.dly_mix = 0; prj.p.punch = 0; prj.p.reso = 0;
+        for (f = 0; f < 400u; f++) {
+            uint32_t pos = f % 80u < 40u ? 40u + f % 80u : 120u - f % 80u;   /* 40 .. 80 .. 40 */
+            prj.p.filter = (uint8_t)pos;
+            for (i = 0; i < 256u; i++) { int32_t v = (int32_t)(16000.0 * sin((f * 256u + i) * 0.0712)); L[i] = R[i] = v; }
+            fx_master(L, R, 256u);
+            for (i = 0; i < 256u; i++) { int32_t a = L[i] < 0 ? -L[i] : L[i]; if (a > pk) pk = a; }
+        }
+        printf("filter    a 500 Hz sine at 16000, the knob swept through the middle: peak %d\n", pk);
+        CHECK(pk < 18000, "the filter rings through the middle (peak %d)", pk);
+    }
+}
+
 static void t_generators(void)
 {
     uint32_t b, s, r, bad = 0, total = 0;
@@ -455,6 +503,7 @@ int main(void)
     t_beat();
     t_effects();
     t_slicing();
+    t_filter();
     t_steps();
     t_generators();
     printf(fails ? "\n%d CHECK(S) FAILED\n" : "\nALL ENGINE CHECKS PASSED\n", fails);

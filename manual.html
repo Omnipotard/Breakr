@@ -51,11 +51,11 @@ ul.tight { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 4px; color:
 <main class="wrap layout">
   <nav class="toc" aria-label="Contents">
     <a href="#panel">PANEL</a><a href="#play">PLAY</a><a href="#steps">STEPS · STEP+</a><a href="#slice">SLICE · CHOP</a><a href="#amp">AMP</a>
-    <a href="#dice">DICE · GENERATE</a><a href="#flex">FLEX</a><a href="#fx">FX · TONE · SPACE</a><a href="#glitch">DESTROY · BEAT</a>
+    <a href="#dice">DICE · GENERATE</a><a href="#flex">FLEX</a><a href="#fx">FX · TONE · SPACE</a><a href="#glitch">BEAT · DESTROY</a>
     <a href="#global">GLOBAL</a><a href="#save">SAVE · RESAMPLE</a><a href="#breaks"><span lang="en">YOUR BREAKS</span><span lang="fr">TES BREAKS</span></a><a href="#midi">MIDI</a><a href="#safety"><span lang="en">SAFETY</span><span lang="fr">SÉCURITÉ</span></a>
   </nav>
   <article class="doc">
-    <span class="eyebrow">BREAKR 0.1 · M-VAVE FM-1</span>
+    <span class="eyebrow">BREAKR 0.2 · M-VAVE FM-1</span>
     <h1><span lang="en">The <span>manual</span></span><span lang="fr">Le <span>manuel</span></span></h1>
     <p><span lang="en">Every page of BREAKR, every control. You can try everything in the <a href="emulator/index.html">emulator</a> first: it runs the same firmware.</span><span lang="fr">Chaque page de BREAKR, chaque commande. Tu peux tout essayer d’abord dans l’<a href="emulator/index.html">émulateur</a> : il fait tourner le même firmware.</span></p>
 
@@ -70,7 +70,7 @@ ul.tight { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 4px; color:
           <tr><td>PLAY · REC</td><td><span lang="en">Start / stop the pattern. REC records what you play (slices, punch effects, glitch effects held).</span><span lang="fr">Lance / arrête le pattern. REC enregistre ce que tu joues (tranches, effets punch, effets glitch tenus).</span></td></tr>
           <tr><td>ALGORITHM</td><td><span lang="en">The tempo, 40 to 300 BPM.</span><span lang="fr">Le tempo, de 40 à 300 BPM.</span></td></tr>
           <tr><td>PRESETS</td><td><span lang="en">The pattern (16); while playing, the next one starts at the end of this one.</span><span lang="fr">Le pattern (16) ; en lecture, le suivant part à la fin de celui-ci.</span></td></tr>
-          <tr><td><span lang="en">Black keys</span><span lang="fr">Touches noires</span></td><td><span lang="en">11 punch effects, held: REPEAT 1/4, 1/8, 1/16, ROLL, 6/8, REVERSE, OCTAVE −/+, UNISON, SCRATCH, TAPE.</span><span lang="fr">11 effets punch, tenus : REPEAT 1/4, 1/8, 1/16, ROLL, 6/8, REVERSE, OCTAVE −/+, UNISON, SCRATCH, TAPE.</span></td></tr>
+          <tr><td><span lang="en">Black keys</span><span lang="fr">Touches noires</span></td><td><span lang="en">11 punch effects, held: REPEAT 1/4, 1/8, 1/16, ROLL, 6/8, REVERSE, OCTAVE −/+, UNISON, SCRATCH, TAPE. On the FX pages a window names the one you press.</span><span lang="fr">11 effets punch, tenus : REPEAT 1/4, 1/8, 1/16, ROLL, 6/8, REVERSE, OCTAVE −/+, UNISON, SCRATCH, TAPE. Sur les pages FX, une fenêtre nomme celui que tu appuies.</span></td></tr>
         </table></div>
       </div><img src="docs/img/17-help.png" alt="HOME held: the help" width="480" height="480" loading="lazy"></div>
     </section>
@@ -90,8 +90,8 @@ ul.tight { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 4px; color:
            <span lang="fr">16 pas sur les touches blanches (<b>OCT</b> : pas 17–64). Un appui pose la tranche du pinceau (<b>SELECT</b>) ou vide un pas. <b>Tiens un pas</b> et tourne : <span class="k1">K1 tranche</span>, <span class="k2">K2 hauteur</span>, <span class="k3">K3 ratchet ×1…×16</span>, <span class="k4">K4 chance</span> ; tiens un pas et appuie sur une noire : un effet punch verrouillé dessus.</span></p>
         <p><span lang="en">Without a step held: <span class="k1">K1 length</span> (1–64), <span class="k2">K2 rate</span> (1/16, 1/8, 1/32, triplets), <span class="k3">K3 swing</span>, <span class="k4">K4 brush</span>.</span><span lang="fr">Sans pas tenu : <span class="k1">K1 longueur</span> (1–64), <span class="k2">K2 pas</span> (1/16, 1/8, 1/32, triolets), <span class="k3">K3 swing</span>, <span class="k4">K4 pinceau</span>.</span></p>
         <h3>STEP+ <span class="px">SEQ ×2</span></h3>
-        <p><span lang="en">Hold a step: <span class="k1">K1 COND</span>, <span class="k2">K2 RAMP</span>, <span class="k3">K3 FX</span> (none, a punch effect, or any of the 32 DESTROY / BEAT effects, for that step), <span class="k4">K4 NUDGE</span> (early / late). No step held: <span class="k1">K1 ROTATE</span>, <span class="k2">K2 HUMANIZE</span> (left: back on the grid), <span class="k3">K3 RATCHETS</span> (a few hits drilled; left: none), <span class="k4">K4 REVERSE</span>. Every one of these keeps an undo (DICE or SAVE: OCT−).</span>
-           <span lang="fr">Tiens un pas : <span class="k1">K1 COND</span>, <span class="k2">K2 RAMPE</span>, <span class="k3">K3 FX</span> (aucun, un effet punch, ou l’un des 32 effets DESTROY / BEAT, pour ce pas), <span class="k4">K4 NUDGE</span> (en avance / en retard). Sans pas tenu : <span class="k1">K1 DÉCALER</span>, <span class="k2">K2 HUMANISER</span> (à gauche : retour sur la grille), <span class="k3">K3 RATCHETS</span> (quelques coups drillés ; à gauche : aucun), <span class="k4">K4 INVERSER</span>. Chacun garde un annuler (DÉS ou SAVE : OCT−).</span></p>
+        <p><span lang="en">Hold a step: <span class="k1">K1 COND</span>, <span class="k2">K2 RAMP</span>, <span class="k3">K3 FX</span> (none, a punch effect, or any of the 32 BEAT / DESTROY effects, for that step), <span class="k4">K4 NUDGE</span> (early / late). No step held: <span class="k1">K1 ROTATE</span>, <span class="k2">K2 HUMANIZE</span> (left: back on the grid), <span class="k3">K3 RATCHETS</span> (a few hits drilled; left: none), <span class="k4">K4 REVERSE</span>. Every one of these keeps an undo (DICE or SAVE: OCT−).</span>
+           <span lang="fr">Tiens un pas : <span class="k1">K1 COND</span>, <span class="k2">K2 RAMPE</span>, <span class="k3">K3 FX</span> (aucun, un effet punch, ou l’un des 32 effets BEAT / DESTROY, pour ce pas), <span class="k4">K4 NUDGE</span> (en avance / en retard). Sans pas tenu : <span class="k1">K1 DÉCALER</span>, <span class="k2">K2 HUMANISER</span> (à gauche : retour sur la grille), <span class="k3">K3 RATCHETS</span> (quelques coups drillés ; à gauche : aucun), <span class="k4">K4 INVERSER</span>. Chacun garde un annuler (DÉS ou SAVE : OCT−).</span></p>
         <div class="tw"><table>
           <tr><th>COND</th><th><span lang="en">The step plays…</span><span lang="fr">Le pas joue…</span></th></tr>
           <tr><td>A:B</td><td><span lang="en">on the A-th of every B loops of the pattern (1:2, 2:2, 1:3 … 4:4, 1:8, 8:8)</span><span lang="fr">à la A-ième de chaque série de B boucles du pattern (1:2, 2:2, 1:3 … 4:4, 1:8, 8:8)</span></td></tr>
@@ -139,17 +139,26 @@ ul.tight { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 4px; color:
 
     <section id="fx">
       <h2>FX · TONE · SPACE <small>FX ×1 · ×2</small></h2>
-      <p><span lang="en">TONE: <span class="k1">K1 FILTER</span> (left low-pass, right high-pass), <span class="k2">K2 RESO</span>, <span class="k3">K3 DRIVE</span>, <span class="k4">K4 CRUSH</span>. SPACE: <span class="k1">K1 DELAY</span> 1/16 … 1/2, <span class="k2">K2 FEEDBACK</span>, <span class="k3">K3 MIX</span>, <span class="k4">K4 PUNCH</span> (a compressor).</span>
-         <span lang="fr">TONE : <span class="k1">K1 FILTER</span> (à gauche passe-bas, à droite passe-haut), <span class="k2">K2 RÉSO</span>, <span class="k3">K3 DRIVE</span>, <span class="k4">K4 CRUSH</span>. SPACE : <span class="k1">K1 DELAY</span> 1/16 … 1/2, <span class="k2">K2 RETOUR</span>, <span class="k3">K3 MIX</span>, <span class="k4">K4 PUNCH</span> (un compresseur).</span></p>
+      <div class="pg"><div>
+        <p><span lang="en">TONE: <span class="k1">K1 FILTER</span> (left low-pass, right high-pass), <span class="k2">K2 RESO</span>, <span class="k3">K3 DRIVE</span>, <span class="k4">K4 CRUSH</span>. SPACE: <span class="k1">K1 DELAY</span> 1/16 … 1/2, <span class="k2">K2 FEEDBACK</span>, <span class="k3">K3 MIX</span>, <span class="k4">K4 PUNCH</span> (a compressor). On every FX page a black key opens a window over the screen: the punch effect it plays, what it does, and the keys held.</span>
+         <span lang="fr">TONE : <span class="k1">K1 FILTER</span> (à gauche passe-bas, à droite passe-haut), <span class="k2">K2 RÉSO</span>, <span class="k3">K3 DRIVE</span>, <span class="k4">K4 CRUSH</span>. SPACE : <span class="k1">K1 DELAY</span> 1/16 … 1/2, <span class="k2">K2 RETOUR</span>, <span class="k3">K3 MIX</span>, <span class="k4">K4 PUNCH</span> (un compresseur). Sur chaque page FX, une touche noire ouvre une fenêtre sur l’écran : l’effet punch qu’elle joue, ce qu’il fait, et les touches tenues.</span></p>
+      </div><img src="docs/img/30-punch-window.png" alt="FX: the punch window" width="480" height="480" loading="lazy"></div>
     </section>
 
     <section id="glitch">
-      <h2>DESTROY · BEAT <small>FX ×3 · ×4</small></h2>
+      <h2>BEAT · DESTROY <small>FX ×3 · ×4</small></h2>
       <div class="pg"><div>
         <p><span lang="en">K-GLITCH’s two banks, 16 effects each on the white keys: <b>hold</b> a key and it plays, on the bar; let go and it stops. The last key held wins. <span class="k1">KNOB 1</span> is the <b>intensity</b> of the last one pressed (each has its own, saved with the project); KNOB 2–4: filter, drive, crush. <b>REC</b> while holding one writes it on the steps it plays over; STEP+ K3 locks one on a step.</span>
            <span lang="fr">Les deux banques de K-GLITCH, 16 effets chacune sur les touches blanches : <b>tiens</b> une touche et il joue, calé sur la mesure ; lâche, il s’arrête. La dernière tenue gagne. <span class="k1">KNOB 1</span> règle l’<b>intensité</b> du dernier appuyé (chacun a la sienne, sauvée avec le projet) ; KNOB 2–4 : filtre, drive, crush. <b>REC</b> en tenant un effet l’écrit sur les pas qu’il traverse ; STEP+ K3 en verrouille un sur un pas.</span></p>
-      </div><img src="docs/img/23-destroy-held.png" alt="DESTROY" width="480" height="480" loading="lazy"></div>
+      </div><img src="docs/img/23-beat-held.png" alt="BEAT" width="480" height="480" loading="lazy"></div>
       <div class="tw"><table>
+        <tr><th>BEAT</th><th><span lang="en">A program over the bar</span><span lang="fr">Un programme sur la mesure</span></th></tr>
+        <tr><td>RND STUTTER · RND BAR · RND FILL</td><td><span lang="en">stutters on random 8ths · every 16th dry, repeated, backwards, muted, half speed or pitched · the end of the bar a random fill</span><span lang="fr">des stutters sur des croches au hasard · chaque double-croche sèche, répétée, à l’envers, coupée, ralentie ou transposée · la fin de la mesure en fill au hasard</span></td></tr>
+        <tr><td>ROLL UP · SKIP 8TH · STAMMER</td><td><span lang="en">the downbeat repeated faster and faster · the off-8ths dropped · 3-3-2, the hits repeated</span><span lang="fr">le premier temps répété de plus en plus vite · les contretemps sautés · 3-3-2, les frappes répétées</span></td></tr>
+        <tr><td>GATE 8 · 16 · 3-3-2 · RAMP</td><td><span lang="en">trance gates; RAMP speeds up from quarters to 32nds</span><span lang="fr">des gates trance ; RAMP accélère des noires aux triples croches</span></td></tr>
+        <tr><td>REV BEAT · REV OFFBEAT</td><td><span lang="en">beats backwards · each off-8th the one before backwards</span><span lang="fr">des temps à l’envers · chaque contretemps la croche d’avant à l’envers</span></td></tr>
+        <tr><td>SCRATCH BAR · SCRATCH CUT</td><td><span lang="en">silence, three scratches, the downbeat backwards · beats 2 and 4 scratched under the fader</span><span lang="fr">un silence, trois scratches, le premier temps à l’envers · les temps 2 et 4 scratchés sous le fader</span></td></tr>
+        <tr><td>TAPE STOP · HALF TIME</td><td><span lang="en">the end of the bar slows to a stop · each beat played at half speed</span><span lang="fr">la fin de la mesure ralentit jusqu’à l’arrêt · chaque temps joué à mi-vitesse</span></td></tr>
         <tr><th>DESTROY</th><th><span lang="en">Intensity</span><span lang="fr">Intensité</span></th></tr>
         <tr><td>LOOP DESTROY</td><td><span lang="en">the bar cut in 1/2 … 1/32, looped; past 60 % passes backwards, past 85 % from random places</span><span lang="fr">la mesure coupée en 1/2 … 1/32, bouclée ; au-delà de 60 % des passages à l’envers, de 85 % depuis des endroits au hasard</span></td></tr>
         <tr><td>STUTTER X</td><td><span lang="en">2, 3, 4, 8 repeats a beat, each fading; past 75 % random bursts</span><span lang="fr">2, 3, 4, 8 répétitions par temps, chacune plus douce ; au-delà de 75 % des rafales</span></td></tr>
@@ -165,13 +174,6 @@ ul.tight { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 4px; color:
         <tr><td>TIME STRETCH</td><td><span lang="en">the groove at 3/4 … 1/4 speed, same pitch</span><span lang="fr">le groove à 3/4 … 1/4 de vitesse, même hauteur</span></td></tr>
         <tr><td>RING MOD · FUZZ</td><td><span lang="en">a carrier 30 Hz … 2 kHz · drive ×1 … ×15</span><span lang="fr">une porteuse 30 Hz … 2 kHz · drive ×1 … ×15</span></td></tr>
         <tr><td>RANDOMIZER · TOTAL CHAOS</td><td><span lang="en">one of the above each 16th · the same, crushed and ring-modulated</span><span lang="fr">l’un des précédents à chaque double-croche · pareil, écrasé et modulé en anneau</span></td></tr>
-        <tr><th>BEAT</th><th><span lang="en">A program over the bar</span><span lang="fr">Un programme sur la mesure</span></th></tr>
-        <tr><td>RND STUTTER · RND BAR · RND FILL</td><td><span lang="en">stutters on random 8ths · every 16th dry, repeated, backwards, muted, half speed or pitched · the end of the bar a random fill</span><span lang="fr">des stutters sur des croches au hasard · chaque double-croche sèche, répétée, à l’envers, coupée, ralentie ou transposée · la fin de la mesure en fill au hasard</span></td></tr>
-        <tr><td>ROLL UP · SKIP 8TH · STAMMER</td><td><span lang="en">the downbeat repeated faster and faster · the off-8ths dropped · 3-3-2, the hits repeated</span><span lang="fr">le premier temps répété de plus en plus vite · les contretemps sautés · 3-3-2, les frappes répétées</span></td></tr>
-        <tr><td>GATE 8 · 16 · 3-3-2 · RAMP</td><td><span lang="en">trance gates; RAMP speeds up from quarters to 32nds</span><span lang="fr">des gates trance ; RAMP accélère des noires aux triples croches</span></td></tr>
-        <tr><td>REV BEAT · REV OFFBEAT</td><td><span lang="en">beats backwards · each off-8th the one before backwards</span><span lang="fr">des temps à l’envers · chaque contretemps la croche d’avant à l’envers</span></td></tr>
-        <tr><td>SCRATCH BAR · SCRATCH CUT</td><td><span lang="en">silence, three scratches, the downbeat backwards · beats 2 and 4 scratched under the fader</span><span lang="fr">un silence, trois scratches, le premier temps à l’envers · les temps 2 et 4 scratchés sous le fader</span></td></tr>
-        <tr><td>TAPE STOP · HALF TIME</td><td><span lang="en">the end of the bar slows to a stop · each beat played at half speed</span><span lang="fr">la fin de la mesure ralentit jusqu’à l’arrêt · chaque temps joué à mi-vitesse</span></td></tr>
       </table></div>
     </section>
 

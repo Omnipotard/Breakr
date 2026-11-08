@@ -30,7 +30,7 @@ jobs:
         run: |
           VER=$(echo "${GITHUB_REF_NAME}" | sed -n 's#^test/\([0-9][0-9.]*[0-9]\).*#\1#p')
           mkdir -p build
-          JIELI_TOOLCHAIN="$HOME/.jieli/toolchain" AC79_SDK="$HOME/fw-AC79_AIoT_SDK" ./build.sh --release "${VER:-0.1}" 2>&1 | tee build/log.txt
+          JIELI_TOOLCHAIN="$HOME/.jieli/toolchain" AC79_SDK="$HOME/fw-AC79_AIoT_SDK" ./build.sh --release "${VER:-0.2}" 2>&1 | tee build/log.txt
           exit "${PIPESTATUS[0]}"
       - name: Update path tests
         working-directory: source

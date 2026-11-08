@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* BREAKR: the two glitch banks of K-GLITCH (kg_dd.c, kg_beat.c, by Omnipotard) brought over: FX's third page
- * (DESTROY) and fourth (BEAT), 16 effects each on the white keys, held. Audio interrupt, on the whole mix, before
+ * (BEAT) and fourth (DESTROY), 16 effects each on the white keys, held. Audio interrupt, on the whole mix, before
  * the master (brk_fx.c). Their past is a ring of the dry mix (mono, 0.74 s); a held segment is kept from the
  * ring's writer. Each effect has its own INTENSITY (0..100, KNOB 1 on its page, saved with the project). They
  * follow the sequencer's sixteenths (stopped: from the press). One plays at a time: the last key held, else the
@@ -84,8 +84,8 @@ static struct {
     int8_t semi;                                 /* PITCH: the step it is on */
     uint32_t mask, i32;                          /* GATE: the bar's pattern (bit per 16th or 32nd), the slot last seen */
     int32_t gg;                                  /* GATE / SKIP / BEAT: the gain, Q15 */
-    int32_t flo[2], fbd[2], cut, cut_to, fq, fc; /* FILTER: the state-variable filter, its cutoff (note x256), damping,
-                                                  * coefficient (Q14, per block) */
+    svf_t flt;                                   /* FILTER: the state-variable filter (brk_fx.c) */
+    int32_t cut, cut_to, fq;                     /* .. its cutoff (note x256, gliding), its damping (Q24) */
     int32_t hl, hr;                              /* GLITCH: the held sample */
     uint32_t hn, corrupt, csrc, noise;           /* GLITCH: hold count, corrupted samples left, their source, noise left */
     uint32_t rnd;
@@ -545,9 +545,9 @@ static void dd_engage(int32_t e, uint32_t base)
         kd.i32 = 0xFFFFFFFFu;
         break;
     case DD_FILTER:
-        kd.flo[0] = kd.flo[1] = kd.fbd[0] = kd.fbd[1] = 0;
+        svf_clear(&kd.flt);
         kd.cut = kd.cut_to = 100 << 8;
-        kd.fq = 30000 - (int32_t)I * 230;        /* Q14 damping: 1.8 .. 0.43 */
+        kd.fq = (30000 - (int32_t)I * 230) << 10;   /* Q24 damping: 1.8 .. 0.43 */
         break;
     case DD_RING:
         kd.ph = 0;
@@ -701,20 +701,9 @@ static void dd_sample(int32_t x, int32_t y, uint32_t idx, int32_t *wl, int32_t *
         *wl = (x * (kd.gg >> 3)) >> 12;
         *wr = (y * (kd.gg >> 3)) >> 12;
         return;
-    case DD_FILTER: {                            /* a Chamberlin state-variable low-pass, twice a sample */
-        int32_t v[2] = {x, y}, c, j, f = kd.fc;
-        for (c = 0; c < 2; c++) {
-            int32_t in = bclamp(v[c], -32767, 32767), hi;
-            for (j = 0; j < 2; j++) {
-                kd.flo[c] += f * kd.fbd[c] >> 14;
-                hi = in - kd.flo[c] - (kd.fq * kd.fbd[c] >> 14);
-                kd.fbd[c] += f * hi >> 14;
-                kd.fbd[c] = bclamp(kd.fbd[c], -98000, 98000);
-                kd.flo[c] = bclamp(kd.flo[c], -98000, 98000);
-            }
-            v[c] = kd.flo[c];
-        }
-        *wl = v[0], *wr = v[1];
+    case DD_FILTER: {                            /* the state-variable low-pass (brk_fx.c), its cutoff per block */
+        *wl = svf_run(&kd.flt, 0, bclamp(x, -32767, 32767), 0);
+        *wr = svf_run(&kd.flt, 1, bclamp(y, -32767, 32767), 0);
         return;
     }
     case DD_RING: {
@@ -807,7 +796,7 @@ static void bt_process(int32_t *l, int32_t *r, uint32_t n)
         int32_t ix;
         kd.cut += (kd.cut_to - kd.cut) / 8;
         ix = ((kd.cut >> 8) - 36) * 63 / 90;
-        kd.fc = (int32_t)FLT_LP[ix < 0 ? 0 : ix > 63 ? 63 : ix];
+        svf_coef(&kd.flt, SVF_G_LP[ix < 0 ? 0 : ix > 63 ? 63 : ix], kd.fq);
     }
     for (i = 0; i < n; i++) {
         int32_t x = l[i], y = r[i], wl, wr, target = want == kd.cur ? 32767 : 0;

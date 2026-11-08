@@ -4,7 +4,7 @@
     "sampler",
     "sequencer"
   ],
-  "play": "https://guizmoh.github.io/BREAKR-FM1/emulator/index.html",
-  "editor": "https://guizmoh.github.io/BREAKR-FM1/editor/index.html",
+  "play": "https://omnipotard.github.io/Breakr/emulator/index.html",
+  "editor": "https://omnipotard.github.io/Breakr/editor/index.html",
   "image": "docs/img/card.png"
 }

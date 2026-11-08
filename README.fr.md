@@ -1,5 +1,5 @@
 <p align="center"><img src="docs/img/card.png" alt="BREAKR, un firmware breakbeat pour le M-VAVE FM-1"></p>
-<p align="center"><a href="https://guizmoh.github.io/BREAKR-FM1/#fr">https://guizmoh.github.io/BREAKR-FM1/</a></p>
+<p align="center"><a href="https://omnipotard.github.io/Breakr/#fr">https://omnipotard.github.io/Breakr/</a></p>
 
 # BREAKR · firmware breakbeat pour le FM-1
 
@@ -7,7 +7,7 @@
 
 **Breakbeat, breakcore, IDM sur le M-VAVE FM-1.** Découpe n'importe quelle boucle sur ses frappes, séquence-la
 sur 64 pas avec ratchets jusqu'à ×16, conditions et verrous d'effets, puis drille-la, détruis-la et
-rééchantillonne-la. Libre et open source (GPL-3.0). *Version 0.1 **BÊTA** : compilée et vérifiée pour le FM-1
+rééchantillonne-la. Libre et open source (GPL-3.0). *Version 0.2 **BÊTA** : compilée et vérifiée pour le FM-1
 (taille, mémoire, mise à jour, des milliers de sessions aléatoires sous sanitizers), pas encore jouée sur le
 matériel ; dis-moi ce que tu vois (onglet Issues).*
 
@@ -22,11 +22,11 @@ matériel ; dis-moi ce que tu vois (onglet Issues).*
 
 1. **8 breaks d'usine** (4 joués par Omnipotard, CC0 ; 4 synthétisés) et **8 à toi** ; découpés tels quels, en grille ou sur leurs frappes, chaque tranche classée kick / caisse claire / charleston.
 2. **Séquenceur 64 pas** : ratchets jusqu'à **×16** avec une rampe, **conditions** (1:2 … 8:8, FIRST, PRE), chance, décalage, un effet verrouillé par pas ; le groove du break gardé ; patterns et chaînes.
-3. **32 effets glitch**, les deux banques de K-GLITCH sur les touches blanches : **DESTROY** et **BEAT**, chacun avec son intensité.
-4. **11 effets punch** sur les touches noires (façon PO-33) et **16 patterns flex** (façon Flex Beat).
+3. **32 effets glitch**, les deux banques de K-GLITCH sur les touches blanches : **BEAT** (FX ×3 ; des programmes sur la mesure : stutters et fills au hasard, roll up, stammer, gates, reverse beat, scratchs, tape stop, half time) et **DESTROY** (FX ×4 ; loop destroy, stutter, glitch, scratch, reverse, pitch mad, gate, filter chaos, beat repeat, micro stutter, time stretch, ring mod, fuzz, total chaos…), chacun avec son intensité.
+4. **11 effets punch** sur les touches noires (façon PO-33 ; sur les pages FX une fenêtre nomme celui que tu appuies) et **16 patterns flex** (façon Flex Beat).
 5. **Générateurs** : DRILL, BREAKCORE, IDM, jungle, half time, boom bap, 2-step, glitch, build-up ; **dés** (libres ou verrouillés).
 6. **RESAMPLE** sur le FM-1 : la sortie, effets compris, enregistrée dans un nouveau break, découpé et classé.
-7. **Master** : filtre, résonance, drive, crush, delay calé sur le tempo, compresseur.
+7. **Master** : filtre (passe-bas à gauche, passe-haut à droite, propre au milieu), résonance, drive, crush, delay calé sur le tempo, compresseur.
 8. **Il dit quoi fait quoi** : un bandeau au-dessus des knobs dit ce que font SELECT, OCT et les touches sur chaque page ; HOME tenu liste toutes les commandes. 5 thèmes. Français et anglais.
 
 ## Installer
@@ -40,7 +40,7 @@ Retour à KAWA, K-WASUB ou un autre firmware : installe son `.fwsc` de la même 
 ## Crédits
 
 BREAKR par **Omnipotard**. Construit sur **Dinghy**, **Felucca** et **SLOOP**, la plateforme ouverte de la
-communauté FM-1 (Leo Kuroshita / Hügelton Instruments, zvenson), comme KAWA. Les banques DESTROY et BEAT
+communauté FM-1 (Leo Kuroshita / Hügelton Instruments, zvenson), comme KAWA. Les banques BEAT et DESTROY
 viennent de **K-GLITCH**. Polices : Barlow Condensed et Silkscreen (SIL OFL 1.1).
 
 ☕ [ko-fi.com/omnipotard](https://ko-fi.com/omnipotard)

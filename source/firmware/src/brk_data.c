@@ -10,6 +10,13 @@ static uint8_t lang __attribute__((unused)) = 1;                        /* 0 FR,
 enum { PX_RPT4, PX_RPT8, PX_RPT16, PX_ROLL, PX_TRIP, PX_REV, PX_OCTDN, PX_OCTUP, PX_UNI, PX_SCRATCH, PX_STOP };
 static const char *const PUNCH_SHORT[NPUNCH] = {"1/4", "1/8", "1/16", "ROLL", "6/8", "REV", "OCT-", "OCT+", "UNI",
                                                 "SCRT", "STOP"};
+/* what each one does, for the window that names it (FX pages; pixel type: no accents) */
+static const char *const PUNCH_DO_EN[NPUNCH] = {"LOOPS THE LAST BEAT", "LOOPS THE LAST 8TH", "LOOPS THE LAST 16TH",
+    "EVERY HIT TWICE, FASTER", "STEPS STRETCHED TO TRIPLETS", "EVERY SLICE BACKWARDS", "AN OCTAVE DOWN", "AN OCTAVE UP",
+    "TWO VOICES, DETUNED, WIDE", "THE RECORD GOES BACK AND FORTH", "SLOWS DOWN TO A STOP"};
+static const char *const PUNCH_DO_FR[NPUNCH] = {"BOUCLE LE DERNIER TEMPS", "BOUCLE LA DERNIERE CROCHE",
+    "BOUCLE LA DERNIERE DOUBLE", "CHAQUE COUP DOUBLE, PLUS VITE", "PAS ETIRES EN TRIOLETS", "CHAQUE TRANCHE A L'ENVERS",
+    "UNE OCTAVE PLUS BAS", "UNE OCTAVE PLUS HAUT", "DEUX VOIX DESACCORDEES", "LE DISQUE VA ET VIENT", "RALENTIT JUSQU'A L'ARRET"};
 static const char *const PUNCH_LONG[NPUNCH] = {"REPEAT 1/4", "REPEAT 1/8", "REPEAT 1/16", "ROLL 1/32",
                                                "TRIPLET 6/8", "REVERSE", "OCTAVE DOWN", "OCTAVE UP", "UNISON",
                                                "SCRATCH", "TAPE"};

@@ -25,9 +25,11 @@ static const uint8_t WHITE_KEY[16] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 
 static const uint8_t BLACK_KEY[NPUNCH] = {1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25};
 static int8_t key_white[27], key_black[27];      /* the white / black index of a key, -1 */
 
+static uint8_t pop_k = 0xFF;                    /* FX: the black key that opened the punch window (0..10) */
+static uint32_t pop_ms;                         /* .. when (the window stays a moment after a tap) */
 static uint8_t beat_sel;                        /* the DESTROY / BEAT effect KNOB 1 sets (the last key pressed): 0..31 */
-#define GL_PAGE() (page == P_FX && sub[P_FX] >= 2u)   /* FX's DESTROY (2) or BEAT (3) page: the white keys are effects */
-#define GL_BASE() (sub[P_FX] == 3u ? 16u : 0u)
+#define GL_PAGE() (page == P_FX && sub[P_FX] >= 2u)   /* FX's BEAT (2) or DESTROY (3) page: the white keys are effects */
+#define GL_BASE() (sub[P_FX] == 2u ? 16u : 0u)          /* (the effects: DESTROY 0..15, BEAT 16..31) */
 static uint8_t page, sub[P_N], bank16, seq_page, chop_k, brush = 1, help_on, splash = 1;
 static int8_t held_step = -1;
 static uint8_t held_used, gen_kept;
@@ -213,7 +215,7 @@ static void knob_info(uint32_t k, kv_t *o)
         if (k == 3) kv_txt(o, "PITCH", onoff(p->fl_pitch), p->fl_pitch * 1000);
         break;
     case P_FX:
-        if (s >= 2u) {                          /* DESTROY, BEAT: the effect's INTENSITY, then the first page's dirt */
+        if (s >= 2u) {                          /* BEAT, DESTROY: the effect's INTENSITY, then the first page's dirt */
             if (k == 0) kv_int(o, "INTENS.", p->bt_int[beat_sel % 32u], 0, 100, "%");
             if (k == 1) { kv_txt(o, "FILTER", p->filter < 60u ? "LOW" : p->filter > 68u ? "HIGH" : "OFF", p->filter * 1000 / 127); o->bip = 1; }
             if (k == 2) kv_int(o, "DRIVE", p->drive, 0, 15, 0);
@@ -556,9 +558,13 @@ static void draw_header(void)
     uint32_t b = cur_brk(), i;
     if (g_vis(0, 25)) {
         g_rect(0, 0, 240, 25, C_BG);
-        w = g_tw(&FONT_BM, PAGE_NAME[page]) + 16;   /* the page: a label in the signal colour */
-        g_round(0, 2, w, 21, C_ACC);
-        g_text(&FONT_BM, 7, 3, PAGE_NAME[page], C_BG);
+        {                                        /* the page: a label in the signal colour (FX: which of its four) */
+            static const char *const FXN[4] = {"TONE", "SPACE", "BEAT", "DESTROY"};
+            const char *nm = page == P_FX ? FXN[sub[P_FX] & 3u] : PAGE_NAME[page];
+            w = g_tw(&FONT_BM, nm) + 16;
+            g_round(0, 2, w, 21, C_ACC);
+            g_text(&FONT_BM, 7, 3, nm, C_BG);
+        }
         x = w + 5;
         t[0] = 0;                                /* the pattern (> the next one), the page's part */
         str_cat(t, "PAT ");
@@ -606,6 +612,7 @@ static const char *hint(uint32_t c)
         break;
     case P_CHOP:
         if (c == H_SEL) return TR("TRANCHE", "SLICE");
+        if (c == H_WHITE) return TR("ECOUTE", "SLICES");
         if (c == H_OCTD) return TR("JOINDRE", "JOIN");
         if (c == H_OCTU) return TR("COUPER", "SPLIT");
         break;
@@ -619,7 +626,7 @@ static const char *hint(uint32_t c)
         if (c == H_OCTD || c == H_OCTU) return "-";
         break;
     case P_FX:
-        if (s >= 2u && c == H_WHITE) return s == 2u ? "DESTROY" : "BEAT";
+        if (s >= 2u && c == H_WHITE) return s == 2u ? "BEAT" : "DESTROY";
         if (c == H_OCTD || c == H_OCTU) return "-";
         break;
     case P_GLOBAL:
@@ -642,21 +649,44 @@ static const char *hint(uint32_t c)
     return "";
 }
 
-/* the strip over the knobs: SEL, OCT, the white keys, the black ones, in pixel type */
+/* the strip over the knobs: SEL, OCT, the white keys, the black ones, in pixel type. Each sits over its knob
+   column when it can; a long one pushes the next along, the last ones pull back from the edge, and only if the
+   four cannot fit at all is the longest cut. */
 static void draw_hints(void)
 {
     static const char *const KEY[4] = {"SEL", "OCT", "WHT", "BLK"};
     static const uint8_t WHAT[4] = {H_SEL, H_OCTU, H_WHITE, H_BLACK};
-    uint32_t i;
+    const char *w[4];
+    int32_t kw[4], tw[4], x[4], gap, tot = 0, i;
     if (!g_vis(185, 12)) return;
     g_rect(0, 185, 240, 12, C_BG);
-    for (i = 0; i < 4u; i++) {
-        int32_t x = (int32_t)i * 60 + 1;
-        const char *w = hint(WHAT[i]);
-        if (i == 1u && (page == P_DICE || page == P_SAVE || w[0] == '-')) w = hint(H_OCTD);
-        if (i == 1u && page == P_CHOP) w = "JOIN/CUT";
-        x = g_text(&FONT_PX, x, 187, KEY[i], C_ACC);
-        g_textw(&FONT_PX, x + 2, 187, 59 - (x + 2 - ((int32_t)i * 60 + 1)), w, C_SUB);
+    for (i = 0; i < 4; i++) {
+        w[i] = hint(WHAT[i]);
+        if (i == 1 && (page == P_DICE || page == P_SAVE || w[i][0] == '-')) w[i] = hint(H_OCTD);
+        if (i == 1 && page == P_CHOP) w[i] = "JOIN/CUT";
+        kw[i] = g_tw(&FONT_PX, KEY[i]) + 2;
+        tw[i] = g_tw(&FONT_PX, w[i]);
+        tot += kw[i] + tw[i];
+    }
+    while (tot > 239 - 3 * 3) {
+        int32_t m = 0;
+        for (i = 1; i < 4; i++) if (tw[i] > tw[m]) m = i;
+        tw[m]--;
+        tot--;
+    }
+    gap = (239 - tot) / 3;
+    if (gap > 6) gap = 6;
+    for (i = 0; i < 4; i++) {
+        x[i] = i * 60 + 1;
+        if (i && x[i] < x[i - 1] + kw[i - 1] + tw[i - 1] + gap) x[i] = x[i - 1] + kw[i - 1] + tw[i - 1] + gap;
+    }
+    for (i = 3; i >= 0; i--) {
+        int32_t lim = (i == 3 ? 240 : x[i + 1] - gap) - kw[i] - tw[i];
+        if (x[i] > lim) x[i] = lim;
+    }
+    for (i = 0; i < 4; i++) {
+        int32_t t = g_text(&FONT_PX, x[i], 187, KEY[i], C_ACC);
+        g_textw(&FONT_PX, t + 2, 187, tw[i] - 1, w[i], C_SUB);
     }
 }
 static void draw_knobs(void)
@@ -1206,7 +1236,7 @@ static const char *const HELP_EN[P_N][6] = {
     {"ATTACK  FADE IN OF EVERY SLICE", "DECAY  HOLD, OR SHORTER HITS", "LENGTH  HOW MUCH OF THE SLICE", "CHOKE  MONO CUTS, POLY RINGS", "", ""},
     {"CHANCE  ANOTHER SLICE (SAME KIND)", "REV ROLL SKIP  HOW OFTEN", "LFO AGAIN  JUMPS, SMART, LOCK", "LOCK  THE RANDOM REPEATS", "LFO AGAIN  GENERATE A PATTERN", "OCT-  UNDO"},
     {"WHITE KEYS  16 FLEX PATTERNS", "THE SAME KEY AGAIN  OFF", "MODE  LATCH / HOLD / ONE BAR", "QUANT  STARTS ON STEP BEAT BAR", "DEPTH  HOW DEEP THE GATE", "BLACK KEYS  PUNCH EFFECTS"},
-    {"FILTER  LEFT LOW, RIGHT HIGH", "FX AGAIN  DELAY AND PUNCH", "FX 3RD: DESTROY  4TH: BEAT", "HOLD A WHITE KEY  ITS EFFECT", "KNOB 1  ITS INTENSITY", "REC + HOLD  ON THE STEPS"},
+    {"FILTER  LEFT LOW, RIGHT HIGH", "FX AGAIN  DELAY AND PUNCH", "FX 3RD: BEAT  4TH: DESTROY", "HOLD A WHITE KEY  ITS EFFECT", "KNOB 1  ITS INTENSITY", "BLACK KEYS  PUNCH, NAMED"},
     {"BPM SWING  (ALGO: TEMPO TOO)", "TEMPO  CHOP OR VARI", "METRONOME  OFF / REC / ON", "OCT+  TAP THE TEMPO", "GLO AGAIN  CLOCK LANGUAGE THEME", ""},
     {"SELECT  SLOT   KNOB 1  ACTION", "SAVE AGAIN  DO IT", "WHITE KEYS  PATTERN 1-16", "HOLD ONE + OTHERS  A CHAIN", "RESAMPLE  THE OUTPUT, A NEW BREAK", "AUTO SAVES ITSELF WHEN STOPPED"},
 };
@@ -1218,7 +1248,7 @@ static const char *const HELP_FR[P_N][6] = {
     {"ATTACK  ENTREE DE CHAQUE TRANCHE", "DECAY  TENUE, OU PLUS COURT", "LONGUEUR  QUELLE PART JOUER", "CHOKE  MONO COUPE, POLY RESONNE", "", ""},
     {"CHANCE  UNE AUTRE TRANCHE", "REV ROLL SKIP  A QUELLE FREQUENCE", "LFO ENCORE  SAUTS, SMART, LOCK", "LOCK  LE HASARD SE REPETE", "LFO ENCORE  GENERER UN PATTERN", "OCT-  ANNULER"},
     {"BLANCHES  16 FLEX PATTERNS", "LA MEME TOUCHE  ARRET", "MODE  LATCH / HOLD / 1 MESURE", "QUANT  DEPART: PAS TEMPS MESURE", "PROFONDEUR  DU GATE", "NOIRES  EFFETS PUNCH"},
-    {"FILTER  GAUCHE BAS, DROITE HAUT", "FX ENCORE  DELAY ET PUNCH", "FX 3E: DESTROY  4E: BEAT", "TENIR UNE BLANCHE  SON EFFET", "KNOB 1  SON INTENSITE", "REC + TENIR  SUR LES PAS"},
+    {"FILTER  GAUCHE BAS, DROITE HAUT", "FX ENCORE  DELAY ET PUNCH", "FX 3E: BEAT  4E: DESTROY", "TENIR UNE BLANCHE  SON EFFET", "KNOB 1  SON INTENSITE", "NOIRES  PUNCH, NOMME"},
     {"BPM SWING  (ALGO: TEMPO AUSSI)", "TEMPO  CHOP OU VARI", "METRONOME  OFF / REC / ON", "OCT+  TAPER LE TEMPO", "GLO ENCORE  HORLOGE LANGUE THEME", ""},
     {"SELECT  SLOT   KNOB 1  ACTION", "SAVE ENCORE  LE FAIRE", "BLANCHES  PATTERN 1-16", "TENIR + AUTRES  UNE CHAINE", "RESAMPLE  LA SORTIE, UN BREAK", "SAUVE TOUT SEUL A L'ARRET"},
 };
@@ -1247,6 +1277,35 @@ static void draw_help(void)
         }
     }
 }
+/* FX: a black key pressed, a floating window names its punch effect, says what it does and shows which black key
+ * it is (lit among the 11, as on the keybed); while it is held, and 0.7 s after a tap */
+static void draw_punch_pop(void)
+{
+    uint32_t held = punch_keys & ((1u << NPUNCH) - 1u), i, k, n = 0;
+    char t[28];
+    if (page != P_FX || help_on || pop_k >= NPUNCH) return;
+    if (!held && fm1_ms - pop_ms > 700u) return;
+    if (!g_vis(58, 86)) return;
+    k = pop_k;
+    if (held && !(held >> k & 1u)) for (k = 0; k < NPUNCH - 1u && !(held >> k & 1u); k++) {}
+    for (i = 0; i < NPUNCH; i++) n += held >> i & 1u;
+    g_round(8, 58, 224, 86, C_ACC);              /* the window: the signal colour round it */
+    g_round(11, 61, 218, 80, C_BG);
+    t[0] = 0;
+    str_cat(t, TR("NOIRE ", "BLACK "));
+    fmt_u(t + str_len(t), k + 1u, 0);
+    str_cat(t, "  PUNCH");
+    g_text(&FONT_PX, 20, 66, t, C_ACC);
+    if (n > 1u) { t[0] = '+'; fmt_u(t + 1, n - 1u, 0); g_textr(&FONT_PX, 220, 66, t, C_ACC2); }
+    g_textc(&FONT_BM, 120, 78, PUNCH_LONG[k], C_TXT);
+    g_textc(&FONT_PX, 120, 99, lang ? PUNCH_DO_EN[k] : PUNCH_DO_FR[k], C_SUB);
+    for (i = 0; i < NPUNCH; i++) {               /* the 11 black keys where they are on the keybed */
+        int32_t x = 21 + (int32_t)BLACK_KEY[i] * 7;
+        uint32_t on = (held >> i & 1u) || (i == k && !held);
+        g_rect(x, 113, 5, 20, on ? C_ACC : C_PANEL2);
+    }
+}
+
 static void draw_toast(void)
 {
     int32_t w;
@@ -1284,7 +1343,7 @@ static void draw_splash(void)
         }
         g_rect(8, 150, 224, 1, C_EDGE);
         g_text(&FONT_PX, 8, 156, TR("DECOUPEUR DE BREAKS", "BREAKBEAT SLICER"), C_SUB);
-        g_textr(&FONT_PX, 232, 156, "DESTROY / BEAT", C_ACC2);
+        g_textr(&FONT_PX, 232, 156, "BEAT / DESTROY", C_ACC2);
         g_text(&FONT_PX, 8, 168, "GPL-3.0", C_DIMT);
     }
 }
@@ -1310,6 +1369,7 @@ static void draw_screen(void)
     draw_knobs();
     if (help_on) draw_help();
     draw_toast();
+    draw_punch_pop();                           /* (over a toast: the black key held is what matters now) */
 }
 
 /* ---- the LEDs: 0 off, 1 the glow, 2 lit */
@@ -1390,7 +1450,7 @@ static void page_set(uint32_t p)
         toast(prj.p.gate ? TR("GATE: TANT QUE TENUE", "GATE: WHILE HELD") : TR("GATE OFF", "GATE OFF"));
     }
     page = (uint8_t)p;
-    { uint32_t e; for (e = 0; e < 32u; e++) if ((beat_keys >> e & 1u) && (!GL_PAGE() || e / 16u != sub[P_FX] - 2u)) bt_key(e, 0); }   /* (let go with the page) */
+    { uint32_t e; for (e = 0; e < 32u; e++) if ((beat_keys >> e & 1u) && (!GL_PAGE() || e / 16u != GL_BASE() / 16u)) bt_key(e, 0); }   /* (let go with the page) */
     held_step = -1;
     gen_kept = 0;
     save_arm = 0;
@@ -1417,10 +1477,12 @@ static void key_down(uint32_t key)
             return;
         }
         punch_keys |= 1u << bk;
+        pop_k = (uint8_t)bk;
+        pop_ms = fm1_ms;
         return;
     }
     if (w < 0) return;
-    if (GL_PAGE()) {                            /* DESTROY, BEAT: held, it plays (the last pressed) */
+    if (GL_PAGE()) {                            /* BEAT, DESTROY: held, it plays (the last pressed) */
         uint32_t e = GL_BASE() + (uint32_t)w;
         beat_sel = (uint8_t)e;
         bt_key(e, 1);

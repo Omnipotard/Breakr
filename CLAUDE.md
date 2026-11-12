@@ -49,8 +49,7 @@ Settings added in 0.4 live in project_t.p2 (after the rest): a project of 0.3 or
 Themes: theme_t carries every colour; SOFT (index 5) has round boxes (g_roundsoft).
 
 ## Next
-0. The user asked to write the docs (manual, README, site) once the firmware is further along: 0.4's new pages
-   (TONE types/MOVE, SPACE types, DIRT, PAN, trance gates, SOFT theme) are not in the manual yet.
+0. Docs (manual, READMEs, site) are up to date with 0.4.
 1. Hardware test with the user (sound of the filter and the glitch banks, timing, flash writes, RESAMPLE).
 2. A release (tag + the `.fwsc`) once it has been played on a real FM-1.
 

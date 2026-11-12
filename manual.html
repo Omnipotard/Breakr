@@ -51,11 +51,11 @@ ul.tight { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 4px; color:
 <main class="wrap layout">
   <nav class="toc" aria-label="Contents">
     <a href="#panel">PANEL</a><a href="#shift">SHIFT · UNDO</a><a href="#play">PLAY</a><a href="#steps">STEPS · STEP+</a><a href="#slice">SLICE · CHOP</a><a href="#amp">AMP</a>
-    <a href="#dice">DICE · GENERATE</a><a href="#flex">FLEX</a><a href="#fx">FX · TONE · SPACE</a><a href="#glitch">BEAT · DESTROY</a>
+    <a href="#dice">DICE · GENERATE</a><a href="#flex">FLEX</a><a href="#pan">PAN</a><a href="#fx">FX · TONE · SPACE · DIRT</a><a href="#glitch">BEAT · DESTROY</a>
     <a href="#global">GLOBAL</a><a href="#save">SAVE · RESAMPLE</a><a href="#breaks"><span lang="en">YOUR BREAKS</span><span lang="fr">TES BREAKS</span></a><a href="#midi">MIDI</a><a href="#safety"><span lang="en">SAFETY</span><span lang="fr">SÉCURITÉ</span></a>
   </nav>
   <article class="doc">
-    <span class="eyebrow">BREAKR 0.3 · M-VAVE FM-1</span>
+    <span class="eyebrow">BREAKR 0.4 · M-VAVE FM-1</span>
     <h1><span lang="en">The <span>manual</span></span><span lang="fr">Le <span>manuel</span></span></h1>
     <p><span lang="en">Every page of BREAKR, every control. You can try everything in the <a href="emulator/index.html">emulator</a> first: it runs the same firmware.</span><span lang="fr">Chaque page de BREAKR, chaque commande. Tu peux tout essayer d’abord dans l’<a href="emulator/index.html">émulateur</a> : il fait tourner le même firmware.</span></p>
 
@@ -70,7 +70,7 @@ ul.tight { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 4px; color:
           <tr><td>PLAY · REC</td><td><span lang="en">Start / stop the pattern. REC records what you play (slices, punch effects, glitch effects held).</span><span lang="fr">Lance / arrête le pattern. REC enregistre ce que tu joues (tranches, effets punch, effets glitch tenus).</span></td></tr>
           <tr><td>ALGORITHM</td><td><span lang="en">The tempo, 40 to 300 BPM.</span><span lang="fr">Le tempo, de 40 à 300 BPM.</span></td></tr>
           <tr><td>PRESETS</td><td><span lang="en">The pattern (16); while playing, the next one starts at the end of this one.</span><span lang="fr">Le pattern (16) ; en lecture, le suivant part à la fin de celui-ci.</span></td></tr>
-          <tr><td><span lang="en">Black keys</span><span lang="fr">Touches noires</span></td><td><span lang="en">11 punch effects, held: REPEAT 1/4, 1/8, 1/16, ROLL, 6/8, REVERSE, OCTAVE −/+, UNISON, SCRATCH, TAPE. On the FX pages a window names the one you press. SHIFT + a black key latches it. Over a rest of the pattern a repeat plays the slice that rings there.</span><span lang="fr">11 effets punch, tenus : REPEAT 1/4, 1/8, 1/16, ROLL, 6/8, REVERSE, OCTAVE −/+, UNISON, SCRATCH, TAPE. Sur les pages FX, une fenêtre nomme celui que tu appuies. SHIFT + une noire le verrouille. Sur un silence du pattern, un repeat rejoue la tranche qui y résonne.</span></td></tr>
+          <tr><td><span lang="en">Black keys</span><span lang="fr">Touches noires</span></td><td><span lang="en">11 punch effects, held: REPEAT 1/4, 1/8, 1/16, ROLL, 6/8, REVERSE, OCTAVE −/+, UNISON, TRANCE 16 (a gate on every 16th), TRANCE 3-3-2 (a gate pattern). On the FX pages a window names the one you press. SHIFT + a black key latches it. Over a rest of the pattern a repeat plays the slice that rings there.</span><span lang="fr">11 effets punch, tenus : REPEAT 1/4, 1/8, 1/16, ROLL, 6/8, REVERSE, OCTAVE −/+, UNISON, TRANCE 16 (un gate à chaque double-croche), TRANCE 3-3-2 (un motif de gate). Sur les pages FX, une fenêtre nomme celui que tu appuies. SHIFT + une noire le verrouille. Sur un silence du pattern, un repeat rejoue la tranche qui y résonne.</span></td></tr>
         </table></div>
       </div><img src="docs/img/02-play-running.png" alt="PLAY" width="480" height="480" loading="lazy"></div>
     </section>
@@ -164,12 +164,32 @@ ul.tight { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 4px; color:
          <span lang="fr">16 patterns flex sur les touches blanches (half, double, tape, rewind, build, gates, triplet, juggle, roll, echo, swap, spin, drop, chop, slow). <span class="k1">K1 MODE</span> latch / hold / une mesure, <span class="k2">K2 QUANT</span> pas / temps / mesure, <span class="k3">K3 PROFONDEUR</span>, <span class="k4">K4 PITCH</span>.</span></p>
     </section>
 
-    <section id="fx">
-      <h2>FX · TONE · SPACE <small>FX ×1 · ×2</small></h2>
+    <section id="pan">
+      <h2>PAN <small>ARP ×2</small></h2>
       <div class="pg"><div>
-        <p><span lang="en">TONE: <span class="k1">K1 FILTER</span> (left low-pass, right high-pass), <span class="k2">K2 RESO</span>, <span class="k3">K3 DRIVE</span>, <span class="k4">K4 CRUSH</span>. SPACE: <span class="k1">K1 DELAY</span> 1/16 … 1/2, <span class="k2">K2 FEEDBACK</span>, <span class="k3">K3 MIX</span>, <span class="k4">K4 PUNCH</span> (a compressor). On every FX page a black key opens a window over the screen: the punch effect it plays, what it does, and the keys held.</span>
-         <span lang="fr">TONE : <span class="k1">K1 FILTER</span> (à gauche passe-bas, à droite passe-haut), <span class="k2">K2 RÉSO</span>, <span class="k3">K3 DRIVE</span>, <span class="k4">K4 CRUSH</span>. SPACE : <span class="k1">K1 DELAY</span> 1/16 … 1/2, <span class="k2">K2 RETOUR</span>, <span class="k3">K3 MIX</span>, <span class="k4">K4 PUNCH</span> (un compresseur). Sur chaque page FX, une touche noire ouvre une fenêtre sur l’écran : l’effet punch qu’elle joue, ce qu’il fait, et les touches tenues.</span></p>
-      </div><img src="docs/img/30-punch-window.png" alt="FX: the punch window" width="480" height="480" loading="lazy"></div>
+        <p><span lang="en">16 effects that move the sound between the two sides, on the white keys: <b>held</b>, it plays; <b>SHIFT</b> + a key latches it (a tap lets it go). One at a time, the last pressed. It acts on everything that comes out, after the master, so it adds to a glitch effect, a flex pattern or a punch. <span class="k1">K1 INTENSITY</span> of the last one pressed (each its own), <span class="k2">K2 SPEED</span> ½× 1× 2×, <span class="k3">K3 EDGE</span> smooth to hard (clicks), <span class="k4">K4 WIDTH</span> of the whole output (0: mono, 200 %).</span>
+           <span lang="fr">16 effets qui déplacent le son entre les deux côtés, sur les touches blanches : <b>tenu</b>, il joue ; <b>SHIFT</b> + une touche le verrouille (un appui le relâche). Un à la fois, le dernier appuyé. Il agit sur tout ce qui sort, après le master : il s’ajoute à un effet glitch, un flex ou un punch. <span class="k1">K1 INTENSITÉ</span> du dernier appuyé (chacun la sienne), <span class="k2">K2 VITESSE</span> ½× 1× 2×, <span class="k3">K3 BORD</span> doux à dur (clics), <span class="k4">K4 LARGEUR</span> de toute la sortie (0 : mono, 200 %).</span></p>
+      </div><img src="docs/img/39-pan-held.png" alt="PAN" width="480" height="480" loading="lazy"></div>
+      <div class="tw"><table>
+        <tr><th><span lang="en">In time (1–6)</span><span lang="fr">Au tempo (1–6)</span></th><th></th></tr>
+        <tr><td>AUTO 1/4 · 1/8 · 1/16</td><td><span lang="en">a round trip left–right each beat, 8th, 16th</span><span lang="fr">un aller-retour gauche–droite par temps, croche, double</span></td></tr>
+        <tr><td>PING 8TH · TRIPLET L C R</td><td><span lang="en">left, right on the 8ths · left, middle, right on the 8th triplets</span><span lang="fr">gauche, droite sur les croches · gauche, milieu, droite en triolets</span></td></tr>
+        <tr><td>CIRCLE</td><td><span lang="en">round in a bar; quieter when it passes behind</span><span lang="fr">un tour par mesure ; plus discret quand il passe derrière</span></td></tr>
+        <tr><th><span lang="en">Glitchy (7–16)</span><span lang="fr">Glitch (7–16)</span></th><th></th></tr>
+        <tr><td>RANDOM 16TH · CLICK PAN</td><td><span lang="en">a place at random each 16th · from side to side at once each 32nd (64th past 50 %), with its clicks</span><span lang="fr">une place au hasard à chaque double · d’un côté à l’autre d’un coup à chaque triple croche (quadruple au-delà de 50 %), avec ses clics</span></td></tr>
+        <tr><td>STUT SIDE · REV SIDE</td><td><span lang="en">one side stutters the last 16th (the other side each beat) · one side plays the 16th before backwards (the other each bar)</span><span lang="fr">un côté bégaie la dernière double (l’autre côté chaque temps) · un côté joue la double d’avant à l’envers (l’autre chaque mesure)</span></td></tr>
+        <tr><td>HAAS JUMP · SPLIT HITS</td><td><span lang="en">one side a few ms late, jumping each 16th · the hits thrown left or right by a pattern a bar</span><span lang="fr">un côté en retard de quelques ms, qui saute à chaque double · les frappes envoyées à gauche ou à droite, un motif par mesure</span></td></tr>
+        <tr><td>FLIP L/R · GLITCH PAN</td><td><span lang="en">left and right swapped, one side upside down · each 32nd hard left, hard right, the middle or nothing</span><span lang="fr">gauche et droite échangées, un côté inversé · à chaque triple croche tout à gauche, tout à droite, au milieu ou rien</span></td></tr>
+        <tr><td>DRUNK · PAN CHAOS</td><td><span lang="en">a stagger from place to place · a glitchy one at random each 16th</span><span lang="fr">une démarche d’ivrogne d’une place à l’autre · un effet glitch au hasard à chaque double</span></td></tr>
+      </table></div>
+    </section>
+
+    <section id="fx">
+      <h2>FX · TONE · SPACE · DIRT <small>FX ×1 · ×2 · ×5</small></h2>
+      <div class="pg"><div>
+        <p><span lang="en">TONE: <span class="k1">K1 FILTER</span>, <span class="k2">K2 RESO</span>, <span class="k3">K3 TYPE</span>: <b>DJ</b> (left low-pass, right high-pass, off in the middle), <b>BAND</b> (a band-pass), <b>COMB</b> (a metallic comb tuned by the knob, the resonance its feedback), <b>VOWEL</b> (two formants from A to U), <b>WAH</b> (a low-pass the hits open); <span class="k4">K4 MOVE</span>: the filter swept with the tempo (1/16, 1/8, 1/4, 1/2, a bar) or jumping at random each 16th or 8th. SPACE: <span class="k1">K1 DELAY</span> 1/16 … 1/2, <span class="k2">K2 FEEDBACK</span>, <span class="k3">K3 MIX</span>, <span class="k4">K4 TYPE</span>: <b>CLEAN</b>, <b>DUB</b> (a tape: wow, dark saturated repeats; at full feedback it runs away), <b>PING</b> (left, right; half a second at most), <b>REVERSE</b> (the echoes backwards), <b>LO-FI</b> (a phone line). DIRT (FX ×5): <span class="k1">K1 DRIVE</span>, <span class="k2">K2 CRUSH</span>, <span class="k3">K3 PUNCH</span> (a compressor), <span class="k4">K4 LO-CUT</span> (20–400 Hz). On every FX page a black key opens a window over the screen: the punch effect it plays, what it does, and the keys held.</span>
+         <span lang="fr">TONE : <span class="k1">K1 FILTER</span>, <span class="k2">K2 RÉSO</span>, <span class="k3">K3 TYPE</span> : <b>DJ</b> (à gauche passe-bas, à droite passe-haut, coupé au milieu), <b>BAND</b> (un passe-bande), <b>COMB</b> (un peigne métallique accordé par le knob, la résonance son retour), <b>VOWEL</b> (deux formants de A à U), <b>WAH</b> (un passe-bas que les frappes ouvrent) ; <span class="k4">K4 MOVE</span> : le filtre balayé au tempo (1/16, 1/8, 1/4, 1/2, une mesure) ou qui saute au hasard à chaque double ou croche. SPACE : <span class="k1">K1 DELAY</span> 1/16 … 1/2, <span class="k2">K2 RETOUR</span>, <span class="k3">K3 MIX</span>, <span class="k4">K4 TYPE</span> : <b>CLEAN</b>, <b>DUB</b> (une bande : pleurage, échos sombres et saturés ; au retour maximum il s’emballe), <b>PING</b> (gauche, droite ; une demi-seconde au plus), <b>REVERSE</b> (les échos à l’envers), <b>LO-FI</b> (un téléphone). DIRT (FX ×5) : <span class="k1">K1 DRIVE</span>, <span class="k2">K2 CRUSH</span>, <span class="k3">K3 PUNCH</span> (un compresseur), <span class="k4">K4 LO-CUT</span> (20–400 Hz). Sur chaque page FX, une touche noire ouvre une fenêtre sur l’écran : l’effet punch qu’elle joue, ce qu’il fait, et les touches tenues.</span></p>
+      </div><img src="docs/img/37-tone-comb.png" alt="TONE: the COMB filter" width="480" height="480" loading="lazy"></div>
     </section>
 
     <section id="glitch">
@@ -206,8 +226,8 @@ ul.tight { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 4px; color:
 
     <section id="global">
       <h2>GLOBAL <small>GLO</small></h2>
-      <p><span lang="en"><span class="k1">K1 BPM</span>, <span class="k2">K2 SWING</span>, <span class="k3">K3 TEMPO</span> (CHOP / VARI), <span class="k4">K4 METRONOME</span>; OCT+ taps the tempo. GLO again: <span class="k1">CLOCK</span> (internal / MIDI), <span class="k2">LANGUAGE</span>, <span class="k3">THEME</span> (WARP, RAVE, AMEN, PHOSPHOR, MONO), <span class="k4">VOLUME</span>.</span>
-         <span lang="fr"><span class="k1">K1 BPM</span>, <span class="k2">K2 SWING</span>, <span class="k3">K3 TEMPO</span> (CHOP / VARI), <span class="k4">K4 MÉTRONOME</span> ; OCT+ tape le tempo. GLO encore : <span class="k1">HORLOGE</span> (interne / MIDI), <span class="k2">LANGUE</span>, <span class="k3">THÈME</span> (WARP, RAVE, AMEN, PHOSPHOR, MONO), <span class="k4">VOLUME</span>.</span></p>
+      <p><span lang="en"><span class="k1">K1 BPM</span>, <span class="k2">K2 SWING</span>, <span class="k3">K3 TEMPO</span> (CHOP / VARI), <span class="k4">K4 METRONOME</span>; OCT+ taps the tempo. GLO again: <span class="k1">CLOCK</span> (internal / MIDI), <span class="k2">LANGUAGE</span>, <span class="k3">THEME</span> (WARP, RAVE, AMEN, PHOSPHOR, MONO, and SOFT: round boxes, slate, peach and lavender, easy on the eyes), <span class="k4">VOLUME</span>.</span>
+         <span lang="fr"><span class="k1">K1 BPM</span>, <span class="k2">K2 SWING</span>, <span class="k3">K3 TEMPO</span> (CHOP / VARI), <span class="k4">K4 MÉTRONOME</span> ; OCT+ tape le tempo. GLO encore : <span class="k1">HORLOGE</span> (interne / MIDI), <span class="k2">LANGUE</span>, <span class="k3">THÈME</span> (WARP, RAVE, AMEN, PHOSPHOR, MONO, et SOFT : coins ronds, ardoise, pêche et lavande, doux pour les yeux), <span class="k4">VOLUME</span>.</span></p>
     </section>
 
     <section id="save">

@@ -307,7 +307,7 @@ static void t_effects(void)
             prj.p.fl_quant = 0;
             ev_push(EV_PLAY, 0, 0, 0);
             flex_sel = fl;
-            punch_keys = fl & 1u ? 1u << PX_SCRATCH : 1u << PX_UNI;
+            punch_keys = fl & 1u ? 1u << PX_TG16 : 1u << PX_UNI;
             o = render(44100u * 2u);
             free(o);
         }
@@ -434,6 +434,66 @@ static void t_undo(void)
         CHECK(undo_swap(0) == U_CHOP && prj.sc[b].sl[2] == was, "undo: the slice is not back");
     }
     printf("undo      16 edits back, redo, an edit going on is one, a slicing put back: %s\n", fails ? "see above" : "ok");
+}
+
+/* 0.4: the filter's types and motion, the delay's types, the trance gates, PAN: at their ends, under the sanitizers;
+ * the ones meant to be smooth do not click; a filter or a delay never stays stuck at full scale */
+static void t_04(void)
+{
+    uint32_t t, r, e, i, bad = 0, len = 44100u * 3u;
+    int32_t *o;
+    for (t = 0; t < FT_N; t++) for (r = 0; r < 16u; r += 15u) for (e = 0; e < 8u; e += 7u) {
+        uint32_t full = 0;
+        boot(); bpm10_set(1600);
+        prj.p2.flt_type = (uint8_t)t; prj.p.reso = (uint8_t)r; prj.p2.flt_move = (uint8_t)e; prj.p.filter = (uint8_t)(e ? 64 : 100);
+        ev_push(EV_PLAY, 0, 0, 0);
+        o = render(len);
+        for (i = 22050u; i < len; i++) full += abs(o[2u * i]) >= 32767;
+        CHECK(full < 4410u, "filter %s reso %u move %u: stuck at full scale (%u)", FT_NAME[t], r, e, full);
+        free(o);
+    }
+    for (t = 0; t < DT_N; t++) {
+        uint32_t full = 0;
+        boot(); bpm10_set(900);
+        prj.p2.dly_type = (uint8_t)t; prj.p.dly_mix = 15; prj.p.dly_fb = 15; prj.p.dly_time = 5;
+        ev_push(EV_PLAY, 0, 0, 0);
+        o = render(len);
+        for (i = 22050u; i < len; i++) full += abs(o[2u * i]) >= 32767;
+        CHECK(full < 22050u, "delay %s: stuck at full scale (%u)", DT_NAME[t], full);
+        free(o);
+    }
+    for (t = 0; t < 2u; t++) {                   /* the trance gates: on time, no click */
+        uint32_t n, quiet = 0;
+        boot(); bpm10_set(1400);
+        ev_push(EV_PLAY, 0, 0, 0);
+        punch_keys = 1u << (PX_TG16 + t);
+        o = render(len);
+        n = clicks(o, 4410u, len - 64u);
+        for (i = 4410u; i + 441u <= len; i += 441u) { uint32_t j, pk = 0; for (j = 0; j < 441u; j++) { uint32_t v = (uint32_t)abs(o[2u * (i + j)]); if (v > pk) pk = v; } quiet += pk < 300u; }
+        CHECK(n <= 1u, "trance gate %u clicks (%u)", t, n);
+        CHECK(quiet > 50u, "trance gate %u: no silences (%u)", t, quiet);
+        free(o);
+    }
+    for (e = 0; e < NPAN; e++) for (r = 0; r < 2u; r++) {
+        uint32_t n;
+        int32_t dl = 0;
+        boot(); bpm10_set(1400);
+        prj.p2.pn_edge = (uint8_t)(r ? 15 : 2); prj.p2.pn_speed = (uint8_t)(r ? 2 : 0); prj.p2.pn_int[e] = (uint8_t)(r ? 100 : 60);
+        ev_push(EV_PLAY, 0, 0, 0);
+        free(render(30000u));
+        pn_key(e, 1);
+        o = render(len);
+        pn_key(e, 0);
+        free(render(22016u));
+        CHECK(pn.cur < 0, "PAN %s still playing after its key", PAN_LONG[e]);
+        for (i = 22050u; i < len; i++) dl += abs(o[2u * i] - o[2u * i + 1u]) > 2000;
+        n = clicks(o, 1000u, len - 64u);
+        if (!r && e < PN_CLICK && e != PN_RAND && n > 1u) { bad++; printf("click     PAN %-12s smooth: %u\n", PAN_LONG[e], n); }
+        if (e != PN_FLIP) CHECK(dl > 2000, "PAN %s: the two sides do not differ", PAN_LONG[e]);
+        free(o);
+    }
+    CHECK(bad == 0, "%u smooth PAN effects click", bad);
+    printf("0.4       5 filters x reso x move, 5 delays at full, 2 trance gates, 16 PAN effects x 2: ran\n");
 }
 
 static void t_slicing(void)
@@ -616,6 +676,7 @@ int main(void)
     t_filter();
     t_clean();
     t_undo();
+    t_04();
     t_steps();
     t_generators();
     printf(fails ? "\n%d CHECK(S) FAILED\n" : "\nALL ENGINE CHECKS PASSED\n", fails);

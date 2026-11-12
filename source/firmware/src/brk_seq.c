@@ -499,15 +499,9 @@ static void handle_ev(const ev_t *e)
 static int32_t speed_now(uint32_t t, uint32_t ph)
 {
     uint32_t fx = fx_now();
-    int32_t sp = 65536, pos;
+    int32_t sp = 65536;
     if (fx >> PX_OCTDN & 1u) sp >>= 1;
     if (fx >> PX_OCTUP & 1u) sp <<= 1;
-    if (fx >> PX_SCRATCH & 1u) {                /* a triangle over an eighth: +1.6 .. -1.0 */
-        uint32_t f16 = ph / ((sq.spt >> 16) + 1u);   /* Q16 of the tick */
-        pos = (int32_t)((t % 48u) * 1365u + (f16 > 65535u ? 65535u : f16) * 1365u / 65536u);   /* 0..65535 */
-        pos = pos < 32768 ? pos : 65535 - pos;  /* 0..32767..0 */
-        sp = (int32_t)(((int64_t)sp * (104858 - pos * 5)) >> 16);
-    }
     if (flex_on < NFLEX && FLEX[flex_on].ramp != RAMP_NONE) {
         uint32_t into = (sq.flex_cnt ? sq.flex_cnt - 1u : 0u) % 16u;   /* 0..15: the step of the bar */
         int32_t r = (int32_t)into * 4096;       /* Q16 fraction of the bar */
@@ -551,8 +545,7 @@ static void app_audio(int32_t *out, uint32_t n)
         int32_t beat = (int32_t)((sq.spt >> 16) * PPQN), d;
         if (beat < 1000) beat = 1000;
         d = (int32_t)((n << 16) / (uint32_t)beat);
-        if (fx_now() >> PX_STOP & 1u) sq.tape = sq.tape - d > 0 ? sq.tape - d : 0;
-        else sq.tape = sq.tape + 4 * d < 65536 ? sq.tape + 4 * d : 65536;
+        sq.tape = sq.tape + 4 * d < 65536 ? sq.tape + 4 * d : 65536;   /* (the tape stop is BEAT's and FLEX's now) */
     }
     fx_tick0 = sq.tick;                         /* (the BEAT bank: where the bar is) */
     fx_ph0 = sq.ph;
@@ -586,8 +579,13 @@ static void app_audio(int32_t *out, uint32_t n)
             tick(sq.tick);
         }
     }
-    bt_process(mixL, mixR, n);                 /* the BEAT bank, then the master */
+    bt_process(mixL, mixR, n);                 /* the BEAT bank, then the master, then PAN */
+    mx.tg = (fx_now() >> PX_TG16) & 3u;
+    mx.play = sq_play;
+    mx.beat = dd_beat();
+    mx.pos0 = dd_barpos();
     fx_master(mixL, mixR, n);
+    pn_process(mixL, mixR, n);
     rs_tap(mixL, mixR, n);                      /* RESAMPLE: what comes out */
     for (i = 0; i < n; i++) {
         out[2u * i] = mixL[i];

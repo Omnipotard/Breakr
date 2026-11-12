@@ -17,28 +17,40 @@ static uint32_t g_hash[NBAND][NTILE];
 static uint8_t g_force = 1, g_txi, g_band;
 
 /* ---- colours: a dark panel, the accent of the theme, a colour a knob, one a slice */
-typedef struct { const char *name; uint16_t acc, acc2; } theme_t;
+typedef struct {
+    const char *name;
+    uint16_t acc, acc2;
+    uint8_t soft;                               /* 1: round boxes, a slate night, pastel colours */
+    uint16_t bg, panel, panel2, edge, txt, sub, dimt;
+    uint16_t knob[4];
+} theme_t;
+#define INK RGB(7, 8, 11), RGB(19, 21, 28), RGB(32, 35, 45), RGB(50, 54, 68), RGB(242, 243, 245), RGB(150, 156, 172), RGB(90, 96, 112)
+#define KNOBS {RGB(255, 84, 84), RGB(255, 206, 60), RGB(80, 220, 120), RGB(70, 150, 255)}
 static const theme_t THEMES[] = {
-    {"WARP", RGB(232, 255, 46), RGB(255, 64, 48)},        /* acid yellow, signal red */
-    {"RAVE", RGB(255, 45, 149), RGB(0, 229, 255)},        /* magenta, cyan */
-    {"AMEN", RGB(255, 122, 26), RGB(255, 232, 196)},      /* orange, cream */
-    {"PHOSPHOR", RGB(57, 255, 136), RGB(190, 255, 214)},  /* green on black */
-    {"MONO", RGB(244, 244, 244), RGB(255, 64, 48)},       /* white, a red dot */
+    {"WARP", RGB(232, 255, 46), RGB(255, 64, 48), 0, INK, KNOBS},        /* acid yellow, signal red */
+    {"RAVE", RGB(255, 45, 149), RGB(0, 229, 255), 0, INK, KNOBS},        /* magenta, cyan */
+    {"AMEN", RGB(255, 122, 26), RGB(255, 232, 196), 0, INK, KNOBS},      /* orange, cream */
+    {"PHOSPHOR", RGB(57, 255, 136), RGB(190, 255, 214), 0, INK, KNOBS},  /* green on black */
+    {"MONO", RGB(244, 244, 244), RGB(255, 64, 48), 0, INK, KNOBS},       /* white, a red dot */
+    {"SOFT", RGB(255, 176, 150), RGB(186, 170, 255), 1,                  /* peach and lavender on slate, round */
+     RGB(28, 31, 44), RGB(42, 47, 65), RGB(57, 63, 86), RGB(78, 86, 114), RGB(248, 244, 236), RGB(186, 191, 210), RGB(132, 139, 164),
+     {RGB(255, 140, 140), RGB(255, 214, 130), RGB(140, 226, 170), RGB(140, 186, 255)}},
 };
-#define NTHEME 5u
+#define NTHEME 6u
 static uint8_t theme;
-#define C_BG RGB(7, 8, 11)
-#define C_PANEL RGB(19, 21, 28)
-#define C_PANEL2 RGB(32, 35, 45)
-#define C_EDGE RGB(50, 54, 68)
-#define C_TXT RGB(242, 243, 245)
-#define C_SUB RGB(150, 156, 172)
-#define C_DIMT RGB(90, 96, 112)
-#define C_ACC (THEMES[theme].acc)
-#define C_ACC2 (THEMES[theme].acc2)
+#define TH (THEMES[theme % NTHEME])
+#define C_BG (TH.bg)
+#define C_PANEL (TH.panel)
+#define C_PANEL2 (TH.panel2)
+#define C_EDGE (TH.edge)
+#define C_TXT (TH.txt)
+#define C_SUB (TH.sub)
+#define C_DIMT (TH.dimt)
+#define C_ACC (TH.acc)
+#define C_ACC2 (TH.acc2)
 #define C_REC RGB(255, 60, 60)
 #define C_PLAY RGB(70, 230, 110)
-static const uint16_t KNOB_C[4] = {RGB(255, 84, 84), RGB(255, 206, 60), RGB(80, 220, 120), RGB(70, 150, 255)};
+#define KNOB_C (TH.knob)
 static const uint16_t CLS_C[4] = {RGB(170, 170, 185), RGB(255, 110, 80), RGB(255, 200, 70), RGB(90, 200, 255)};
 static uint16_t slice_col(uint32_t k)            /* 16 hues round the wheel */
 {
@@ -100,11 +112,31 @@ static void g_pxb(int32_t x, int32_t y, uint16_t c, uint32_t t)
     }
 }
 
+/* SOFT: a box with its four corners round (radius 6, or 3 when small), their edge anti-aliased */
+static void g_roundsoft(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)
+{
+    static const uint16_t IN6[6] = {922, 520, 289, 140, 49, 5}, IN3[3] = {343, 102, 11};   /* the inset, Q8, a row */
+    const uint16_t *in = w >= 16 && h >= 16 ? IN6 : IN3;
+    int32_t r = w >= 16 && h >= 16 ? 6 : 3, j;
+    if (w < 7 || h < 7) { g_rect(x, y, w, h, c); return; }
+    for (j = 0; j < r; j++) {
+        int32_t q = in[j], full = (q + 255) >> 8, part = q >> 8, a = 256 - (q & 255);
+        int32_t yt = y + j, yb = y + h - 1 - j;
+        g_rect(x + full, yt, w - 2 * full, 1, c);
+        g_rect(x + full, yb, w - 2 * full, 1, c);
+        if (q & 255) {
+            g_pxb(x + part, yt, c, (uint32_t)a); g_pxb(x + w - 1 - part, yt, c, (uint32_t)a);
+            g_pxb(x + part, yb, c, (uint32_t)a); g_pxb(x + w - 1 - part, yb, c, (uint32_t)a);
+        }
+    }
+    g_rect(x, y + r, w, h - 2 * r, c);
+}
 /* a box with its top-left and bottom-right corners cut (3 px, the diagonal blended): a tape label */
 static void g_round(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)
 {
     int32_t r;
     if (!g_vis(y, h)) return;
+    if (TH.soft) { g_roundsoft(x, y, w, h, c); return; }
     if (w < 8 || h < 8) { g_rect(x, y, w, h, c); return; }
     for (r = 0; r < 3; r++) {
         g_rect(x + 3 - r, y + r, w - 3 + r, 1, c);
@@ -137,6 +169,15 @@ static void g_soft(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)
 static void g_outline(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)   /* (the label's edge) */
 {
     if (!g_vis(y, h)) return;
+    if (TH.soft) {                              /* (round: the box, its inside put back) */
+        g_rect(x + 4, y, w - 8, 1, c); g_rect(x + 4, y + h - 1, w - 8, 1, c);
+        g_rect(x, y + 4, 1, h - 8, c); g_rect(x + w - 1, y + 4, 1, h - 8, c);
+        g_pxb(x + 1, y + 2, c, 200); g_pxb(x + 2, y + 1, c, 200); g_px(x + 3, y + 1, c); g_px(x + 1, y + 3, c);
+        g_pxb(x + w - 2, y + 2, c, 200); g_pxb(x + w - 3, y + 1, c, 200); g_px(x + w - 4, y + 1, c); g_px(x + w - 2, y + 3, c);
+        g_pxb(x + 1, y + h - 3, c, 200); g_pxb(x + 2, y + h - 2, c, 200); g_px(x + 3, y + h - 2, c); g_px(x + 1, y + h - 4, c);
+        g_pxb(x + w - 2, y + h - 3, c, 200); g_pxb(x + w - 3, y + h - 2, c, 200); g_px(x + w - 4, y + h - 2, c); g_px(x + w - 2, y + h - 4, c);
+        return;
+    }
     g_rect(x + 3, y, w - 3, 1, c);
     g_rect(x, y + h - 1, w - 3, 1, c);
     g_rect(x, y + 3, 1, h - 3, c);

@@ -19,7 +19,7 @@ TOP = SRC.parent
 
 
 def main():
-    ver = sys.argv[1] if len(sys.argv) > 1 else "0.3"
+    ver = sys.argv[1] if len(sys.argv) > 1 else "0.4"
     pkg = SRC / "build" / f"breakr-{ver}.fwsc"
     if not pkg.exists():
         raise SystemExit(f"make_site: no {pkg} (./build.sh --release {ver} first)")

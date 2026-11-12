@@ -17,8 +17,10 @@ the cloud environment must allow pkgman.jieliapp.com, gitee.com and jl-update.os
 
 ## App code (source/firmware/src/, one unit: breakr.c)
 brk_core (shared state) · brk_ima (4-bit IMA, 256-B blocks) · brk_data (punch FX + their names, 16 flex patterns,
-styles, labels) · brk_snd (voices) · brk_fx (master: TPT state-variable DJ filter, drive, crush, delay, punch) ·
-brk_beat (K-GLITCH's BEAT bank, FX ×3, effects 16..31, and DESTROY bank, FX ×4, effects 0..15, one engine) ·
+styles, labels) · brk_snd (voices) · brk_fx (master: filter types DJ/BAND/COMB/VOWEL/WAH + MOVE, drive, crush, trance gates (black keys 10, 11), delay
+types CLEAN/DUB/PING/REVERSE/LO-FI, punch, lo-cut, width) ·
+brk_beat (K-GLITCH's BEAT bank, FX ×3, effects 16..31, and DESTROY bank, FX ×4, effects 0..15, one engine; and
+PAN, ARP ×2, 16 stereo effects after the master) ·
 brk_seq (96 PPQN sequencer, ratchets ×1..×16 with ramps, conditions, nudge, dice FREE/LOCK, flex, step FX locks) ·
 brk_slice (waveform, onsets, K/S/H classes) · brk_edit (slicing, generators incl. DRILL/BREAKCORE/IDM, undo) ·
 brk_rsmp (RESAMPLE to the user bank) · brk_store (4 project slots + user bank in flash) · brk_sysex (bank upload
@@ -28,14 +30,14 @@ undo: brk_edit.c undo_mark() before an edit (16 entries, coalesced per gesture),
 Generated: `firmware/gen/brk_breaks.h` (tools/gen_breaks.py: 4 loops played by Omnipotard, CC0, + 4 synthesized),
 `brk_fonts.h` (tools/gen_fonts.py).
 
-## Tests (all pass at 0.3)
+## Tests (all pass at 0.4)
     cd source
     sh tests/run_engine_test.sh            # UBSan/ASan: fidelity, timing, dice, filter, clicks of every effect, undo, steps
-    APP_VER=0.3 sh tests/run_host.sh       # tests/tour.txt -> build/host/breakr-*.png + audio. LOOK at the PNGs.
-    APP_VER=0.3 sh web/make_emulator.sh && node tests/web_e2e.js
-    HOME=/home/user ./build.sh --release 0.3
-    cp build/breakr-0.3.fwsc build/breakr.fwsc && sh tests/run_loader_tests.sh
-    python3 web/make_site.py 0.3           # editor/index.html, installer.html, install/
+    APP_VER=0.4 sh tests/run_host.sh       # tests/tour.txt -> build/host/breakr-*.png + audio. LOOK at the PNGs.
+    APP_VER=0.4 sh web/make_emulator.sh && node tests/web_e2e.js
+    HOME=/home/user ./build.sh --release 0.4
+    cp build/breakr-0.4.fwsc build/breakr.fwsc && sh tests/run_loader_tests.sh
+    python3 web/make_site.py 0.4           # editor/index.html, installer.html, install/
 
 ## Site
 `index.html`, `manual.html`, `site.css` by hand; `emulator/index.html` (web/emulator.html), `editor/index.html`
@@ -43,7 +45,12 @@ Generated: `firmware/gen/brk_breaks.h` (tools/gen_breaks.py: 4 loops played by O
 `docs/img/*.png` are copies of build/host/breakr-<name>.png (names in tests/tour.txt) + `card.png` (four screens and the
 logo, 1200×630, PIL). `fmhub.json` for The Firmware Hub. CI: `.github/workflows/build.yml` (branches `test/X.Y…`).
 
+Settings added in 0.4 live in project_t.p2 (after the rest): a project of 0.3 or before still loads (PRJ_SIZE_03).
+Themes: theme_t carries every colour; SOFT (index 5) has round boxes (g_roundsoft).
+
 ## Next
+0. The user asked to write the docs (manual, README, site) once the firmware is further along: 0.4's new pages
+   (TONE types/MOVE, SPACE types, DIRT, PAN, trance gates, SOFT theme) are not in the manual yet.
 1. Hardware test with the user (sound of the filter and the glitch banks, timing, flash writes, RESAMPLE).
 2. A release (tag + the `.fwsc`) once it has been played on a real FM-1.
 

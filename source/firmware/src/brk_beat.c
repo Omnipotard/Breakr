@@ -885,3 +885,194 @@ static void bt_key(uint32_t e, uint32_t down)
     if (down) beat_keys |= 1u << e;
     else beat_keys &= ~(1u << e);
 }
+
+/* ---- PAN (ARP's second page): 16 effects on the white keys, held (SHIFT: latched), on the whole output after the
+ * master. The first six move the sound with the tempo; the others take it apart across the two sides, glitchy.
+ * Each has its INTENSITY (KNOB 1 on its page); SPEED plays them at half, the, or double speed; EDGE makes their
+ * moves smooth or hard (to clicks). One plays at a time: the last key held. A ring of what came out (mono, 8192
+ * samples) feeds STUT SIDE, REV SIDE and HAAS JUMP. */
+enum { PN_AUTO4, PN_AUTO8, PN_AUTO16, PN_PING, PN_TRIP, PN_CIRCLE, PN_RAND, PN_CLICK, PN_STUT, PN_REVS, PN_HAAS,
+       PN_SPLIT, PN_FLIP, PN_GLITCH, PN_DRUNK, PN_CHAOS };
+static const char *const PAN_NAME[NPAN][2] = {
+    {"AUTO", "1/4"}, {"AUTO", "1/8"}, {"AUTO", "1/16"}, {"PING", "8TH"}, {"TRIP", "L C R"}, {"CIRCLE", "BAR"},
+    {"RANDOM", "16TH"}, {"CLICK", "PAN"}, {"STUT", "SIDE"}, {"REV", "SIDE"}, {"HAAS", "JUMP"}, {"SPLIT", "HITS"},
+    {"FLIP", "L/R"}, {"GLITCH", "PAN"}, {"DRUNK", ""}, {"PAN", "CHAOS"}};
+static const char *const PAN_LONG[NPAN] = {"AUTO 1/4", "AUTO 1/8", "AUTO 1/16", "PING 8TH", "TRIPLET L C R", "CIRCLE",
+    "RANDOM 16TH", "CLICK PAN", "STUT SIDE", "REV SIDE", "HAAS JUMP", "SPLIT HITS", "FLIP L/R", "GLITCH PAN", "DRUNK",
+    "PAN CHAOS"};
+#define PN_RN 8192u
+static int16_t pn_ring[PN_RN];
+static volatile uint32_t pan_keys;               /* bit e: PAN effect e held or latched (main loop) */
+static volatile uint8_t pn_order[NPAN], pn_norder;
+static struct {
+    int8_t cur, sub;                             /* the effect playing (-1 none); CHAOS: the one this 16th */
+    int32_t g;                                   /* its wet gain, Q15 */
+    uint32_t w;                                  /* the ring's writer */
+    uint32_t i16, ph16, s16;                     /* the 16th (of the bar, at its speed), where in it, its length */
+    int32_t pos, to;                             /* where the sound is, -32767 (left) .. 32767 (right), and where it goes */
+    int32_t amp;                                 /* CIRCLE: its level at the back */
+    uint32_t seg, segL, k;                       /* STUT, REV: the segment (ring index), its length, the place in it */
+    uint32_t side;                               /* STUT, REV, HAAS: the side that plays it (0 left, 1 right) */
+    uint32_t hd;                                 /* HAAS: the delay */
+    uint32_t mask, flip, mute, rnd, free;
+    int32_t gl, gr;                              /* the gains now */
+} pn = {.cur = -1, .sub = -1, .rnd = 0x7A11C0DEu};
+
+static int32_t pn_want(void)
+{
+    uint32_t keys = pan_keys, i;
+    for (i = pn_norder; i-- > 0u;) if (keys >> pn_order[i] & 1u) return pn_order[i];
+    return -1;
+}
+static void pn_key(uint32_t e, uint32_t down)    /* (main loop) */
+{
+    uint32_t i, j = 0;
+    uint8_t o[NPAN];
+    if (e >= NPAN) return;
+    for (i = 0; i < pn_norder; i++) if (pn_order[i] != e) o[j++] = pn_order[i];
+    if (down && j < NPAN) o[j++] = (uint8_t)e;
+    for (i = 0; i < j; i++) pn_order[i] = o[i];
+    pn_norder = (uint8_t)j;
+    if (down) pan_keys |= 1u << e;
+    else pan_keys &= ~(1u << e);
+}
+/* a new 16th: what the glitchy ones do over it */
+static void pn_tick(uint32_t I)
+{
+    uint32_t r = kg_rand(&pn.rnd), s = pn.i16 & 15u;
+    int32_t dep = (int32_t)(I * 327u);           /* the depth: 0 .. 32700 */
+    if (pn.cur == PN_CHAOS) pn.sub = (int8_t)(PN_RAND + r % 8u);   /* (a glitchy one each 16th) */
+    switch (pn.sub) {
+    case PN_RAND: pn.to = (int32_t)(r >> 16) % (2 * dep + 1) - dep; break;
+    case PN_STUT:                                /* the last 16th, again, on one side (the other each beat) */
+        if ((s & 3u) == 0u) { pn.side ^= 1u; pn.segL = pn.s16 < PN_RN - 64u ? pn.s16 : PN_RN - 64u; pn.seg = pn.w - pn.segL; pn.k = 0; }
+        break;
+    case PN_REVS:                                /* the 16th before, backwards, on one side (the other each bar) */
+        if (s == 0u) pn.side ^= 1u;
+        pn.segL = pn.s16 < PN_RN - 64u ? pn.s16 : PN_RN - 64u;
+        pn.seg = pn.w - pn.segL;
+        pn.k = 0;
+        break;
+    case PN_HAAS: pn.side = r & 1u; pn.hd = 44u + (r >> 8) % (44u + I * 11u); break;   /* 1 .. 26 ms */
+    case PN_SPLIT:
+        if (s == 0u) pn.mask = kg_rand(&pn.rnd);
+        pn.to = (pn.mask >> s & 1u) ? dep : -dep;
+        break;
+    case PN_FLIP: pn.flip = (r % 100u) < 30u + I * 6u / 10u ? pn.flip ^ 1u : pn.flip; break;
+    case PN_DRUNK:                               /* a stagger: a step a 16th, half the width at most, off the walls */
+        pn.to += (int32_t)((r >> 16) % (uint32_t)(dep + 1)) - dep / 2;
+        if (pn.to > dep) pn.to = 2 * dep - pn.to;
+        if (pn.to < -dep) pn.to = -2 * dep - pn.to;
+        pn.to = bclamp(pn.to, -dep, dep);
+        break;
+    default: break;
+    }
+}
+static void pn_process(int32_t *L, int32_t *R, uint32_t n)
+{
+    uint32_t i, I, sp = prj.p2.pn_speed, edge = prj.p2.pn_edge > 15u ? 15u : prj.p2.pn_edge, beat = dd_beat(), p0, sh;
+    int32_t want = pn_want();
+    for (i = 0; i < n; i++)                      /* the ring: what comes out, mono */
+        pn_ring[(pn.w + i) & (PN_RN - 1u)] = (int16_t)bclamp((L[i] + R[i]) >> 1, -32767, 32767);
+    if (pn.cur < 0 && want < 0) { pn.w += n; return; }
+    if (pn.cur < 0) {                            /* a new one */
+        pn.cur = (int8_t)want;
+        pn.sub = (int8_t)want;
+        pn.g = 0;
+        pn.pos = pn.to = 0;
+        pn.i16 = 0xFFFFFFFFu;
+        pn.flip = pn.mute = 0;
+        pn.gl = pn.gr = 23170;
+    }
+    I = prj.p2.pn_int[(uint32_t)pn.cur % NPAN];
+    if (I > 100u) I = 100u;
+    /* where the bar is, at the effect's speed: its 16th, the place in it */
+    pn.s16 = (beat / 4u) * 2u / (1u << sp);      /* (half, the, double speed) */
+    if (pn.s16 < 64u) pn.s16 = 64u;
+    p0 = sq_play ? dd_barpos() * (1u << sp) / 2u : pn.free;
+    pn.free += n;
+    pn.ph16 = p0 % pn.s16;
+    if (p0 / pn.s16 != pn.i16) { pn.i16 = p0 / pn.s16; pn_tick(I); }
+    sh = (15u - edge) * 10u / 15u;               /* the moves: 10 (smooth) .. 0 (at once) */
+    for (i = 0; i < n; i++) {
+        int32_t x = L[i], y = R[i], m = (x + y) >> 1, sd = (x - y) >> 1, wl, wr, gl, gr, target = want == pn.cur ? 32767 : 0;
+        int32_t dep = (int32_t)(I * 327u);
+        uint32_t ph = pn.ph16, len = pn.s16, wi = (pn.w + i) & (PN_RN - 1u);
+        int32_t e = pn.sub;
+        if (pn.g < target) pn.g = pn.g + 128 > target ? target : pn.g + 128;
+        else if (pn.g > target) pn.g = pn.g - 128 < target ? target : pn.g - 128;
+        pn.amp = 32767;
+        switch (e) {                             /* the place to go */
+        case PN_AUTO4: case PN_AUTO8: case PN_AUTO16: {
+            uint32_t per = e == PN_AUTO4 ? len * 4u : e == PN_AUTO8 ? len * 2u : len, at = ((pn.i16 % (per / len)) * len + ph) % per;
+            uint32_t inv = 0xFFFFFFFFu / per;    /* (no 64-bit division: a 32-bit one, then a multiply) */
+            pn.to = (int32_t)(((int64_t)sin16((uint32_t)(((uint64_t)at * inv) >> 16)) * dep) >> 15);
+            break;
+        }
+        case PN_PING: pn.to = ((pn.i16 >> 1) & 1u) ? dep : -dep; break;
+        case PN_TRIP: { uint32_t t3 = ((pn.i16 & 3u) * len + ph) * 3u / (len * 4u); pn.to = (int32_t)(t3 > 2u ? 2u : t3) * dep - dep; break; }
+        case PN_CIRCLE: {                        /* round over a bar: left, front, right, the back (quieter, darker) */
+            uint32_t at = ((pn.i16 & 15u) * len + ph) * 4096u / (len * 16u);
+            pn.to = (int32_t)(((int64_t)sin16(at << 4) * dep) >> 15);
+            pn.amp = 32767 - (32767 - sin16((at << 4) + 16384u)) * (int32_t)I / 400;
+            break;
+        }
+        case PN_CLICK: {                         /* hard from side to side each 32nd (64th past 50 %), no fade */
+            uint32_t div = I > 50u ? 4u : 2u;
+            pn.to = ((pn.i16 * div + ph * div / len) & 1u) ? 32767 : -32767;
+            pn.pos = pn.to;
+            break;
+        }
+        case PN_GLITCH: {                        /* each 32nd: hard left, hard right, the middle, or nothing */
+            uint32_t h = hash3(pn.i16, ph * 2u / len, pn.rnd) % 100u;
+            pn.mute = h < I / 3u;
+            pn.to = h < 40u + I / 3u ? (h & 1u ? 32767 : -32767) : 0;
+            pn.pos = pn.to;
+            break;
+        }
+        default: break;
+        }
+        if (e != PN_CLICK && e != PN_GLITCH) {   /* the move: smooth, or hard (EDGE) */
+            if (sh) pn.pos += (pn.to - pn.pos) >> sh;
+            else pn.pos = pn.to;
+        }
+        if (!(i & 3u) || e == PN_CLICK || e == PN_GLITCH) {   /* where it is: the two gains (equal power), every 4 samples */
+            uint32_t a = (uint32_t)(pn.pos + 32768) >> 2;   /* 0 .. 16383: a quarter turn */
+            pn.gl = sin16(16384u - a > 16383u ? 16383u : 16384u - a);
+            pn.gr = sin16(a > 16383u ? 16383u : a);
+        }
+        gl = pn.gl, gr = pn.gr;
+        wl = (int32_t)(((int64_t)m * gl) >> 15) * 19661 >> 14;   /* (x 1.2: the middle a little quieter, a side */
+        wr = (int32_t)(((int64_t)m * gr) >> 15) * 19661 >> 14;   /* a little louder, the peaks kept) */
+        wl += sd, wr -= sd;
+        switch (e) {                             /* the ones that change the sound of one side */
+        case PN_STUT: case PN_REVS: {
+            uint32_t L0 = pn.segL ? pn.segL : 64u, k = pn.k % L0, idx = e == PN_STUT ? pn.seg + k : pn.seg + L0 - 1u - k;
+            int32_t v = pn_ring[idx & (PN_RN - 1u)], f = k < 64u ? (int32_t)k : L0 - k < 64u ? (int32_t)(L0 - k) : 64;
+            v = (v * f >> 6) * (int32_t)I / 100 + m * (100 - (int32_t)I) / 100;
+            pn.k++;
+            if (pn.side) wr = v; else wl = v;
+            break;
+        }
+        case PN_HAAS: { int32_t v = pn_ring[(wi - pn.hd) & (PN_RN - 1u)]; if (pn.side) wr = v; else wl = v; break; }
+        case PN_FLIP: {                          /* left and right swapped, one side upside down each 16th */
+            if (pn.flip) { int32_t t = wl; wl = wr; wr = t; }
+            if (pn.i16 & 1u && I > 50u) wr = -wr;
+            break;
+        }
+        default: break;
+        }
+        if (pn.mute) wl = wr = 0;
+        if (pn.amp != 32767) { wl = (int32_t)(((int64_t)wl * pn.amp) >> 15); wr = (int32_t)(((int64_t)wr * pn.amp) >> 15); }
+        L[i] = bclamp(x + (int32_t)(((int64_t)(wl - x) * pn.g) >> 15), -32767, 32767);
+        R[i] = bclamp(y + (int32_t)(((int64_t)(wr - y) * pn.g) >> 15), -32767, 32767);
+        if (++pn.ph16 >= pn.s16) {               /* the next 16th */
+            pn.ph16 = 0;
+            pn.i16++;
+            pn_tick(I);
+        }
+    }
+    pn.w += n;
+    if (pn.g == 0 && want != pn.cur) pn.cur = pn.sub = -1;
+    else if (want >= 0 && want != pn.cur && pn.g == 0) pn.cur = -1;
+}

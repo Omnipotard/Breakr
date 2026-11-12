@@ -123,4 +123,36 @@
 24100 press 8
 24200 btn 10
 24300 release 8
-24500 end
+24600 btn 2
+24700 enc 2 5
+24750 enc 5 6
+25000 shot 36-dirt
+25100 btn 2
+25200 enc 4 2
+25250 enc 5 3
+25300 enc 2 -10
+25600 shot 37-tone-comb
+25700 btn 2
+25800 enc 5 1
+25850 enc 4 8
+26100 shot 38-space-dub
+26200 btn 10
+26300 btn 10
+26400 keys 0x1
+26900 shot 39-pan-held
+27000 keys 0
+27100 btn 7
+27200 enc 4 5
+27500 shot 40-soft-system
+27600 btn 8
+28000 shot 41-soft-play
+28100 btn 11
+28500 shot 42-soft-steps
+28600 btn 10
+29000 shot 43-soft-pan
+29100 press 8
+29600 shot 44-soft-shift
+29700 release 8
+29800 btn 7
+29900 enc 4 -5
+30200 end

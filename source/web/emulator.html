@@ -341,7 +341,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: var(--panel); paddi
   const BTN = {OCTD: 0, OCTU: 1, FX: 2, SCL: 3, ENV: 4, LFO: 5, EDIT: 6, GLO: 7, HOME: 8, SAVE: 9, ARP: 10, SEQ: 11, PLAY: 12, REC: 13};
   const ENC = {SELECT: 0, ALGORITHM: 1, K1: 2, K2: 3, K3: 4, K4: 5, PRESETS: 6};
   const KNOB_COL = ["#FF5454", "#FFCE3C", "#50DC78", "#4696FF"];   /* the firmware's KNOB_C */
-  const THEME_ACC = ["#e8ff2e", "#ff2d95", "#ff7a1a", "#39ff88", "#f4f4f4"];   /* WARP, RAVE, AMEN, PHOSPHOR, MONO (brk_gfx.c) */
+  const THEME_ACC = ["#e8ff2e", "#ff2d95", "#ff7a1a", "#39ff88", "#f4f4f4", "#ffb096"];   /* WARP, RAVE, AMEN, PHOSPHOR, MONO, SOFT (brk_gfx.c) */
   const CLS_COL = ["#aaaab9", "#ff6e50", "#ffc846", "#5ac8ff"];    /* other, kick, snare, hat */
   const SECTOR = 4096, SLOTS_LEN = 4 * 0x3000;                      /* the project slots: the start of the store */
   const LS_STORE = "breakr-store-v1", LS_LANG = "breakr-lang", LS_PENDING = "breakr-bank-pending";
@@ -511,11 +511,11 @@ kbd { font-family: var(--mono); font-size: 12px; background: var(--panel); paddi
       power: "The firmware runs here as it is, compiled to WebAssembly. Turn the sound on, power up, then press a white key.",
       powerBtn: "POWER ON",
       err: "Sound could not start in this browser. Try a recent Chrome, Edge or Firefox.",
-      pages: ["PLAY", "STEPS", "SLICE", "CHOP", "AMP", "DICE", "FLEX", "FX", "GLOBAL", "SAVE"],
+      pages: ["PLAY", "STEPS", "SLICE", "CHOP", "AMP", "DICE", "FLEX", "FX", "GLOBAL", "SAVE", "PAN"],
       "k.master": "VOLUME", "k.select": "BREAK / SLICE", "k.presets": "PATTERN", "k.algo": "TEMPO", "k.unused": "unused",
-      "b.octd": "SLICES 1-16", "b.octd.alt": "CHOP: JOIN", "b.octu": "SLICES 17-32", "b.octu.alt": "CHOP: SPLIT", "b.fx": "4 PAGES", "b.scl": "SLICE", "b.env": "AMP", "b.lfo": "DICE", "b.edit": "CHOP", "b.glo": "GLOBAL",
+      "b.octd": "SLICES 1-16", "b.octd.alt": "CHOP: JOIN", "b.octu": "SLICES 17-32", "b.octu.alt": "CHOP: SPLIT", "b.fx": "5 PAGES", "b.scl": "SLICE", "b.env": "AMP", "b.lfo": "DICE", "b.edit": "CHOP", "b.glo": "GLOBAL",
       "s.fx": "FX OFF / BACK", "s.lfo": "NEW BEAT", "s.glo": "METRONOME", "s.save": "SAVE NOW", "s.arp": "ALL FX OFF", "s.seq": "CLEAR PATTERN", "s.play": "STOP ALL", "s.rec": "HELD: ERASE", "s.home": "SHIFT",
-      "b.home": "PLAY", "b.home.alt": "HOLD: SHIFT", "b.save": "SAVE · RESAMPLE", "b.arp": "FLEX", "b.seq": "STEPS · STEP+", "b.play": "PLAY", "b.rec": "REC",
+      "b.home": "PLAY", "b.home.alt": "HOLD: SHIFT", "b.save": "SAVE · RESAMPLE", "b.arp": "FLEX · PAN", "b.seq": "STEPS · STEP+", "b.play": "PLAY", "b.rec": "REC",
       colours: ["red", "yellow", "green", "blue"],
       "tt.MASTER": "MASTER: the volume of this page (wheel, drag, or the arrow keys when it has the focus).",
       "tt.SELECT": "SELECT picks the break on PLAY and SLICE, the slice to put on STEPS, the slice to edit on CHOP, the project slot on SAVE.",
@@ -524,7 +524,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: var(--panel); paddi
       "tt.K": "KNOB {n} ({c}): what it does on this page is written under it and on the screen's knob bar.",
       "tt.0": "OCT−: the slices (or steps) before; on CHOP it joins the slice to the one before; on DICE and SAVE it undoes.",
       "tt.1": "OCT+: slices 17-32 (or the next steps); on CHOP it splits the slice in two; on GLOBAL it taps the tempo.",
-      "tt.2": "FX, four pages: TONE (filter, resonance, drive, crush), SPACE (delay, feedback, mix, punch), BEAT and DESTROY, K-GLITCH's two glitch banks: 16 effects each on the white keys while you hold them. KNOB 1 sets the intensity of the last one pressed. REC + an effect held writes it on the steps. On the FX pages a black key opens a window that names its punch effect. SHIFT + a white key there (or a black key anywhere) latches the effect; SHIFT + ARP lets every effect go.",
+      "tt.2": "FX, five pages: TONE (filter, resonance, TYPE: DJ, band, comb, vowel, wah; MOVE: swept with the tempo or at random), SPACE (delay, feedback, mix, TYPE: clean, dub, ping, reverse, lo-fi), BEAT and DESTROY (K-GLITCH's two glitch banks: 16 effects each on the white keys while you hold them; KNOB 1 the intensity of the last one pressed; REC + an effect held writes it on the steps), DIRT (drive, crush, punch, lo-cut). On the FX pages a black key opens a window that names its punch effect; SHIFT + a white key on BEAT / DESTROY (or a black key anywhere) latches the effect; SHIFT + ARP lets every effect go.",
       "tt.3": "SCL opens SLICE: how the break is cut (as is, a grid, its hits), its bars and its tempo.",
       "tt.4": "ENV opens AMP: attack, decay, length, choke.",
       "tt.5": "LFO opens DICE: random slices, backwards, rolls, skips, jumps; LOCK repeats the random; LFO three times: GENERATE, the white keys are the 11 styles (again: another roll). SHIFT + LFO: a new beat from any page.",
@@ -532,7 +532,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: var(--panel); paddi
       "tt.7": "GLO opens GLOBAL: tempo, swing, tempo mode (CHOP keeps the pitch, VARI follows the tempo), metronome; again: clock, language, theme, volume.",
       "tt.8": "HOME opens PLAY: the slices on the white keys, the punch effects on the black ones. Held, it is SHIFT (Shift on the keyboard): the screen lists what each control does with it. OCT− undo, OCT+ redo, LFO a new beat, SEQ clear the pattern, REC held erase, PRESETS copy the pattern, FX the effects off and back, a black key latched, PLAY everything stops. SELECT: the page\u2019s help.",
       "tt.9": "SAVE: 4 project slots, the patterns and their chain; KNOB 1 picks the action, SAVE again does it. RESAMPLE records what comes out for 1, 2 or 4 bars into a new break of your bank: no computer needed. It saves itself when stopped.",
-      "tt.10": "ARP opens FLEX: 16 flex patterns on the white keys (half time, tape stop, gates, juggles...).",
+      "tt.10": "ARP opens FLEX: 16 flex patterns on the white keys (half time, tape stop, gates, juggles...). ARP again: PAN, 16 effects across the two sides on the white keys: 6 in time (auto-pans, ping, triplets, circle), 10 glitchy (random, clicks, a stutter or a reverse on one side, Haas jumps, split hits, flips...). KNOB 1 the intensity, then speed, edge (smooth to clicks), width.",
       "tt.11": "SEQ opens STEPS: the pattern, 16 steps on the white keys; hold a step and turn the knobs (slice, pitch, ratchet up to x16, chance). SEQ again: STEP+, the held step's condition (1:2, 3:4, FIRST, PRE…), the ratchet's ramp, an effect locked on it, its timing. SHIFT + a white key: the pattern ends there; SHIFT + the knobs: rotate, humanize, ratchets, mirror (undo: SHIFT + OCT−).",
       "tt.12": "PLAY starts and stops the pattern.",
       "tt.13": "REC records what you play on the keys into the pattern.",
@@ -588,11 +588,11 @@ kbd { font-family: var(--mono); font-size: 12px; background: var(--panel); paddi
       power: "Le firmware tourne ici tel quel, compilé en WebAssembly. Monte le son, allume, puis appuie sur une touche blanche.",
       powerBtn: "ALLUMER",
       err: "Le son n’a pas pu démarrer dans ce navigateur. Essaie un Chrome, Edge ou Firefox récent.",
-      pages: ["PLAY", "PAS", "DÉCOUPE", "CHOP", "AMP", "DÉS", "FLEX", "FX", "GLOBAL", "SAUVER"],
+      pages: ["PLAY", "PAS", "DÉCOUPE", "CHOP", "AMP", "DÉS", "FLEX", "FX", "GLOBAL", "SAUVER", "PAN"],
       "k.master": "VOLUME", "k.select": "BREAK / TRANCHE", "k.presets": "PATTERN", "k.algo": "TEMPO", "k.unused": "inutilisé",
-      "b.octd": "TRANCHES 1-16", "b.octd.alt": "CHOP : JOINDRE", "b.octu": "TRANCHES 17-32", "b.octu.alt": "CHOP : COUPER", "b.fx": "4 PAGES", "b.scl": "DÉCOUPE", "b.env": "AMP", "b.lfo": "DÉS", "b.edit": "CHOP", "b.glo": "GLOBAL",
+      "b.octd": "TRANCHES 1-16", "b.octd.alt": "CHOP : JOINDRE", "b.octu": "TRANCHES 17-32", "b.octu.alt": "CHOP : COUPER", "b.fx": "5 PAGES", "b.scl": "DÉCOUPE", "b.env": "AMP", "b.lfo": "DÉS", "b.edit": "CHOP", "b.glo": "GLOBAL",
       "s.fx": "FX COUPÉS / RETOUR", "s.lfo": "NOUVEAU BEAT", "s.glo": "MÉTRONOME", "s.save": "SAUVER", "s.arp": "LÂCHER LES FX", "s.seq": "EFFACER LE PATTERN", "s.play": "TOUT ARRÊTER", "s.rec": "TENU : GOMME", "s.home": "SHIFT",
-      "b.home": "PLAY", "b.home.alt": "TENU : SHIFT", "b.save": "SAUVER · RESAMPLE", "b.arp": "FLEX", "b.seq": "PAS · STEP+", "b.play": "LECTURE", "b.rec": "ENREG.",
+      "b.home": "PLAY", "b.home.alt": "TENU : SHIFT", "b.save": "SAUVER · RESAMPLE", "b.arp": "FLEX · PAN", "b.seq": "PAS · STEP+", "b.play": "LECTURE", "b.rec": "ENREG.",
       colours: ["rouge", "jaune", "vert", "bleu"],
       "tt.MASTER": "MASTER : le volume de cette page (molette, glisser, ou les flèches quand il a le focus).",
       "tt.SELECT": "SELECT choisit le break sur PLAY et DÉCOUPE, la tranche à poser sur PAS, la tranche à éditer sur CHOP, l’emplacement sur SAUVER.",
@@ -601,7 +601,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: var(--panel); paddi
       "tt.K": "KNOB {n} ({c}) : ce qu’il fait sur cette page est écrit dessous et dans la barre des knobs de l’écran.",
       "tt.0": "OCT− : les tranches (ou les pas) d’avant ; sur CHOP, joint la tranche à la précédente ; sur DÉS et SAUVER, annule.",
       "tt.1": "OCT+ : les tranches 17-32 (ou les pas suivants) ; sur CHOP, coupe la tranche en deux ; sur GLOBAL, tape le tempo.",
-      "tt.2": "FX, quatre pages : TONE (filtre, résonance, drive, crush), SPACE (delay, feedback, mix, punch), BEAT et DESTROY, les deux banques glitch de K-GLITCH : 16 effets chacune sur les touches blanches tant que tu les tiens. Le KNOB 1 règle l’intensité du dernier appuyé. REC + un effet tenu l’écrit sur les pas. Sur les pages FX, une touche noire ouvre une fenêtre qui nomme son effet punch. SHIFT + une blanche là (ou une noire partout) verrouille l’effet ; SHIFT + ARP relâche tout.",
+      "tt.2": "FX, cinq pages : TONE (filtre, résonance, TYPE : DJ, bande, comb, voyelle, wah ; MOVE : balayé au tempo ou au hasard), SPACE (delay, retour, mix, TYPE : clean, dub, ping, reverse, lo-fi), BEAT et DESTROY (les deux banques glitch de K-GLITCH : 16 effets chacune sur les touches blanches tant que tu les tiens ; KNOB 1 l’intensité du dernier appuyé ; REC + un effet tenu l’écrit sur les pas), DIRT (drive, crush, punch, lo-cut). Sur les pages FX, une touche noire ouvre une fenêtre qui nomme son effet punch ; SHIFT + une blanche sur BEAT / DESTROY (ou une noire partout) verrouille l’effet ; SHIFT + ARP relâche tout.",
       "tt.3": "SCL ouvre DÉCOUPE : comment le break est coupé (tel quel, grille, ses frappes), ses mesures et son tempo.",
       "tt.4": "ENV ouvre AMP : attaque, decay, longueur, choke.",
       "tt.5": "LFO ouvre DÉS : tranches au hasard, envers, rolls, sauts ; LOCK répète le hasard ; LFO trois fois : GÉNÉRER, les touches blanches sont les 11 styles (encore : un autre tirage). SHIFT + LFO : un nouveau beat de n’importe quelle page.",
@@ -609,7 +609,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: var(--panel); paddi
       "tt.7": "GLO ouvre GLOBAL : tempo, swing, mode de tempo (CHOP garde la hauteur, VARI suit le tempo), métronome ; encore : horloge, langue, thème, volume.",
       "tt.8": "HOME ouvre PLAY : les tranches sur les touches blanches, les effets punch sur les noires. Maintenu, c’est SHIFT (Maj au clavier) : l’écran dit ce que fait chaque commande avec. OCT− annuler, OCT+ rétablir, LFO un nouveau beat, SEQ effacer le pattern, REC tenu gommer, PRESETS copier le pattern, FX couper les effets et les remettre, une noire verrouillée, PLAY tout arrêter. SELECT : l’aide de la page.",
       "tt.9": "SAVE : 4 emplacements de projet, les patterns et leur chaîne ; le KNOB 1 choisit l’action, SAVE encore la fait. RESAMPLE enregistre la sortie sur 1, 2 ou 4 mesures dans un nouveau break de ta banque : sans ordinateur. Il sauve tout seul à l’arrêt.",
-      "tt.10": "ARP ouvre FLEX : 16 patterns flex sur les touches blanches (half time, tape stop, gates, juggles…).",
+      "tt.10": "ARP ouvre FLEX : 16 patterns flex sur les touches blanches (half time, tape stop, gates, juggles…). ARP encore : PAN, 16 effets entre les deux côtés sur les touches blanches : 6 au tempo (auto-pans, ping, triolets, cercle), 10 glitch (hasard, clics, un stutter ou un envers d’un côté, sauts Haas, frappes séparées, inversions…). KNOB 1 l’intensité, puis vitesse, bord (doux à clics), largeur.",
       "tt.11": "SEQ ouvre PAS : le pattern, 16 pas sur les touches blanches ; tiens un pas et tourne les knobs (tranche, hauteur, ratchet jusqu’à ×16, chance). SEQ encore : STEP+, la condition du pas tenu (1:2, 3:4, FIRST, PRE…), la rampe du ratchet, un effet verrouillé dessus, son décalage. SHIFT + une blanche : le pattern finit là ; SHIFT + les knobs : décaler, humaniser, ratchets, miroir (annuler : SHIFT + OCT−).",
       "tt.12": "PLAY lance et arrête le pattern.",
       "tt.13": "REC enregistre dans le pattern ce que tu joues sur les touches.",

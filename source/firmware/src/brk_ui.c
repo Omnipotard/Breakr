@@ -23,7 +23,7 @@
 
 enum { P_PLAY, P_SEQ, P_SLICE, P_CHOP, P_AMP, P_DICE, P_FLEX, P_FX, P_GLOBAL, P_SAVE, P_N };
 static const uint8_t PAGE_BTN[P_N] = {BTN_HOME, BTN_SEQ, BTN_SEL, BTN_EDIT, BTN_ENV, BTN_LFO, BTN_ARP, BTN_FX, BTN_GLO, BTN_SAVE};
-static const uint8_t PAGE_SUBS[P_N] = {1, 2, 1, 2, 1, 3, 1, 4, 2, 1};
+static const uint8_t PAGE_SUBS[P_N] = {1, 2, 1, 2, 1, 3, 2, 5, 2, 1};
 static const char *const PAGE_NAME[P_N] = {"PLAY", "STEPS", "SLICE", "CHOP", "AMP", "DICE", "FLEX", "FX", "GLOBAL", "SAVE"};
 
 /* the keys: 0 = F3 .. 26 = G5; 16 white, 11 black */
@@ -34,7 +34,8 @@ static int8_t key_white[27], key_black[27];      /* the white / black index of a
 static uint8_t pop_k = 0xFF;                    /* FX: the black key that opened the punch window (0..10) */
 static uint32_t pop_ms;                         /* .. when (the window stays a moment after a tap) */
 static uint8_t beat_sel;                        /* the DESTROY / BEAT effect KNOB 1 sets (the last key pressed): 0..31 */
-#define GL_PAGE() (page == P_FX && sub[P_FX] >= 2u)   /* FX's BEAT (2) or DESTROY (3) page: the white keys are effects */
+#define GL_PAGE() (page == P_FX && (sub[P_FX] == 2u || sub[P_FX] == 3u))   /* FX's BEAT (2) or DESTROY (3) page: the white keys are effects */
+#define PN_PAGE() (page == P_FLEX && sub[P_FLEX] == 1u)   /* ARP's second page: PAN, its effects on the white keys */
 #define GL_BASE() (sub[P_FX] == 2u ? 16u : 0u)          /* (the effects: DESTROY 0..15, BEAT 16..31) */
 static uint8_t page, sub[P_N], bank16, seq_page, chop_k, brush = 1, help_on, splash = 1;
 static int8_t held_step = -1;
@@ -55,6 +56,8 @@ static settings_t sets;
 static uint8_t shift_used, shift_tab;           /* something done with it (no overlay, no PLAY at the release); the tab */
 static uint32_t punch_held, punch_latch;        /* the black keys held; the punch effects latched */
 static uint32_t beat_latch;                     /* the BEAT / DESTROY effects latched */
+static uint32_t pan_latch;                      /* the PAN effects latched */
+static uint8_t pan_sel;                         /* the PAN effect KNOB 1 sets (the last pressed) */
 static uint32_t key_unlatch;                    /* keys whose press let a latch go (their release does nothing) */
 static uint8_t fx_dry, dry_keep[6];             /* SHIFT + FX: the master's effects off; what they were */
 static uint32_t shift_now(void) { return fm1_in.buttons >> BTN_HOME & 1u; }
@@ -239,27 +242,46 @@ static void knob_info(uint32_t k, kv_t *o)
         }
         break;
     case P_FLEX:
+        if (s == 1u) {                          /* PAN */
+            static const char *const SPN[3] = {"1/2 X", "1 X", "2 X"};
+            if (k == 0) kv_int(o, "INTENS.", prj.p2.pn_int[pan_sel % NPAN], 0, 100, "%");
+            if (k == 1) kv_txt(o, TR("VITESSE", "SPEED"), SPN[prj.p2.pn_speed % 3u], prj.p2.pn_speed * 500);
+            if (k == 2) kv_txt(o, TR("BORD", "EDGE"), prj.p2.pn_edge < 5u ? TR("DOUX", "SOFT") : prj.p2.pn_edge < 11u ? "MID" : TR("DUR", "HARD"), prj.p2.pn_edge * 1000 / 15);
+            if (k == 3) { kv_int(o, TR("LARGEUR", "WIDTH"), prj.p2.width * 100 / 16, 0, 200, "%"); o->bip = 1; o->frac = prj.p2.width * 1000 / 32; }
+            break;
+        }
         if (k == 0) kv_txt(o, "MODE", FLEX_MODE[p->fl_mode % 3u], p->fl_mode * 500);
         if (k == 1) kv_txt(o, "QUANT", FLEX_QUANT[p->fl_quant % 3u], p->fl_quant * 500);
         if (k == 2) kv_int(o, TR("PROF.", "DEPTH"), p->fl_depth, 0, 100, "%");
         if (k == 3) kv_txt(o, "PITCH", onoff(p->fl_pitch), p->fl_pitch * 1000);
         break;
     case P_FX:
+        if (s == 4u) {                          /* DIRT */
+            if (k == 0) kv_int(o, "DRIVE", p->drive, 0, 15, 0);
+            if (k == 1) kv_int(o, "CRUSH", p->crush, 0, 15, 0);
+            if (k == 2) kv_int(o, "PUNCH", p->punch, 0, 15, 0);
+            if (k == 3) { static const uint16_t HZ[16] = {0, 25, 30, 37, 45, 55, 67, 82, 100, 122, 148, 181, 220, 268, 327, 400};
+                          if (!prj.p2.locut) kv_txt(o, "LO-CUT", "OFF", 0); else kv_int(o, "LO-CUT", HZ[prj.p2.locut & 15u], 20, 400, "HZ"); }
+            break;
+        }
         if (s >= 2u) {                          /* BEAT, DESTROY: the effect's INTENSITY, then the first page's dirt */
             if (k == 0) kv_int(o, "INTENS.", p->bt_int[beat_sel % 32u], 0, 100, "%");
             if (k == 1) { kv_txt(o, "FILTER", p->filter < 60u ? "LOW" : p->filter > 68u ? "HIGH" : "OFF", p->filter * 1000 / 127); o->bip = 1; }
             if (k == 2) kv_int(o, "DRIVE", p->drive, 0, 15, 0);
             if (k == 3) kv_int(o, "CRUSH", p->crush, 0, 15, 0);
         } else if (s == 0u) {
-            if (k == 0) { kv_txt(o, "FILTER", p->filter < 60u ? "LOW" : p->filter > 68u ? "HIGH" : "OFF", p->filter * 1000 / 127); o->bip = 1; }
-            if (k == 1) kv_int(o, "RESO", p->reso, 0, 15, 0);
-            if (k == 2) kv_int(o, "DRIVE", p->drive, 0, 15, 0);
-            if (k == 3) kv_int(o, "CRUSH", p->crush, 0, 15, 0);
+            if (k == 0) {
+                if (prj.p2.flt_type == FT_DJ) { kv_txt(o, "FILTER", p->filter < 60u ? "LOW" : p->filter > 68u ? "HIGH" : "OFF", p->filter * 1000 / 127); o->bip = 1; }
+                else kv_int(o, prj.p2.flt_type == FT_VOWEL ? "VOWEL" : "FREQ", p->filter * 100 / 127, 0, 100, "%");
+            }
+            if (k == 1) kv_int(o, prj.p2.flt_type == FT_COMB ? TR("RETOUR", "FDBK") : "RESO", p->reso, 0, 15, 0);
+            if (k == 2) kv_txt(o, "TYPE", FT_NAME[prj.p2.flt_type % FT_N], prj.p2.flt_type * 1000 / (FT_N - 1));
+            if (k == 3) kv_txt(o, "MOVE", MOVE_NAME[prj.p2.flt_move & 7u], prj.p2.flt_move * 1000 / 7);
         } else {
             if (k == 0) kv_txt(o, "DELAY", DLY_NAME[p->dly_time % 6u], p->dly_time * 200);
             if (k == 1) kv_int(o, TR("RETOUR", "FDBK"), p->dly_fb, 0, 15, 0);
             if (k == 2) kv_int(o, "MIX", p->dly_mix, 0, 15, 0);
-            if (k == 3) kv_int(o, "PUNCH", p->punch, 0, 15, 0);
+            if (k == 3) kv_txt(o, "TYPE", DT_NAME[prj.p2.dly_type % DT_N], prj.p2.dly_type * 1000 / (DT_N - 1));
         }
         break;
     case P_GLOBAL:
@@ -271,7 +293,7 @@ static void knob_info(uint32_t k, kv_t *o)
         } else {
             if (k == 0) kv_txt(o, TR("HORLOGE", "CLOCK"), p->clock ? "MIDI" : "INT", p->clock * 1000);
             if (k == 1) kv_txt(o, TR("LANGUE", "LANG"), lang ? "ENGLISH" : "FRANCAIS", lang * 1000);
-            if (k == 2) kv_txt(o, TR("THEME", "THEME"), THEMES[theme % NTHEME].name, (int32_t)theme * 250);
+            if (k == 2) kv_txt(o, TR("THEME", "THEME"), THEMES[theme % NTHEME].name, (int32_t)theme * 200);
             if (k == 3) kv_int(o, "VOL", p->vol, 0, 15, 0);
         }
         break;
@@ -434,12 +456,26 @@ static void knob_turn(uint32_t k, int32_t d)
         }
         break;
     case P_FLEX:
+        if (s == 1u) {                          /* PAN */
+            if (k == 0) adj(&prj.p2.pn_int[pan_sel % NPAN], accel(d) * 2, 0, 100);
+            if (k == 1) adj(&prj.p2.pn_speed, d, 0, 2);
+            if (k == 2) adj(&prj.p2.pn_edge, d, 0, 15);
+            if (k == 3) adj(&prj.p2.width, d, 0, 32);
+            break;
+        }
         if (k == 0) adj(&p->fl_mode, d, 0, 2);
         if (k == 1) adj(&p->fl_quant, d, 0, 2);
         if (k == 2) adj(&p->fl_depth, accel(d) * 5, 0, 100);
         if (k == 3) adj(&p->fl_pitch, d, 0, 1);
         break;
     case P_FX:
+        if (s == 4u) {                          /* DIRT */
+            if (k == 0) adj(&p->drive, d, 0, 15);
+            if (k == 1) adj(&p->crush, d, 0, 15);
+            if (k == 2) adj(&p->punch, d, 0, 15);
+            if (k == 3) adj(&prj.p2.locut, d, 0, 15);
+            break;
+        }
         if (s >= 2u) {
             if (k == 0) adj(&p->bt_int[beat_sel % 32u], accel(d) * 2, 0, 100);
             if (k == 1) adj(&p->filter, accel(d) * 2, 0, 127);
@@ -448,13 +484,13 @@ static void knob_turn(uint32_t k, int32_t d)
         } else if (s == 0u) {
             if (k == 0) adj(&p->filter, accel(d) * 2, 0, 127);
             if (k == 1) adj(&p->reso, d, 0, 15);
-            if (k == 2) adj(&p->drive, d, 0, 15);
-            if (k == 3) adj(&p->crush, d, 0, 15);
+            if (k == 2) adj(&prj.p2.flt_type, d, 0, FT_N - 1);
+            if (k == 3) adj(&prj.p2.flt_move, d, 0, 7);
         } else {
             if (k == 0) adj(&p->dly_time, d, 0, 5);
             if (k == 1) adj(&p->dly_fb, d, 0, 15);
             if (k == 2) adj(&p->dly_mix, d, 0, 15);
-            if (k == 3) adj(&p->punch, d, 0, 15);
+            if (k == 3) adj(&prj.p2.dly_type, d, 0, DT_N - 1);
         }
         break;
     case P_GLOBAL:
@@ -595,8 +631,8 @@ static void draw_header(void)
     if (g_vis(0, 25)) {
         g_rect(0, 0, 240, 25, C_BG);
         {                                        /* the page: a label in the signal colour (FX: which of its four) */
-            static const char *const FXN[4] = {"TONE", "SPACE", "BEAT", "DESTROY"};
-            const char *nm = shift_now() ? "SHIFT" : page == P_FX ? FXN[sub[P_FX] & 3u] : PAGE_NAME[page];
+            static const char *const FXN[5] = {"TONE", "SPACE", "BEAT", "DESTROY", "DIRT"};
+            const char *nm = shift_now() ? "SHIFT" : page == P_FX ? FXN[sub[P_FX] % 5u] : PN_PAGE() ? "PAN" : PAGE_NAME[page];
             w = g_tw(&FONT_BM, nm) + 16;
             g_round(0, 2, w, 21, shift_now() ? C_ACC2 : C_ACC);
             g_text(&FONT_BM, 7, 3, nm, C_BG);
@@ -644,7 +680,7 @@ static const char *hint(uint32_t c)
         case H_REC: return TR("GOMME", "ERASE");
         case H_WHITE:
             if (page == P_SEQ) return TR("LONG.", "LENGTH");
-            if (GL_PAGE()) return TR("VERROU", "LATCH");
+            if (GL_PAGE() || PN_PAGE()) return TR("VERROU", "LATCH");
             break;
         default: break;
         }
@@ -674,12 +710,14 @@ static const char *hint(uint32_t c)
         if (c == H_WHITE && s == 2u) return "STYLES";
         break;
     case P_FLEX:
+        if (s == 1u && c == H_WHITE) return "PAN";
+        if (s == 1u && c == H_SEL) return "BREAK";
         if (c == H_SEL) return "FLEX";
         if (c == H_WHITE) return "FLEX";
         if (c == H_OCTD || c == H_OCTU) return "-";
         break;
     case P_FX:
-        if (s >= 2u && c == H_WHITE) return s == 2u ? "BEAT" : "DESTROY";
+        if ((s == 2u || s == 3u) && c == H_WHITE) return s == 2u ? "BEAT" : "DESTROY";
         if (c == H_OCTD || c == H_OCTU) return "-";
         break;
     case P_GLOBAL:
@@ -1118,9 +1156,40 @@ static void draw_dice(void)
     }
 }
 
+/* PAN: its 16 effects as the white keys, as BEAT's: lit while held, latched marked, each one's INTENSITY a bar; under
+ * them, where the sound is between the two sides */
+static void draw_pan(void)
+{
+    uint32_t i, on = pan_keys;
+    if (g_vis(29, 120)) {
+        g_rect(0, 29, 240, 120, C_BG);
+        for (i = 0; i < NPAN; i++) {
+            int32_t x = 2 + (int32_t)(i % 4u) * 59, y = 31 + (int32_t)(i / 4u) * 29;
+            uint32_t lit = on >> i & 1u, it = prj.p2.pn_int[i] > 100u ? 100u : prj.p2.pn_int[i];
+            if (i == pan_sel && !lit) g_round(x - 1, y - 1, 59, 29, C_ACC2);
+            g_round(x, y, 57, 27, lit ? C_ACC : i < 6u ? C_PANEL2 : C_PANEL);
+            g_textw(&FONT_BS, x + 4, y + 1, 50, PAN_NAME[i][0], lit ? C_BG : C_TXT);
+            g_textw(&FONT_PX, x + 4, y + 15, 50, PAN_NAME[i][1], lit ? C_BG : C_SUB);
+            g_rect(x + 4, y + 23, 49 * (int32_t)it / 100, 2, lit ? C_BG : C_ACC2);
+            if (pan_latch >> i & 1u) { g_rect(x + 47, y + 3, 7, 7, C_BG); g_rect(x + 49, y + 5, 3, 3, C_ACC); }
+        }
+    }
+    if (g_vis(150, 34)) {                       /* L .. R: where it is now */
+        int32_t px = 120 + pn.pos * 104 / 32767;
+        g_rect(0, 150, 240, 34, C_BG);
+        g_round(6, 156, 228, 14, C_PANEL);
+        g_text(&FONT_PX, 10, 159, "L", C_SUB);
+        g_textr(&FONT_PX, 230, 159, "R", C_SUB);
+        g_rect(119, 157, 1, 12, C_EDGE);
+        if (pn.cur >= 0) g_round(px - 5, 157, 11, 12, C_ACC);
+        g_text(&FONT_PX, 8, 174, TR("1-6 AU TEMPO  7-16 GLITCH", "1-6 IN TIME  7-16 GLITCHY"), C_DIMT);
+    }
+}
+
 static void draw_flex(void)
 {
     uint32_t i, on = flex_on, sel = flex_sel;
+    if (sub[P_FLEX] == 1u) { draw_pan(); return; }
     for (i = 0; i < NFLEX; i++) {
         int32_t x = 3 + (int32_t)(i % 4u) * 59, y = 29 + (int32_t)(i / 4u) * 30;
         uint32_t a = i == on, q = i == sel && i != on;
@@ -1171,7 +1240,26 @@ static void draw_fx(void)
 {
     params_t *p = &prj.p;
     uint32_t s = sub[P_FX], i;
-    if (s >= 2u) { draw_beat(); return; }
+    if (s == 2u || s == 3u) { draw_beat(); return; }
+    if (s == 4u) {                              /* DIRT: four bars, and the meter */
+        static const char *const N[4] = {"DRIVE", "CRUSH", "PUNCH", "LO-CUT"};
+        uint32_t v[4];
+        v[0] = p->drive; v[1] = p->crush; v[2] = p->punch; v[3] = prj.p2.locut;
+        for (i = 0; i < 4u; i++) {
+            int32_t x = 6 + (int32_t)i * 58, h = (int32_t)v[i] * 90 / 15;
+            if (!g_vis(30, 112)) break;
+            g_round(x, 32, 50, 96, C_PANEL);
+            if (h > 0) g_round(x + 2, 126 - h, 46, h, g_mix(C_PANEL, KNOB_C[i], 150));
+            g_textc(&FONT_BS, x + 25, 131, N[i], C_SUB);
+        }
+        if (g_vis(146, 38)) {
+            int32_t lv = live_level * 228 / 32767;
+            g_text(&FONT_BS, 6, 148, TR("LA SALETE, LE COMPRESSEUR, LE BAS", "THE DIRT, THE COMPRESSOR, THE LOWS"), C_DIMT);
+            g_round(6, 166, 228, 10, C_PANEL);
+            g_rect(6, 168, lv, 6, lv > 210 ? C_REC : C_PLAY);
+        }
+        return;
+    }
     if (g_vis(29, 110)) {
         g_round(2, 29, 236, 110, C_PANEL);
         if (s == 0u) {                          /* the filter: its response, the cut-off and the resonance's bump */
@@ -1190,7 +1278,20 @@ static void draw_fx(void)
                 g_rect(x, y, 1, 2, C_ACC);
             }
             if (c >= 0) g_rect(c, 40, 1, 96, C_SUB);
-            g_text(&FONT_BS, 8, 33, c < 0 ? "OFF" : lp ? "LOW-PASS" : "HIGH-PASS", C_SUB);
+            if (prj.p2.flt_type != FT_DJ) {     /* the other types: their name over a plain curve */
+                g_rect(4, 31, 232, 106, C_PANEL);
+                for (x = 6; x < 234; x++) {
+                    int32_t cc = 8 + f * 220 / 127, dd = x - cc, y;
+                    dd = dd < 0 ? -dd : dd;
+                    y = prj.p2.flt_type == FT_COMB ? 70 + (int32_t)(((x - 6) * (8 + f / 8)) % 40) : dd < 30 ? 56 + dd * 2 - (int32_t)p->reso * (30 - dd) / 8 : 120;
+                    if (prj.p2.flt_type == FT_WAH) y = x < cc ? 60 : 60 + (x - cc) * 2;
+                    y = y < 36 ? 36 : y > 134 ? 134 : y;
+                    g_rect(x, y, 1, 134 - y, g_mix(C_PANEL, C_ACC, 55));
+                    g_rect(x, y, 1, 2, C_ACC);
+                }
+            }
+            g_text(&FONT_BS, 8, 33, prj.p2.flt_type != FT_DJ ? FT_NAME[prj.p2.flt_type % FT_N] : c < 0 ? "OFF" : lp ? "LOW-PASS" : "HIGH-PASS", C_SUB);
+            if (prj.p2.flt_move) g_textr(&FONT_BS, 232, 33, MOVE_NAME[prj.p2.flt_move & 7u], C_ACC);
         } else {                                /* the delay's echoes */
             int32_t lv = 90, x = 14, step = 12 + (int32_t)p->dly_time * 7;
             g_rect(x, 134 - lv, 6, lv, C_TXT);
@@ -1198,13 +1299,14 @@ static void draw_fx(void)
                 x += step;
                 if (x > 228) break;
                 lv = (i == 0u ? lv * (int32_t)p->dly_mix / 15 : lv * (int32_t)p->dly_fb * 54 / 1024);
-                if (lv > 0) g_rect(x, 134 - lv, 6, lv, g_mix(C_PANEL, C_ACC, 220));
+                if (lv > 0) g_rect(x, prj.p2.dly_type == DT_PING && (i & 1u) ? 134 - lv : 134 - lv, 6, lv, g_mix(C_PANEL, prj.p2.dly_type == DT_PING && !(i & 1u) ? C_ACC2 : C_ACC, 220));
             }
+            g_text(&FONT_BS, 8, 33, DT_NAME[prj.p2.dly_type % DT_N], C_SUB);
         }
     }
     if (g_vis(142, 54)) {
         int32_t lv = live_level * 228 / 32767;
-        g_text(&FONT_BS, 6, 144, s == 0u ? TR("DRIVE, CRUSH: LA SALETE", "DRIVE, CRUSH: THE DIRT") : TR("PUNCH: COMPRESSEUR", "PUNCH: THE COMPRESSOR"), C_DIMT);
+        g_text(&FONT_BS, 6, 144, s == 0u ? TR("TYPE: DJ BAND COMB VOWEL WAH", "TYPE: DJ BAND COMB VOWEL WAH") : TR("DUB: SATURE, PEUT S'EMBALLER", "DUB: SATURATED, CAN RUN AWAY"), C_DIMT);
         g_round(6, 162, 228, 10, C_PANEL);
         g_rect(6, 164, lv, 6, lv > 210 ? C_REC : C_PLAY);
     }
@@ -1299,8 +1401,8 @@ static const char *const HELP_EN[P_N][6] = {
     {"SELECT OR A KEY  A SLICE", "START / FINE  MOVE ITS START", "PITCH / GAIN  OF THIS SLICE", "OCT+  SPLIT IT IN TWO", "OCT-  JOIN IT TO THE ONE BEFORE", "EDIT AGAIN  REVERSE, CLASS"},
     {"ATTACK  FADE IN OF EVERY SLICE", "DECAY  HOLD, OR SHORTER HITS", "LENGTH  HOW MUCH OF THE SLICE", "CHOKE  MONO CUTS, POLY RINGS", "", ""},
     {"CHANCE  ANOTHER SLICE (SAME KIND)", "REV ROLL SKIP  HOW OFTEN", "LFO AGAIN  JUMPS, SMART, LOCK", "LOCK  THE RANDOM REPEATS", "LFO 3RD: WHITE KEYS = STYLES", "OCT-  UNDO"},
-    {"WHITE KEYS  16 FLEX PATTERNS", "THE SAME KEY AGAIN  OFF", "MODE  LATCH / HOLD / ONE BAR", "QUANT  STARTS ON STEP BEAT BAR", "DEPTH  HOW DEEP THE GATE", "BLACK KEYS  PUNCH EFFECTS"},
-    {"FILTER  LEFT LOW, RIGHT HIGH", "FX AGAIN  DELAY AND PUNCH", "FX 3RD: BEAT  4TH: DESTROY", "HOLD A WHITE KEY  ITS EFFECT", "KNOB 1  ITS INTENSITY", "BLACK KEYS  PUNCH, NAMED"},
+    {"WHITE KEYS  16 FLEX PATTERNS", "THE SAME KEY AGAIN  OFF", "MODE  LATCH / HOLD / ONE BAR", "QUANT  STARTS ON STEP BEAT BAR", "DEPTH  HOW DEEP THE GATE", "ARP AGAIN  PAN: 16 EFFECTS"},
+    {"TONE  FILTER TYPE AND MOVE", "FX AGAIN  SPACE: DELAY TYPES", "FX 3RD: BEAT  4TH: DESTROY", "FX 5TH: DIRT  DRIVE CRUSH", "HOLD A WHITE KEY  ITS EFFECT", "BLACK KEYS  PUNCH, NAMED"},
     {"BPM SWING  (ALGO: TEMPO TOO)", "TEMPO  CHOP OR VARI", "METRONOME  OFF / REC / ON", "OCT+  TAP THE TEMPO", "GLO AGAIN  CLOCK LANGUAGE THEME", ""},
     {"SELECT  SLOT   KNOB 1  ACTION", "SAVE AGAIN  DO IT", "WHITE KEYS  PATTERN 1-16", "HOLD ONE + OTHERS  A CHAIN", "RESAMPLE  THE OUTPUT, A NEW BREAK", "AUTO SAVES ITSELF WHEN STOPPED"},
 };
@@ -1311,8 +1413,8 @@ static const char *const HELP_FR[P_N][6] = {
     {"SELECT OU UNE TOUCHE  TRANCHE", "START / FIN  DEPLACER LE DEBUT", "PITCH / GAIN  DE CETTE TRANCHE", "OCT+  LA COUPER EN DEUX", "OCT-  LA JOINDRE A LA PRECEDENTE", "EDIT ENCORE  ENVERS, GENRE"},
     {"ATTACK  ENTREE DE CHAQUE TRANCHE", "DECAY  TENUE, OU PLUS COURT", "LONGUEUR  QUELLE PART JOUER", "CHOKE  MONO COUPE, POLY RESONNE", "", ""},
     {"CHANCE  UNE AUTRE TRANCHE", "REV ROLL SKIP  A QUELLE FREQUENCE", "LFO ENCORE  SAUTS, SMART, LOCK", "LOCK  LE HASARD SE REPETE", "LFO 3E: BLANCHES = STYLES", "OCT-  ANNULER"},
-    {"BLANCHES  16 FLEX PATTERNS", "LA MEME TOUCHE  ARRET", "MODE  LATCH / HOLD / 1 MESURE", "QUANT  DEPART: PAS TEMPS MESURE", "PROFONDEUR  DU GATE", "NOIRES  EFFETS PUNCH"},
-    {"FILTER  GAUCHE BAS, DROITE HAUT", "FX ENCORE  DELAY ET PUNCH", "FX 3E: BEAT  4E: DESTROY", "TENIR UNE BLANCHE  SON EFFET", "KNOB 1  SON INTENSITE", "NOIRES  PUNCH, NOMME"},
+    {"BLANCHES  16 FLEX PATTERNS", "LA MEME TOUCHE  ARRET", "MODE  LATCH / HOLD / 1 MESURE", "QUANT  DEPART: PAS TEMPS MESURE", "PROFONDEUR  DU GATE", "ARP ENCORE  PAN: 16 EFFETS"},
+    {"TONE  TYPE DE FILTRE, MOVE", "FX ENCORE  SPACE: DELAYS", "FX 3E: BEAT  4E: DESTROY", "FX 5E: DIRT  DRIVE CRUSH", "TENIR UNE BLANCHE  SON EFFET", "NOIRES  PUNCH, NOMME"},
     {"BPM SWING  (ALGO: TEMPO AUSSI)", "TEMPO  CHOP OU VARI", "METRONOME  OFF / REC / ON", "OCT+  TAPER LE TEMPO", "GLO ENCORE  HORLOGE LANGUE THEME", ""},
     {"SELECT  SLOT   KNOB 1  ACTION", "SAVE ENCORE  LE FAIRE", "BLANCHES  PATTERN 1-16", "TENIR + AUTRES  UNE CHAINE", "RESAMPLE  LA SORTIE, UN BREAK", "SAUVE TOUT SEUL A L'ARRET"},
 };
@@ -1374,7 +1476,7 @@ static void draw_help(void)
     if (g_vis(76, 42)) {                        /* this page */
         const char *a = 0, *b2 = 0;
         if (page == P_SEQ) { a = TR("BLANCHE  LA LONGUEUR ICI", "WHITE KEY  THE LENGTH HERE"); b2 = TR("K1 DECALE  K2 HUMAIN  K3 RATCH.  K4 MIROIR", "K1 ROTATE  K2 HUMAN  K3 RATCH.  K4 MIRROR"); }
-        else if (GL_PAGE()) a = TR("BLANCHE  VERROUILLE L'EFFET", "WHITE KEY  LATCH THE EFFECT");
+        else if (GL_PAGE() || PN_PAGE()) a = TR("BLANCHE  VERROUILLE L'EFFET", "WHITE KEY  LATCH THE EFFECT");
         else if (page == P_DICE && sub[P_DICE] == 2u) a = TR("SANS SHIFT: BLANCHES = STYLES", "NO SHIFT: WHITE KEYS = STYLES");
         else a = TR("BLANCHES  COMME SANS SHIFT", "WHITE KEYS  AS WITHOUT SHIFT");
         g_text(&FONT_PX, 8, 78, TR("SUR CETTE PAGE", "ON THIS PAGE"), C_DIMT);
@@ -1566,6 +1668,7 @@ static void page_set(uint32_t p)
     }
     page = (uint8_t)p;
     { uint32_t e; for (e = 0; e < 32u; e++) if ((beat_keys >> e & 1u) && !(beat_latch >> e & 1u) && (!GL_PAGE() || e / 16u != GL_BASE() / 16u)) bt_key(e, 0); }   /* (let go with the page, unless latched) */
+    { uint32_t e; for (e = 0; e < NPAN; e++) if ((pan_keys >> e & 1u) && !(pan_latch >> e & 1u) && !PN_PAGE()) pn_key(e, 0); }
     held_step = -1;
     save_arm = 0;
 }
@@ -1652,6 +1755,25 @@ static void key_down(uint32_t key)
         if (!sq_play) toast(BEAT_LONG[e]);
         return;
     }
+    if (PN_PAGE()) {                            /* PAN: held, it plays (the last pressed); SHIFT: latched */
+        uint32_t e = (uint32_t)w;
+        char t[28];
+        pan_sel = (uint8_t)e;
+        t[0] = 0;
+        str_cat(t, PAN_LONG[e]);
+        if (sh || (pan_latch >> e & 1u)) {
+            pan_latch ^= 1u << e;
+            if (sh) shift_act();
+            else key_unlatch |= 1u << key;
+            pn_key(e, pan_latch >> e & 1u);
+            str_cat(t, pan_latch >> e & 1u ? TR(" VERROU", " LATCHED") : " OFF");
+            toast(t);
+            return;
+        }
+        pn_key(e, 1);
+        if (!sq_play) toast(PAN_LONG[e]);
+        return;
+    }
     switch (page) {
     case P_SEQ: {
         uint32_t s = seq_page * 16u + (uint32_t)w;
@@ -1732,6 +1854,7 @@ static void key_up(uint32_t key)
     if (key_unlatch >> key & 1u) { key_unlatch &= ~(1u << key); return; }   /* (its press let a latch go) */
     if (bk >= 0) { punch_held &= ~(1u << bk); punch_sync(); return; }
     if (w < 0) return;
+    if ((pan_keys >> w & 1u) && !(pan_latch >> w & 1u)) pn_key((uint32_t)w, 0);
     if ((beat_keys >> w & 1u) && !(beat_latch >> w & 1u)) bt_key((uint32_t)w, 0);
     if ((beat_keys >> (16u + (uint32_t)w) & 1u) && !(beat_latch >> (16u + (uint32_t)w) & 1u)) bt_key(16u + (uint32_t)w, 0);
     if (page == P_SEQ && held_step >= 0 && (uint32_t)held_step == seq_page * 16u + (uint32_t)w) {
@@ -1742,7 +1865,7 @@ static void key_up(uint32_t key)
         }
         held_step = -1;
     }
-    if (page == P_FLEX && prj.p.fl_mode == 1u && flex_sel == (uint32_t)w) flex_sel = 0xFF;   /* HOLD */
+    if (page == P_FLEX && !PN_PAGE() && prj.p.fl_mode == 1u && flex_sel == (uint32_t)w) flex_sel = 0xFF;   /* HOLD */
     if (page == P_SAVE && chain_first == (uint32_t)w) {
         chain_first = 0xFF;
         if (prj.nchain <= 1u) prj.nchain = 0;
@@ -1765,6 +1888,8 @@ static void fx_all_off(void)                    /* every effect let go: latches,
     uint32_t e;
     for (e = 0; e < DD_N; e++) if (beat_keys >> e & 1u) bt_key(e, 0);
     beat_latch = 0;
+    for (e = 0; e < NPAN; e++) if (pan_keys >> e & 1u) pn_key(e, 0);
+    pan_latch = 0;
     punch_latch = punch_held = 0;
     punch_sync();
     flex_sel = 0xFF;
@@ -1898,7 +2023,10 @@ static void input(void)
         case P_SEQ: brush = (uint8_t)clampi((int32_t)brush + d, 1, (int32_t)(sl_count(cur_brk()) ? sl_count(cur_brk()) : 1u)); break;
         case P_CHOP: chop_k = (uint8_t)clampi((int32_t)chop_k + d, 0, (int32_t)sl_count(cur_brk()) - 1); break;
         case P_SAVE: save_slot = (uint8_t)clampi((int32_t)save_slot + d, 0, NSLOT - 1); save_arm = 0; break;
-        case P_FLEX: flex_sel = (uint32_t)clampi(flex_sel < NFLEX ? (int32_t)flex_sel + d : 0, 0, NFLEX - 1); break;
+        case P_FLEX:
+            if (PN_PAGE()) { undo_mark(UK_PAT, prj.cur_pat, U_BREAK, 0); brk_choose(d > 0 ? 1 : -1); }
+            else flex_sel = (uint32_t)clampi(flex_sel < NFLEX ? (int32_t)flex_sel + d : 0, 0, NFLEX - 1);
+            break;
         default: undo_mark(UK_PAT, prj.cur_pat, U_BREAK, 0); brk_choose(d > 0 ? 1 : -1); break;
         }
     }
@@ -2019,7 +2147,7 @@ static void app_main(void)
 /* the emulator's page: what the knobs do now (their labels under the knobs), the page, the theme; the store
  * (projects and the bank) that the page keeps between visits; the SysEx of the editor, as over USB */
 static char w_lab[4][24];
-WASM_EXPORT("breakr_page") uint32_t breakr_page(void) { return page; }
+WASM_EXPORT("breakr_page") uint32_t breakr_page(void) { return PN_PAGE() ? (uint32_t)P_N : page; }   /* (PAN: after the others) */
 WASM_EXPORT("breakr_theme") uint32_t breakr_theme(void) { return theme; }
 WASM_EXPORT("breakr_knob_label") const char *breakr_knob_label(uint32_t i)
 {

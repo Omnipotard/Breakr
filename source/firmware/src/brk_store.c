@@ -15,6 +15,7 @@
 #define BANK_MAGIC 0x424B5242u                  /* "BRKB" */
 #define SLOT_MAGIC 0x534B5242u                  /* "BRKS" */
 typedef char prj_fits_a_slot[sizeof(project_t) + 16u <= SLOT_SIZE ? 1 : -1];
+#define PRJ_SIZE_03 ((uint32_t)__builtin_offsetof(project_t, p2))   /* the size of a project up to 0.3 */
 typedef char store_fits[BANK_DATA + 65536u <= STORE_HI ? 1 : -1];
 
 typedef struct {
@@ -86,9 +87,10 @@ static uint8_t slot_used[NSLOT];
 static uint32_t slot_check(uint32_t k)          /* 1: slot k holds a project */
 {
     uint32_t h[4];
-    if (k >= NSLOT || st_rd(SLOT_AT(k), h, sizeof h) || h[0] != SLOT_MAGIC || h[1] != sizeof(project_t))
+    if (k >= NSLOT || st_rd(SLOT_AT(k), h, sizeof h) || h[0] != SLOT_MAGIC ||
+        (h[1] != sizeof(project_t) && h[1] != PRJ_SIZE_03))   /* (a project of 0.3 or before: no p2) */
         return 0;
-    return crc_of(st_xip(SLOT_AT(k) + 16u), sizeof(project_t)) == h[2];
+    return crc_of(st_xip(SLOT_AT(k) + 16u), h[1]) == h[2];
 }
 
 static int prj_save(uint32_t k)
@@ -115,7 +117,12 @@ static int prj_load(uint32_t k)
 {
     if (!slot_check(k)) return -1;
     sound_hold();
-    st_rd(SLOT_AT(k) + 16u, &prj, sizeof(project_t));
+    {
+        uint32_t h[4];
+        st_rd(SLOT_AT(k), h, sizeof h);
+        st_rd(SLOT_AT(k) + 16u, &prj, h[1] <= sizeof(project_t) ? h[1] : sizeof(project_t));
+        if (h[1] < sizeof(project_t)) p2_defaults();   /* (a project of before: what it did not have, as new) */
+    }
     prj_sanitize();
     sound_free();
     return 0;

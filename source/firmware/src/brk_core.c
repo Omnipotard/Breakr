@@ -127,6 +127,23 @@ typedef struct {
     uint8_t pad[3];
 } params_t;
 
+/* the parameters added in 0.4 (TONE's type and motion, the delay's type, DIRT, PAN) */
+enum { FT_DJ, FT_BAND, FT_COMB, FT_VOWEL, FT_WAH, FT_N };
+enum { DT_CLEAN, DT_DUB, DT_PING, DT_REV, DT_LOFI, DT_N };
+#define NPAN 16u
+typedef struct {
+    uint8_t flt_type;       /* FT_* */
+    uint8_t flt_move;       /* 0 off; 1..5: a sweep over 1/16, 1/8, 1/4, 1/2, a bar; 6, 7: random each 1/16, 1/8 */
+    uint8_t dly_type;       /* DT_* */
+    uint8_t locut;          /* 0..15: a high-pass on the output, 20 .. 400 Hz */
+    uint8_t width;          /* 0..32: the stereo width, 16 = as it is */
+    uint8_t pn_speed;       /* 0..2: the PAN effects at half, the, double speed */
+    uint8_t pn_edge;        /* 0..15: their moves smooth .. hard (clicks) */
+    uint8_t pad;
+    uint8_t pn_int[NPAN];   /* each PAN effect's INTENSITY, 0..100 */
+    uint8_t rsv[8];
+} params2_t;
+
 typedef struct {
     uint32_t magic, version;
     params_t p;
@@ -135,6 +152,7 @@ typedef struct {
     slicing_t sc[NBRK];
     uint32_t bank_crc;                          /* the bank the user slicings were made for */
     char name[12];
+    params2_t p2;                               /* (0.4: after the rest, so a project of before still loads) */
 } project_t;
 #define PRJ_MAGIC 0x4B524252u                   /* "BRBK" */
 #define PRJ_VERSION 1u

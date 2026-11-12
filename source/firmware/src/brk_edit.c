@@ -446,6 +446,15 @@ static int slice_join(uint32_t b, uint32_t k)
 }
 
 /* ---- a new project: the eight breaks in order on 1..8, eight rolls of the dice on 9..16 */
+static void p2_defaults(void)
+{
+    uint32_t i;
+    memset(&prj.p2, 0, sizeof prj.p2);
+    prj.p2.width = 16;
+    prj.p2.pn_speed = 1;
+    prj.p2.pn_edge = 4;
+    for (i = 0; i < NPAN; i++) prj.p2.pn_int[i] = 70;
+}
 static void prj_defaults(void)
 {
     static const uint8_t GEN_B[8] = {0, 1, 4, 3, 0, 2, 5, 6};
@@ -481,6 +490,7 @@ static void prj_defaults(void)
     prj.cur_pat = 0;
     bpm10_set(brk[0].bpm10 ? brk[0].bpm10 : 1700u);
     memcpy(prj.name, "BREAKR", 7);
+    p2_defaults();
 }
 
 /* everything from flash goes through here before the interrupt sees it */
@@ -555,4 +565,15 @@ static void prj_sanitize(void)
         if (sc->nsl) sc->sl[0] = 0;
     }
     prj.name[11] = 0;
+    {
+        params2_t *q = &prj.p2;
+        if (q->flt_type >= FT_N) q->flt_type = FT_DJ;
+        if (q->flt_move > 7u) q->flt_move = 0;
+        if (q->dly_type >= DT_N) q->dly_type = DT_CLEAN;
+        if (q->locut > 15u) q->locut = 0;
+        if (q->width > 32u) q->width = 16;
+        if (q->pn_speed > 2u) q->pn_speed = 1;
+        if (q->pn_edge > 15u) q->pn_edge = 4;
+        for (i = 0; i < NPAN; i++) if (q->pn_int[i] > 100u) q->pn_int[i] = 70;
+    }
 }

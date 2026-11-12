@@ -155,6 +155,7 @@ static volatile uint32_t audio_hold;            /* 1: the interrupt is silent an
 static volatile uint32_t audio_blocks;          /* blocks rendered */
 static volatile uint32_t sq_play;               /* transport running */
 static volatile uint32_t sq_rec;                /* recording the keys into the pattern */
+static volatile uint32_t sq_erase;              /* SHIFT + REC held: the steps going by are cleared */
 static volatile uint32_t sq_pos = 0xFF;         /* the pattern step that played last (for the screen) */
 static volatile uint32_t sq_bar_step;           /* master step since play (the screen's bar counter) */
 static volatile uint32_t pat_next = 0xFF;       /* a pattern to switch to at the next bar */

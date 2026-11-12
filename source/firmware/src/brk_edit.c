@@ -229,20 +229,96 @@ static void gen_pattern(pat_t *p, uint32_t b, uint32_t style, uint32_t roll, uin
     }
 }
 
-/* ---- undo: one pattern, before a generator, a clear or a copy */
-static pat_t undo_pat;
-static uint8_t undo_idx = 0xFF;
-static void undo_keep(uint32_t i) { if (i < NPAT) { undo_pat = prj.pat[i]; undo_idx = (uint8_t)i; } }
-static int undo_do(void)
+/* ---- undo: the last 16 edits (a pattern, or a break's slicing), and redo. An edit is marked before it is made:
+ * the target as it was is kept. The same edit going on (the same knob, the same step, within 1.5 s) stays one entry.
+ * Undo swaps the kept state with the live one, so the entry then holds what redo puts back. */
+enum { UK_PAT, UK_SC };
+enum { U_STEP, U_REC, U_ERASE, U_GEN, U_CLEAR, U_COPY, U_LEN, U_RATE, U_ROT, U_HUM, U_RAT, U_REV, U_CHOP, U_SLICE,
+       U_BREAK, U_N };
+static const char *const U_NAME_EN[U_N] = {"STEP", "RECORDING", "ERASE", "GENERATE", "CLEAR", "COPY", "LENGTH", "RATE",
+                                            "ROTATE", "HUMANIZE", "RATCHETS", "REVERSE", "CHOP", "SLICING", "BREAK"};
+static const char *const U_NAME_FR[U_N] = {"PAS", "ENREG.", "GOMME", "GENERER", "EFFACER", "COPIE", "LONGUEUR", "VITESSE",
+                                            "DECALER", "HUMANISER", "RATCHETS", "INVERSER", "CHOP", "DECOUPE", "BREAK"};
+#define NUNDO 16u
+typedef struct {
+    uint8_t kind, idx, what, pad;
+    uint16_t tag, pad2;
+    uint32_t ms;
+    union { pat_t pat; slicing_t sc; } u;
+} undo_t;
+static undo_t undo_buf[NUNDO];
+static uint32_t u_base, u_cur, u_top;           /* [u_base, u_cur): undo; [u_cur, u_top): redo */
+static uint16_t u_seq;                          /* (a tag no other edit has: a press that is its own edit) */
+
+static void undo_mark(uint32_t kind, uint32_t idx, uint32_t what, uint32_t tag)
 {
-    pat_t t;
-    if (undo_idx >= NPAT) return 0;
-    t = prj.pat[undo_idx];
-    prj.pat[undo_idx] = undo_pat;
-    undo_pat = t;                               /* (a second undo is a redo) */
-    touch();
-    return 1;
+    undo_t *u;
+    if (kind == UK_PAT ? idx >= NPAT : idx >= NBRK) return;
+    if (u_cur > u_base && u_cur == u_top) {
+        u = &undo_buf[(u_cur - 1u) % NUNDO];
+        if (u->kind == kind && u->idx == idx && u->what == what && u->tag == (uint16_t)tag && u->ms && fm1_ms - u->ms < 1500u) {
+            u->ms = fm1_ms ? fm1_ms : 1u;
+            return;
+        }
+    }
+    if (u_cur - u_base >= NUNDO) u_base = u_cur - NUNDO + 1u;   /* full: the oldest goes */
+    u = &undo_buf[u_cur % NUNDO];
+    u->kind = (uint8_t)kind;
+    u->idx = (uint8_t)idx;
+    u->what = (uint8_t)what;
+    u->tag = (uint16_t)tag;
+    u->ms = fm1_ms ? fm1_ms : 1u;
+    if (kind == UK_PAT) u->u.pat = prj.pat[idx];
+    else u->u.sc = prj.sc[idx];
+    u_cur++;
+    u_top = u_cur;
 }
+static uint32_t undo_tag(void) { return ++u_seq; }
+static int undo_can(int redo) { return redo ? u_cur != u_top : u_cur != u_base; }
+static uint32_t undo_next(int redo) { return undo_buf[(redo ? u_cur : u_cur - 1u) % NUNDO].what; }   /* (if undo_can) */
+
+static void slicing_changed(uint32_t b);
+static uint32_t slice_want_b;
+/* a slicing put back: the interrupt reads the break's own slices meanwhile */
+static void sc_put(uint32_t b, const slicing_t *src)
+{
+    slicing_t *sc = &prj.sc[b];
+    uint8_t n = src->nsl;
+    sc->nsl = 0;
+    RING_PUBLISH();
+    sc->mode = src->mode; sc->count = src->count; sc->sens = src->sens; sc->bars = src->bars; sc->edited = src->edited;
+    memcpy(sc->sl, src->sl, sizeof sc->sl);
+    memcpy(sc->cls, src->cls, sizeof sc->cls);
+    memcpy(sc->pitch, src->pitch, sizeof sc->pitch);
+    memcpy(sc->gain, src->gain, sizeof sc->gain);
+    sc->rev = src->rev;
+    RING_PUBLISH();
+    sc->nsl = n;
+}
+static uint32_t brk_bpm10(uint32_t b, uint32_t bars);
+/* undo (redo): the edit it undid, U_*; -1 nothing to undo */
+static int32_t undo_swap(int redo)
+{
+    undo_t *u;
+    if (!undo_can(redo)) return -1;
+    u = redo ? &undo_buf[u_cur++ % NUNDO] : &undo_buf[--u_cur % NUNDO];
+    if (u->kind == UK_PAT) {
+        pat_t t = prj.pat[u->idx];
+        prj.pat[u->idx] = u->u.pat;
+        u->u.pat = t;
+    } else {
+        slicing_t t = prj.sc[u->idx];
+        if (slice_want_b == u->idx) slice_want_b = 0xFF;   /* (a look still going would undo the undo) */
+        sc_put(u->idx, &u->u.sc);
+        u->u.sc = t;
+        if (prj.sc[u->idx].bars && brk[u->idx].data) brk[u->idx].bpm10 = brk_bpm10(u->idx, prj.sc[u->idx].bars);
+        slicing_changed(u->idx);
+    }
+    u->ms = 0;                                  /* (nothing joins an entry that has been swapped) */
+    touch();
+    return u->what;
+}
+static void undo_reset(void) { u_base = u_cur = u_top = 0; }
 
 /* ---- slicing: apply what SLICE asks for break b once the look at it is done */
 static uint32_t slice_want_b = 0xFF;

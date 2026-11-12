@@ -13,7 +13,7 @@ outside hal/ (`tools/build.py` mmio_check).
 
 Real build: `tools/get_toolchain.sh` (JieLi toolchain) + the AC79 SDK (gitee, tag AC79NN_SDK_V1.2.1_2023-12-13);
 the cloud environment must allow pkgman.jieliapp.com, gitee.com and jl-update.oss-cn-shenzhen.aliyuncs.com.
-`build.py` prints the budgets (0.2: image ~380 KB of 581 KB, RAM ~23 KB of 96 KB, pool ~320 KB of 336 KB).
+`build.py` prints the budgets (0.3: see the build log; 0.2 was image ~380 KB of 581 KB, RAM ~23 KB of 96 KB).
 
 ## App code (source/firmware/src/, one unit: breakr.c)
 brk_core (shared state) · brk_ima (4-bit IMA, 256-B blocks) · brk_data (punch FX + their names, 16 flex patterns,
@@ -23,18 +23,19 @@ brk_seq (96 PPQN sequencer, ratchets ×1..×16 with ramps, conditions, nudge, di
 brk_slice (waveform, onsets, K/S/H classes) · brk_edit (slicing, generators incl. DRILL/BREAKCORE/IDM, undo) ·
 brk_rsmp (RESAMPLE to the user bank) · brk_store (4 project slots + user bank in flash) · brk_sysex (bank upload
 "F0 7D 42 4B") · brk_gfx (bands, tile hashing, Barlow Condensed + Silkscreen fonts) · brk_ui (pages, hint strip,
-help, punch window on FX pages, LEDs, MIDI).
+help, punch window on FX pages, LEDs, MIDI). HOME held = SHIFT (overlay lists its jobs; hint()/knob_info() follow it);
+undo: brk_edit.c undo_mark() before an edit (16 entries, coalesced per gesture), undo_swap() for undo/redo.
 Generated: `firmware/gen/brk_breaks.h` (tools/gen_breaks.py: 4 loops played by Omnipotard, CC0, + 4 synthesized),
 `brk_fonts.h` (tools/gen_fonts.py).
 
-## Tests (all pass at 0.2)
+## Tests (all pass at 0.3)
     cd source
-    sh tests/run_engine_test.sh            # UBSan/ASan: fidelity, timing, dice, filter sweep, glitch, steps, generators
-    APP_VER=0.2 sh tests/run_host.sh       # tests/tour.txt -> build/host/breakr-*.png + audio. LOOK at the PNGs.
-    APP_VER=0.2 sh web/make_emulator.sh && node tests/web_e2e.js
-    HOME=/home/user ./build.sh --release 0.2
-    cp build/breakr-0.2.fwsc build/breakr.fwsc && sh tests/run_loader_tests.sh
-    python3 web/make_site.py 0.2           # editor/index.html, installer.html, install/
+    sh tests/run_engine_test.sh            # UBSan/ASan: fidelity, timing, dice, filter, clicks of every effect, undo, steps
+    APP_VER=0.3 sh tests/run_host.sh       # tests/tour.txt -> build/host/breakr-*.png + audio. LOOK at the PNGs.
+    APP_VER=0.3 sh web/make_emulator.sh && node tests/web_e2e.js
+    HOME=/home/user ./build.sh --release 0.3
+    cp build/breakr-0.3.fwsc build/breakr.fwsc && sh tests/run_loader_tests.sh
+    python3 web/make_site.py 0.3           # editor/index.html, installer.html, install/
 
 ## Site
 `index.html`, `manual.html`, `site.css` by hand; `emulator/index.html` (web/emulator.html), `editor/index.html`

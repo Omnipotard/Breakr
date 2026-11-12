@@ -56,7 +56,7 @@ static const uint16_t DECAY_Q15[15] = {29642, 30487, 31110, 31566, 31898, 32140,
 
 /* start slice k of break b. speed: Q16 multiplier of the pitch (1 = 65536); gain Q12; pan -64..64 */
 static void vo_start(uint32_t b, uint32_t k, uint32_t speed, uint32_t rev, int32_t gain, int32_t pan,
-                     uint32_t twin, uint32_t key, uint32_t live)
+                     uint32_t twin, uint32_t key, uint32_t live, uint32_t skip)
 {
     voice_t *v;
     const brk_t *bb;
@@ -67,6 +67,12 @@ static void vo_start(uint32_t b, uint32_t k, uint32_t speed, uint32_t rev, int32
     lo = (int32_t)sl_start(b, k);
     hi = (int32_t)sl_end(b, k);
     if (hi - lo < 8) return;
+    {                                           /* skip: output frames already gone (a rest continues the slice) */
+        uint32_t inc = ((bb->rate << 10) / FS) * (speed >> 2) >> 8;
+        int32_t sk = skip ? (int32_t)(((uint64_t)skip * (inc < 64u ? 64u : inc)) >> 16) : 0;
+        if (skip && (sk < 0 || sk >= hi - lo - 64)) return;
+        if (sk) { if (rev & 1u) hi -= sk; else lo += sk; }
+    }
     v = vo_alloc();
     v->on = 0;                                  /* (the interrupt owns it: nothing reads it half set) */
     v->b = (uint8_t)b;

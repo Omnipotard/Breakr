@@ -7,7 +7,7 @@
 
 **Breakbeat, breakcore, IDM on the M-VAVE FM-1.** Slice any loop on its hits, sequence it on 64 steps with
 ratchets up to ×16, conditions and effect locks, then drill, destroy and resample it. Free and open source
-(GPL-3.0). *Version 0.2 **BETA**: built and checked for the FM-1 (size, memory, the update path, thousands of
+(GPL-3.0). *Version 0.3 **BETA**: built and checked for the FM-1 (size, memory, the update path, thousands of
 random sessions under sanitizers), not yet played on the hardware; tell me what you see (Issues tab).*
 
 | | |
@@ -27,7 +27,8 @@ random sessions under sanitizers), not yet played on the hardware; tell me what 
 5. **Generators**: DRILL, BREAKCORE, IDM, jungle, half time, boom bap, 2-step, glitch, build-up; **dice** (FREE or LOCKed).
 6. **RESAMPLE** on the FM-1: the output, effects and all, recorded into a new break, cut and classed.
 7. **Master**: filter (low-pass left, high-pass right, clean through the middle), resonance, drive, crush, tempo-synced delay, compressor.
-8. **It tells you what does what**: a strip over the knobs says what SELECT, OCT and the keys do on each page; HOME held lists every control. 5 themes. English and French.
+8. **SHIFT and undo**: HOME held is SHIFT, and the screen lists what it does: a new beat (SHIFT + LFO), clear the pattern, erase while it plays, copy the pattern to the next, latch a punch or glitch effect, FX off and back, everything stops; **16 edits of undo and redo** (SHIFT + OCT− / OCT+). On GENERATE the white keys are the 11 styles. Nothing that wipes a pattern is one press away.
+9. **It tells you what does what**: a strip over the knobs says what SELECT, OCT and the keys do on each page, SHIFT held or not; each knob shows its name and value. 5 themes. English and French.
 
 ## Install
 
@@ -44,10 +45,10 @@ cd source
 sh tests/run_engine_test.sh              # the engine (UBSan, ASan): fidelity, timing, dice, glitch, steps, generators
 sh tests/run_host.sh                     # the firmware on a computer: screens and sound in build/host/
 node tests/web_e2e.js                    # web/brk.js against the firmware in WebAssembly (upload, RESAMPLE)
-./build.sh --release 0.2                 # -> build/breakr-0.2.fwsc (JieLi toolchain + AC79 SDK: tools/get_toolchain.sh)
+./build.sh --release 0.3                 # -> build/breakr-0.3.fwsc (JieLi toolchain + AC79 SDK: tools/get_toolchain.sh)
 sh tests/run_loader_tests.sh             # the update path against that package
-APP_VER=0.2 sh web/make_emulator.sh      # -> emulator/index.html
-python3 web/make_site.py 0.2             # -> editor/, installer.html, install/
+APP_VER=0.3 sh web/make_emulator.sh      # -> emulator/index.html
+python3 web/make_site.py 0.3             # -> editor/, installer.html, install/
 ```
 
 ## Credits

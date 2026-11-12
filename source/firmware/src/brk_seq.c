@@ -9,7 +9,7 @@
  * the dice (another slice, backwards, a roll, a skip, a jump of pitch; FREE or LOCKed on a seed so the
  * variation repeats), its own chance, then its triggers are scheduled (the swing, the ratchets). */
 
-typedef struct { uint32_t t; uint8_t b, k, rev, acc; int8_t pitch; uint8_t sub, pad[2]; } trig_t;   /* acc: bit 0 accent, 1-4 quieter */
+typedef struct { uint32_t t; uint8_t b, k, rev, acc; int8_t pitch; uint8_t sub, pad[2]; uint32_t skip; } trig_t;   /* acc: bit 0 accent, 1-4 quieter; skip: output frames already gone (a rest's continuation) */
 #define NTRIG 24u
 #define NPEND 8u
 static struct {
@@ -25,6 +25,7 @@ static struct {
     uint32_t cur_fx;                            /* the punch effect locked on the step that plays */
     int32_t nom_bt;                             /* the DESTROY / BEAT effect the prepared step locks (-1 none) */
     uint32_t loop, pre;                         /* the pattern's loops since PLAY (conditions); the last condition's result */
+    uint32_t prev_src;                          /* the pattern step the last step played came from (a rest after it rings on) */
     trig_t tr[NTRIG];
     uint32_t ntr;
     trig_t pend[NPEND];                         /* due inside the current tick: in frames from now (.t) */
@@ -57,7 +58,7 @@ static uint32_t spt_of(uint32_t b10) { return (1806336000u / b10) * 10u; }
 static uint32_t fx_now(void) { return (punch_keys | sq.cur_fx) & ((1u << NPUNCH) - 1u); }
 
 /* ---- a slice starts */
-static void trigger(uint32_t b, uint32_t k, int32_t pitch, uint32_t rev, uint32_t acc, uint32_t key, uint32_t live)
+static void trigger(uint32_t b, uint32_t k, int32_t pitch, uint32_t rev, uint32_t acc, uint32_t key, uint32_t live, uint32_t skip)
 {
     uint32_t fx = fx_now(), speed, n = sl_count(b);
     int32_t gain = 3200, p;
@@ -78,16 +79,16 @@ static void trigger(uint32_t b, uint32_t k, int32_t pitch, uint32_t rev, uint32_
     if (acc >> 1) gain = gain * (int32_t)(16u - ((acc >> 1) & 15u)) / 16;   /* (a fading ratchet) */
     if (prj.p.choke) vo_choke();
     if (fx >> PX_UNI & 1u) {
-        vo_start(b, k, (speed >> 8) * 65159u >> 8, rev, gain * 3 / 4, -48, 0, key, live);
-        vo_start(b, k, (speed >> 8) * 65916u >> 8, rev, gain * 3 / 4, 48, 1, key, live);
+        vo_start(b, k, (speed >> 8) * 65159u >> 8, rev, gain * 5 / 8, -48, 0, key, live, skip);   /* (5/8 each: as loud */
+        vo_start(b, k, (speed >> 8) * 65916u >> 8, rev, gain * 5 / 8, 48, 1, key, live, skip);    /* as one, no clip) */
     } else {
-        vo_start(b, k, speed, rev, gain, 0, 0, key, live);
+        vo_start(b, k, speed, rev, gain, 0, 0, key, live, skip);
     }
     sq.last_b = b;
     sq.last_k = k;
 }
 
-static void sched(uint32_t tq, uint32_t b, uint32_t k, int32_t pitch, uint32_t rev, uint32_t acc)   /* tq: Q8 ticks */
+static void sched(uint32_t tq, uint32_t b, uint32_t k, int32_t pitch, uint32_t rev, uint32_t acc, uint32_t skip)   /* tq: Q8 ticks */
 {
     trig_t *r;
     if (sq.ntr >= NTRIG) return;
@@ -99,6 +100,7 @@ static void sched(uint32_t tq, uint32_t b, uint32_t k, int32_t pitch, uint32_t r
     r->pitch = (int8_t)pitch;
     r->rev = (uint8_t)rev;
     r->acc = (uint8_t)acc;
+    r->skip = skip;
 }
 
 /* ---- the dice: a random number for (what, the step); LOCK: the same in every loop of 1, 2 or 4 bars */
@@ -133,13 +135,21 @@ static uint32_t dice_slice(uint32_t b, uint32_t k, uint32_t r)
 static void fire_step(uint32_t idx, uint32_t t, uint32_t plen, uint32_t odd, uint32_t now)
 {
     const pat_t *pat = &prj.pat[prj.cur_pat < NPAT ? prj.cur_pat : 0];
-    uint32_t len = pat_len(pat), b = pat->brk, rat, k, rev, acc, i, n, when, end;
+    uint32_t len = pat_len(pat), b = pat->brk, rat, k, rev, acc, i, n, when, end, src, cont;
     int32_t pitch, d;
     step_t s;
     if (idx >= len) idx = 0;
     sq.nom_idx = idx;
     sq.nom_fx = 0;
     s = pat->st[idx];
+    src = idx;
+    if (sq_erase && !sq.rep_n && flex_on >= NFLEX) {   /* SHIFT + REC held: the step going by, cleared */
+        step_t *w = &((pat_t *)pat)->st[idx];
+        w->sl = 0; w->pitch = 0; w->fl = 0; w->fx = 0; w->nudge = 0; w->xt = 0;
+        ((pat_t *)pat)->autog = 0;
+        sq.prev_src = idx;
+        return;
+    }
     /* the flex pattern */
     if (flex_on < NFLEX) {
         const flex_t *f = &FLEX[flex_on];
@@ -155,9 +165,10 @@ static void fire_step(uint32_t idx, uint32_t t, uint32_t plen, uint32_t odd, uin
         sq.gate2_v = g1 * 2184u + (g1 == 15u ? 7u : 0u);
         sq.flex_cnt++;
         sq.flex_cur = flex_on;
-        if (code == FX_HOLD) return;
-        if (code == FX_REST) { vo_choke(); return; }
-        s = pat->st[(sq.flex_base + (code & 15u)) % len];
+        if (code == FX_HOLD) { sq.prev_src = 0xFFFFu; return; }
+        if (code == FX_REST) { vo_choke(); sq.prev_src = 0xFFFFu; return; }
+        src = (sq.flex_base + (code & 15u)) % len;
+        s = pat->st[src];
         if (code & RV) s.fl ^= SF_REV;
         if (code & R4) ST_SET_RI(&s, 3u);
         else if (code & R2) ST_SET_RI(&s, 1u);
@@ -169,7 +180,23 @@ static void fire_step(uint32_t idx, uint32_t t, uint32_t plen, uint32_t odd, uin
         int32_t w = bt_want();
         if (w >= 0) { ((pat_t *)pat)->st[idx].fx = (uint8_t)(FX_GL + (uint32_t)w); ((pat_t *)pat)->autog = 0; }
     }
-    if (!s.sl) return;
+    cont = sq.prev_src == 0xFFFEu || (sq.prev_src < len && src == (sq.prev_src + 1u) % len);   /* (0xFFFE: the start) */
+    sq.prev_src = src;
+    if (!s.sl) {                                /* a rest: the slice before it rings on. Out of its place (a repeat, a
+                                                 * flex pattern), that slice is started where it would be by now */
+        uint32_t h, back, out;
+        if (cont) return;
+        for (back = 1u; back < len; back++) if (pat->st[(src + len - back) % len].sl) break;
+        if (back >= len) return;
+        h = (src + len - back) % len;
+        s = pat->st[h];
+        k = s.sl - 1u;
+        if (k >= sl_count(b)) return;
+        out = (uint32_t)(((uint64_t)(back * plen * 256u - (uint32_t)((int32_t)s.nudge * (int32_t)plen)) * (sq.spt >> 8)) >> 16);
+        when = (int32_t)(t - now) < 0 ? now * 256u : t * 256u;
+        sched(when, b, k, s.pitch, s.fl & SF_REV ? 1u : 0u, 0, out);
+        return;
+    }
     if (ST_COND(s)) {                           /* the condition: on which loops of the pattern */
         static const uint8_t A[CO_N] = {0, 1, 2, 1, 2, 3, 1, 2, 3, 4, 1, 8}, B[CO_N] = {1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 8, 8};
         uint32_t c = ST_COND(s), ok;
@@ -223,7 +250,7 @@ static void fire_step(uint32_t idx, uint32_t t, uint32_t plen, uint32_t odd, uin
         case RP_REVALT: rv ^= i & 1u; break;
         default: break;
         }
-        sched(when + i * (end - when) / rat, b, k, p, rv, (acc && i == 0u ? 1u : 0u) | lvl << 1);
+        sched(when + i * (end - when) / rat, b, k, p, rv, (acc && i == 0u ? 1u : 0u) | lvl << 1, 0);
     }
 }
 
@@ -248,6 +275,7 @@ static void seq_reset(void)
     sq.nom_bt = -1;
     sq.loop = 0;
     sq.pre = 1;
+    sq.prev_src = 0xFFFEu;
     bt_seq = -1;
     sq.flex_cnt = 0;
     sq.rec_skip = 0xFFFFu;
@@ -282,7 +310,7 @@ static void tick(uint32_t t)
                          fx >> PX_ROLL & 1u ? L / 2u : 0u;
         if (every && sq.last_live) {
             if ((int32_t)(t - sq.live_next) >= 0) {
-                trigger(sq.last_b, sq.last_k, 0, 0, 0, 0xFF, 1);
+                trigger(sq.last_b, sq.last_k, 0, 0, 0, 0xFF, 1, 0);
                 sq.live_next = t + every;
             }
         } else {
@@ -315,6 +343,7 @@ static void tick(uint32_t t)
             next_pattern();
             sq.loop = prj.cur_pat != was ? 0u : sq.loop + 1u;
             if (prj.cur_pat != was) {
+                sq.prev_src = 0xFFFEu;
                 pat = &prj.pat[prj.cur_pat];
                 len = pat_len(pat);
                 L = step_ticks(pat);
@@ -364,7 +393,7 @@ fire:
         if ((int32_t)(t - sq.tr[i].t) >= 0) {
             trig_t r = sq.tr[i];
             sq.tr[i] = sq.tr[--sq.ntr];
-            if (!r.sub || (int32_t)(t - r.t) > 0) trigger(r.b, r.k, r.pitch, r.rev, r.acc, 0xFF, 0);
+            if (!r.sub || (int32_t)(t - r.t) > 0) trigger(r.b, r.k, r.pitch, r.rev, r.acc, 0xFF, 0, r.skip);
             else if (sq.npend < NPEND) {
                 r.t = (uint32_t)r.sub * (sq.spt >> 8) >> 16;   /* frames into the tick */
                 sq.pend[sq.npend++] = r;
@@ -382,7 +411,7 @@ static void pend_fire(uint32_t frames)          /* the frame-precise triggers: f
         if (sq.pend[i].t <= frames) {
             trig_t r = sq.pend[i];
             sq.pend[i] = sq.pend[--sq.npend];
-            trigger(r.b, r.k, r.pitch, r.rev, r.acc, 0xFF, 0);
+            trigger(r.b, r.k, r.pitch, r.rev, r.acc, 0xFF, 0, r.skip);
         } else {
             sq.pend[i].t -= frames;
             i++;
@@ -426,7 +455,7 @@ static void handle_ev(const ev_t *e)
     const pat_t *pat = &prj.pat[prj.cur_pat < NPAT ? prj.cur_pat : 0];
     switch (e->t) {
     case EV_SLICE:                              /* a: slice, b: key */
-        trigger(pat->brk, e->a, 0, 0, 0, e->b, 1);
+        trigger(pat->brk, e->a, 0, 0, 0, e->b, 1, 0);
         sq.last_live = 1;
         sq.live_next = sq.tick + step_ticks(pat) * 4u;   /* (the repeats when stopped start after it) */
         if (sq_rec && sq_play) rec_key(e->a);

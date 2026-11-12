@@ -12,8 +12,14 @@
  *                    over the bar on the white keys, held (stutters, fills, rolls, gates, reverses, scratches...)
  *   GLO    GLOBAL   tempo, swing, the tempo mode, the metronome; clock, language, theme, volume
  *   SAVE   SAVE     4 project slots; the patterns and their chain
- * The page's button again: its next page. HOME held: the help of the page. HOME + PLAY: everything stops.
- * The knobs' bar always says what KNOB 1 (red), 2 (yellow), 3 (green) and 4 (blue) do. */
+ * The page's button again: its next page. HOME is SHIFT: held, the screen lists what each control does with it
+ * (SELECT turns to the page's help); a tap goes to PLAY. With SHIFT: OCT- undo, OCT+ redo (16 edits back), LFO a new
+ * beat, SEQ clear the pattern, REC held erase the steps going by, PRESETS copy the pattern to the next, FX the
+ * master's effects off and back, ARP every effect let go, a black key (a white one on BEAT / DESTROY) latched,
+ * PLAY everything stops, ALGORITHM the tempo by 0.1, SAVE now, GLO the metronome; on STEPS a white key sets the
+ * length and the knobs rotate, humanize, ratchet, reverse the pattern.
+ * The knobs' bar and the strip always say what KNOB 1 (red), 2 (yellow), 3 (green), 4 (blue) and the keys do, SHIFT
+ * held or not. */
 
 enum { P_PLAY, P_SEQ, P_SLICE, P_CHOP, P_AMP, P_DICE, P_FLEX, P_FX, P_GLOBAL, P_SAVE, P_N };
 static const uint8_t PAGE_BTN[P_N] = {BTN_HOME, BTN_SEQ, BTN_SEL, BTN_EDIT, BTN_ENV, BTN_LFO, BTN_ARP, BTN_FX, BTN_GLO, BTN_SAVE};
@@ -32,7 +38,7 @@ static uint8_t beat_sel;                        /* the DESTROY / BEAT effect KNO
 #define GL_BASE() (sub[P_FX] == 2u ? 16u : 0u)          /* (the effects: DESTROY 0..15, BEAT 16..31) */
 static uint8_t page, sub[P_N], bank16, seq_page, chop_k, brush = 1, help_on, splash = 1;
 static int8_t held_step = -1;
-static uint8_t held_used, gen_kept;
+static uint8_t held_used;
 static uint32_t notes_prev, home_ms, chain_first = 0xFF;
 static uint8_t key_live[27];                    /* the slice a key started (+1), for its release */
 static char toast_s[28];
@@ -45,6 +51,14 @@ static uint32_t boot_ms;
 typedef struct { uint8_t lang, theme, slot, pad; } settings_t;
 static settings_t sets;
 
+/* SHIFT: HOME held */
+static uint8_t shift_used, shift_tab;           /* something done with it (no overlay, no PLAY at the release); the tab */
+static uint32_t punch_held, punch_latch;        /* the black keys held; the punch effects latched */
+static uint32_t beat_latch;                     /* the BEAT / DESTROY effects latched */
+static uint32_t key_unlatch;                    /* keys whose press let a latch go (their release does nothing) */
+static uint8_t fx_dry, dry_keep[6];             /* SHIFT + FX: the master's effects off; what they were */
+static uint32_t shift_now(void) { return fm1_in.buttons >> BTN_HOME & 1u; }
+
 static void toast(const char *s)
 {
     uint32_t i;
@@ -53,6 +67,20 @@ static void toast(const char *s)
     toast_until = fm1_ms + 1300u;
 }
 static int32_t clampi(int32_t v, int32_t lo, int32_t hi) { return v < lo ? lo : v > hi ? hi : v; }
+static void shift_act(void) { shift_used = 1; help_on = 0; }
+static void punch_sync(void) { punch_keys = (punch_held | punch_latch) & ((1u << NPUNCH) - 1u); }
+
+/* undo / redo, and what it was */
+static void do_undo(int redo)
+{
+    char t[28];
+    int32_t w = undo_swap(redo);
+    if (w < 0) { toast(redo ? TR("RIEN A RETABLIR", "NOTHING TO REDO") : TR("RIEN A ANNULER", "NOTHING TO UNDO")); return; }
+    t[0] = 0;
+    str_cat(t, redo ? TR("RETABLI: ", "REDO: ") : TR("ANNULE: ", "UNDO: "));
+    str_cat(t, lang ? U_NAME_EN[w] : U_NAME_FR[w]);
+    toast(t);
+}
 static int32_t accel(int32_t d) { int32_t a = d < 0 ? -d : d; return a >= 4 ? d * 4 : a >= 2 ? d * 2 : d; }
 static void adj(uint8_t *p, int32_t d, int32_t lo, int32_t hi) { *p = (uint8_t)clampi((int32_t)*p + d, lo, hi); touch(); }
 
@@ -120,8 +148,15 @@ static void knob_info(uint32_t k, kv_t *o)
         if (k == 3) kv_int(o, "DICE", p->d_chance, 0, 100, "%");
         break;
     case P_SEQ:
-        if (s == 1u) {                          /* STEP+: the held step's condition, ramp, effect lock, timing */
-            if (held_step >= 0) {
+        if (shift_now()) {                      /* SHIFT: the whole pattern, a click at a time */
+            if (k == 0) kv_txt(o, TR("DECALE", "ROTATE"), "< >", -1);
+            if (k == 1) kv_txt(o, TR("HUMAIN", "HUMAN"), "+ / 0", -1);
+            if (k == 2) kv_txt(o, "RATCH.", "+ / 0", -1);
+            if (k == 3) kv_txt(o, TR("MIROIR", "MIRROR"), "< >", -1);
+            break;
+        }
+        if (s == 1u && held_step >= 0) {        /* STEP+: the held step's condition, ramp, effect lock, timing */
+            {
                 step_t *st = &pt->st[(uint32_t)held_step % NSTEP];
                 if (k == 0) kv_txt(o, "COND", COND_NAME[ST_COND(*st)], (int32_t)ST_COND(*st) * 1000 / (CO_N - 1));
                 if (k == 1) kv_txt(o, "RAMP", RAMP_NAME[ST_RAMP(*st)], (int32_t)ST_RAMP(*st) * 1000 / (RP_N - 1));
@@ -131,11 +166,6 @@ static void knob_info(uint32_t k, kv_t *o)
                     else kv_txt(o, "FX", BEAT_LONG[(st->fx - FX_GL) % 32u], (int32_t)st->fx * 1000 / 43);
                 }
                 if (k == 3) { kv_int(o, "NUDGE", st->nudge * 100 / 256, -50, 50, "%"); o->bip = 1; }
-            } else {
-                if (k == 0) kv_txt(o, TR("DECALE", "ROTATE"), "< >", -1);
-                if (k == 1) kv_txt(o, TR("HUMAIN", "HUMANIZE"), "< >", -1);
-                if (k == 2) kv_txt(o, TR("RATCHETS", "RATCHETS"), "< >", -1);
-                if (k == 3) kv_txt(o, TR("INVERSE", "REVERSE"), "< >", -1);
             }
             break;
         }
@@ -265,7 +295,7 @@ static void knob_info(uint32_t k, kv_t *o)
 static void regen(void)                         /* GENERATE: the current pattern, from the knobs */
 {
     pat_t *pt = cur_pat();
-    if (!gen_kept) { undo_keep(prj.cur_pat); gen_kept = 1; }
+    undo_mark(UK_PAT, prj.cur_pat, U_GEN, 0);
     gen_pattern(pt, pt->brk, prj.p.g_style, prj.p.g_roll, prj.p.g_dens, prj.p.g_var);
     touch();
 }
@@ -275,6 +305,7 @@ static void knob_turn(uint32_t k, int32_t d)
     params_t *p = &prj.p;
     pat_t *pt = cur_pat();
     uint32_t b = cur_brk(), s = sub[page];
+    if (shift_now()) shift_act();
     switch (page) {
     case P_PLAY:
         if (k == 0) adj(&p->pitch, d, 0, 48);
@@ -283,20 +314,10 @@ static void knob_turn(uint32_t k, int32_t d)
         if (k == 3) adj(&p->d_chance, accel(d) * 2, 0, 100);
         break;
     case P_SEQ:
-        if (s == 1u) {
+        if (shift_now()) {                      /* SHIFT: the whole pattern (one undo for a turn) */
             uint32_t len = pat_len(pt), i;
-            if (held_step >= 0) {
-                step_t *st = &pt->st[(uint32_t)held_step % NSTEP];
-                held_used = 1;
-                if (k == 0) st->xt = (uint8_t)((st->xt & 0xF0u) | (uint32_t)clampi((int32_t)ST_COND(*st) + d, 0, CO_N - 1));
-                if (k == 1) st->xt = (uint8_t)((st->xt & 0x0Fu) | (uint32_t)clampi((int32_t)ST_RAMP(*st) + d, 0, RP_N - 1) << 4);
-                if (k == 2) st->fx = (uint8_t)clampi((int32_t)st->fx + d, 0, (int32_t)(FX_GL + 31u));
-                if (k == 3) st->nudge = (int8_t)clampi(st->nudge + d * 8, -128, 127);
-                pt->autog = 0;
-                touch();
-                break;
-            }
-            undo_keep(prj.cur_pat);
+            shift_act();
+            undo_mark(UK_PAT, prj.cur_pat, U_ROT + k, 0);
             if (k == 0) {                       /* ROTATE: every step one later (or earlier) */
                 step_t t;
                 if (d > 0) { t = pt->st[len - 1u]; for (i = len - 1u; i > 0u; i--) pt->st[i] = pt->st[i - 1u]; pt->st[0] = t; }
@@ -322,6 +343,17 @@ static void knob_turn(uint32_t k, int32_t d)
             touch();
             break;
         }
+        if (s == 1u && held_step >= 0) {        /* STEP+: the held step's condition, ramp, effect lock, timing */
+            step_t *st = &pt->st[(uint32_t)held_step % NSTEP];
+            held_used = 1;
+            if (k == 0) st->xt = (uint8_t)((st->xt & 0xF0u) | (uint32_t)clampi((int32_t)ST_COND(*st) + d, 0, CO_N - 1));
+            if (k == 1) st->xt = (uint8_t)((st->xt & 0x0Fu) | (uint32_t)clampi((int32_t)ST_RAMP(*st) + d, 0, RP_N - 1) << 4);
+            if (k == 2) st->fx = (uint8_t)clampi((int32_t)st->fx + d, 0, (int32_t)(FX_GL + 31u));
+            if (k == 3) st->nudge = (int8_t)clampi(st->nudge + d * 8, -128, 127);
+            pt->autog = 0;
+            touch();
+            break;
+        }
         if (held_step >= 0) {
             step_t *st = &pt->st[(uint32_t)held_step % NSTEP];
             uint32_t n = sl_count(b);
@@ -333,14 +365,15 @@ static void knob_turn(uint32_t k, int32_t d)
             pt->autog = 0;
             touch();
         } else {
-            if (k == 0) { pt->len = (uint8_t)clampi((int32_t)pat_len(pt) + accel(d), 1, 64); pt->autog = 0; touch(); }
-            if (k == 1) { pt->rate = (uint8_t)clampi((int32_t)pt->rate + d, 0, RATE_N - 1); touch(); }
+            if (k == 0) { undo_mark(UK_PAT, prj.cur_pat, U_LEN, 0); pt->len = (uint8_t)clampi((int32_t)pat_len(pt) + accel(d), 1, 64); pt->autog = 0; touch(); }
+            if (k == 1) { undo_mark(UK_PAT, prj.cur_pat, U_RATE, 0); pt->rate = (uint8_t)clampi((int32_t)pt->rate + d, 0, RATE_N - 1); touch(); }
             if (k == 2) adj(&p->swing, d, 50, 75);
             if (k == 3) brush = (uint8_t)clampi((int32_t)brush + d, 1, (int32_t)(sl_count(b) ? sl_count(b) : 1u));
         }
         break;
     case P_SLICE: {
         slicing_t *sc = &prj.sc[b];
+        if (k < 3u) undo_mark(UK_SC, b, U_SLICE, k);
         if (k == 0) { sc->mode = (uint8_t)clampi((int32_t)sc->mode + d, 0, SLM_N - 1); slice_request(b); }
         if (k == 1) {
             if (sc->mode == SLM_AUTO) { sc->sens = (uint8_t)clampi((int32_t)sc->sens + d, 1, 10); slice_request(b); }
@@ -363,6 +396,7 @@ static void knob_turn(uint32_t k, int32_t d)
         uint32_t n = sl_count(b);
         if (!n) break;
         if (chop_k >= n) chop_k = (uint8_t)(n - 1u);
+        if (s == 0u || k < 2u) undo_mark(UK_SC, b, U_CHOP, chop_k * 8u + s * 4u + k);
         if (s == 0u) {
             if (k == 0) slice_move(b, chop_k, accel(d) * (int32_t)(brk[b].rate / 200u));   /* 5 ms a click */
             if (k == 1) slice_move(b, chop_k, d * 8);
@@ -511,12 +545,13 @@ static void save_do(void)
     case 1:
         if (sq_play) { toast(TR("STOP D'ABORD", "STOP FIRST")); return; }
         if (prj_load(save_slot)) { toast(TR("SLOT VIDE", "EMPTY SLOT")); return; }
+        undo_reset();
         if (prj.bank_crc != bank_crc) { uint32_t i; for (i = NFACT; i < NBRK; i++) prj.sc[i].nsl = 0; }
         toast(TR("CHARGE !", "LOADED !"));
         break;
     case 2: {
         pat_t *pt = cur_pat();
-        undo_keep(prj.cur_pat);
+        undo_mark(UK_PAT, prj.cur_pat, U_CLEAR, undo_tag());
         memset(pt->st, 0, sizeof pt->st);
         pt->autog = 0;
         touch();
@@ -524,7 +559,7 @@ static void save_do(void)
         break;
     }
     case 3:
-        undo_keep(save_tgt);
+        undo_mark(UK_PAT, save_tgt, U_COPY, undo_tag());
         prj.pat[save_tgt] = *cur_pat();
         touch();
         t[0] = 0;
@@ -535,6 +570,7 @@ static void save_do(void)
     case 4:
         if (sq_play) { toast(TR("STOP D'ABORD", "STOP FIRST")); return; }
         prj_defaults();
+        undo_reset();
         touch();
         toast(TR("NOUVEAU PROJET", "NEW PROJECT"));
         break;
@@ -560,9 +596,9 @@ static void draw_header(void)
         g_rect(0, 0, 240, 25, C_BG);
         {                                        /* the page: a label in the signal colour (FX: which of its four) */
             static const char *const FXN[4] = {"TONE", "SPACE", "BEAT", "DESTROY"};
-            const char *nm = page == P_FX ? FXN[sub[P_FX] & 3u] : PAGE_NAME[page];
+            const char *nm = shift_now() ? "SHIFT" : page == P_FX ? FXN[sub[P_FX] & 3u] : PAGE_NAME[page];
             w = g_tw(&FONT_BM, nm) + 16;
-            g_round(0, 2, w, 21, C_ACC);
+            g_round(0, 2, w, 21, shift_now() ? C_ACC2 : C_ACC);
             g_text(&FONT_BM, 7, 3, nm, C_BG);
         }
         x = w + 5;
@@ -597,6 +633,22 @@ enum { H_SEL, H_ALG, H_PRE, H_OCTD, H_OCTU, H_WHITE, H_BLACK, H_REC, H_N };
 static const char *hint(uint32_t c)
 {
     uint32_t s = sub[page];
+    if (shift_now()) {                          /* SHIFT held: what each control does with it */
+        switch (c) {
+        case H_SEL: return TR("AIDE", "HELP");
+        case H_ALG: return TR("TEMPO FIN", "FINE BPM");
+        case H_PRE: return TR("COPIER", "COPY");
+        case H_OCTD: return TR("ANNULE", "UNDO");
+        case H_OCTU: return TR("RETABLI", "REDO");
+        case H_BLACK: return TR("VERROU", "LATCH");
+        case H_REC: return TR("GOMME", "ERASE");
+        case H_WHITE:
+            if (page == P_SEQ) return TR("LONG.", "LENGTH");
+            if (GL_PAGE()) return TR("VERROU", "LATCH");
+            break;
+        default: break;
+        }
+    }
     switch (c) {
     case H_ALG: return "TEMPO";
     case H_PRE: return "PATTERN";
@@ -619,6 +671,7 @@ static const char *hint(uint32_t c)
     case P_DICE:
         if (c == H_OCTD) return TR("ANNULER", "UNDO");
         if (c == H_OCTU) return "-";
+        if (c == H_WHITE && s == 2u) return "STYLES";
         break;
     case P_FLEX:
         if (c == H_SEL) return "FLEX";
@@ -654,16 +707,19 @@ static const char *hint(uint32_t c)
    four cannot fit at all is the longest cut. */
 static void draw_hints(void)
 {
-    static const char *const KEY[4] = {"SEL", "OCT", "WHT", "BLK"};
-    static const uint8_t WHAT[4] = {H_SEL, H_OCTU, H_WHITE, H_BLACK};
+    static const char *const KEY0[4] = {"SEL", "OCT", "WHT", "BLK"}, *const KEY1[4] = {"OCT-", "OCT+", "WHT", "BLK"};
+    static const uint8_t WHAT0[4] = {H_SEL, H_OCTU, H_WHITE, H_BLACK}, WHAT1[4] = {H_OCTD, H_OCTU, H_WHITE, H_BLACK};
+    uint32_t sh = shift_now();
+    const char *const *KEY = sh ? KEY1 : KEY0;
+    const uint8_t *WHAT = sh ? WHAT1 : WHAT0;
     const char *w[4];
     int32_t kw[4], tw[4], x[4], gap, tot = 0, i;
     if (!g_vis(185, 12)) return;
     g_rect(0, 185, 240, 12, C_BG);
     for (i = 0; i < 4; i++) {
         w[i] = hint(WHAT[i]);
-        if (i == 1 && (page == P_DICE || page == P_SAVE || w[i][0] == '-')) w[i] = hint(H_OCTD);
-        if (i == 1 && page == P_CHOP) w[i] = "JOIN/CUT";
+        if (!sh && i == 1 && (page == P_DICE || page == P_SAVE || w[i][0] == '-')) w[i] = hint(H_OCTD);
+        if (!sh && i == 1 && page == P_CHOP) w[i] = "JOIN/CUT";
         kw[i] = g_tw(&FONT_PX, KEY[i]) + 2;
         tw[i] = g_tw(&FONT_PX, w[i]);
         tot += kw[i] + tw[i];
@@ -1047,10 +1103,17 @@ static void draw_dice(void)
                 g_round(x, y, 13, 30, C_PANEL);
             }
         }
-        if (g_vis(156, 29)) {
-            g_text(&FONT_BS, 6, 158, TR("CHAQUE CRAN: UN NOUVEAU", "EVERY CLICK: A NEW ONE"), C_DIMT);
-            g_text(&FONT_BS, 6, 171, TR("OCT-: ANNULER", "OCT-: UNDO"), C_DIMT);
-            g_text(&FONT_BS, 140, 171, "K S H", C_SUB);
+        if (g_vis(154, 31)) {                   /* the white keys: a style each (again: another roll) */
+            static const char *const SH[GS_N] = {"ORIG", "SHUF", "JUNGL", "HALF", "BOOM", "2STEP", "GLTCH", "BUILD", "DRILL", "BCORE", "IDM"};
+            for (i = 0; i < GS_N; i++) {
+                int32_t x = 4 + (int32_t)(i % 6u) * 39, y = 155 + (int32_t)(i / 6u) * 14;
+                uint32_t on = i == p->g_style % GS_N;
+                char n[3];
+                fmt_u(n, i + 1u, 0);
+                g_round(x, y, 37, 12, on ? C_ACC : C_PANEL);
+                g_text(&FONT_PX, x + 2, y + 2, n, on ? C_BG : C_ACC);
+                g_text(&FONT_PX, x + (i < 9u ? 9 : 14), y + 2, SH[i], on ? C_BG : C_TXT);
+            }
         }
     }
 }
@@ -1099,6 +1162,7 @@ static void draw_beat(void)
             g_textw(&FONT_BS, x + 4, y + 2, 50, BEAT_NAME[base + i][0], lit ? C_BG : C_TXT);
             g_textw(&FONT_BS, x + 4, y + 15, 50, BEAT_NAME[base + i][1], lit ? C_BG : C_SUB);
             g_rect(x + 4, y + 30, 49 * (int32_t)it / 100, 2, lit ? C_BG : C_ACC2);
+            if (beat_latch >> (base + i) & 1u) { g_rect(x + 47, y + 3, 7, 7, C_BG); g_rect(x + 49, y + 5, 3, 3, C_ACC); }   /* latched */
         }
     }
 }
@@ -1229,51 +1293,102 @@ static void draw_save(void)
 
 /* HOME held: what this page does */
 static const char *const HELP_EN[P_N][6] = {
-    {"WHITE KEYS  PLAY SLICES 1-16", "OCT- / OCT+  SLICES 17-32", "BLACK KEYS  PUNCH EFFECTS", "SELECT  BREAK   ALGO  TEMPO", "PRESETS  PATTERN   REC  RECORD", "HOME + PLAY  STOP EVERYTHING"},
-    {"WHITE KEYS  STEPS: PUT / CLEAR", "HOLD A STEP + KNOBS  EDIT IT", "HOLD A STEP + BLACK  FX LOCK", "SEQ AGAIN  STEP+: COND RAMP FX", "STEP+ NO STEP HELD  ROTATE ...", "PLAY + REC  RECORD LIVE"},
+    {"WHITE KEYS  PLAY SLICES 1-16", "OCT- / OCT+  SLICES 17-32", "BLACK KEYS  PUNCH EFFECTS", "SELECT  BREAK   ALGO  TEMPO", "PRESETS  PATTERN   REC  RECORD", "HOME HELD = SHIFT (UNDO...)"},
+    {"WHITE KEYS  STEPS: PUT / CLEAR", "HOLD A STEP + KNOBS  EDIT IT", "HOLD A STEP + BLACK  FX LOCK", "SEQ AGAIN  STEP+: COND RAMP FX", "SHIFT + KNOBS  ROTATE ...", "PLAY + REC  RECORD LIVE"},
     {"SELECT  CHOOSE THE BREAK", "MODE  AS IS / GRID / AUTO HITS", "COUNT  GRID SLICES  SENS  AUTO", "BARS  GIVE THE BREAK ITS TEMPO", "TEMPO  CHOP KEEPS THE PITCH", "        VARI FOLLOWS THE TEMPO"},
     {"SELECT OR A KEY  A SLICE", "START / FINE  MOVE ITS START", "PITCH / GAIN  OF THIS SLICE", "OCT+  SPLIT IT IN TWO", "OCT-  JOIN IT TO THE ONE BEFORE", "EDIT AGAIN  REVERSE, CLASS"},
     {"ATTACK  FADE IN OF EVERY SLICE", "DECAY  HOLD, OR SHORTER HITS", "LENGTH  HOW MUCH OF THE SLICE", "CHOKE  MONO CUTS, POLY RINGS", "", ""},
-    {"CHANCE  ANOTHER SLICE (SAME KIND)", "REV ROLL SKIP  HOW OFTEN", "LFO AGAIN  JUMPS, SMART, LOCK", "LOCK  THE RANDOM REPEATS", "LFO AGAIN  GENERATE A PATTERN", "OCT-  UNDO"},
+    {"CHANCE  ANOTHER SLICE (SAME KIND)", "REV ROLL SKIP  HOW OFTEN", "LFO AGAIN  JUMPS, SMART, LOCK", "LOCK  THE RANDOM REPEATS", "LFO 3RD: WHITE KEYS = STYLES", "OCT-  UNDO"},
     {"WHITE KEYS  16 FLEX PATTERNS", "THE SAME KEY AGAIN  OFF", "MODE  LATCH / HOLD / ONE BAR", "QUANT  STARTS ON STEP BEAT BAR", "DEPTH  HOW DEEP THE GATE", "BLACK KEYS  PUNCH EFFECTS"},
     {"FILTER  LEFT LOW, RIGHT HIGH", "FX AGAIN  DELAY AND PUNCH", "FX 3RD: BEAT  4TH: DESTROY", "HOLD A WHITE KEY  ITS EFFECT", "KNOB 1  ITS INTENSITY", "BLACK KEYS  PUNCH, NAMED"},
     {"BPM SWING  (ALGO: TEMPO TOO)", "TEMPO  CHOP OR VARI", "METRONOME  OFF / REC / ON", "OCT+  TAP THE TEMPO", "GLO AGAIN  CLOCK LANGUAGE THEME", ""},
     {"SELECT  SLOT   KNOB 1  ACTION", "SAVE AGAIN  DO IT", "WHITE KEYS  PATTERN 1-16", "HOLD ONE + OTHERS  A CHAIN", "RESAMPLE  THE OUTPUT, A NEW BREAK", "AUTO SAVES ITSELF WHEN STOPPED"},
 };
 static const char *const HELP_FR[P_N][6] = {
-    {"BLANCHES  TRANCHES 1-16", "OCT- / OCT+  TRANCHES 17-32", "NOIRES  EFFETS PUNCH", "SELECT  BREAK   ALGO  TEMPO", "PRESETS  PATTERN   REC  ENREG.", "HOME + PLAY  TOUT ARRETER"},
-    {"BLANCHES  PAS: POSER / OTER", "TENIR UN PAS + KNOBS  L'EDITER", "TENIR UN PAS + NOIRE  EFFET", "SEQ ENCORE  STEP+: COND RAMPE FX", "STEP+ SANS PAS  DECALER ...", "PLAY + REC  ENREGISTRER"},
+    {"BLANCHES  TRANCHES 1-16", "OCT- / OCT+  TRANCHES 17-32", "NOIRES  EFFETS PUNCH", "SELECT  BREAK   ALGO  TEMPO", "PRESETS  PATTERN   REC  ENREG.", "HOME TENU = SHIFT (ANNULER...)"},
+    {"BLANCHES  PAS: POSER / OTER", "TENIR UN PAS + KNOBS  L'EDITER", "TENIR UN PAS + NOIRE  EFFET", "SEQ ENCORE  STEP+: COND RAMPE FX", "SHIFT + KNOBS  DECALER ...", "PLAY + REC  ENREGISTRER"},
     {"SELECT  CHOISIR LE BREAK", "MODE  TEL QUEL / GRILLE / AUTO", "NOMBRE  GRILLE  SENS  AUTO", "MESURES  DONNENT SON TEMPO", "TEMPO  CHOP GARDE LA HAUTEUR", "        VARI SUIT LE TEMPO"},
     {"SELECT OU UNE TOUCHE  TRANCHE", "START / FIN  DEPLACER LE DEBUT", "PITCH / GAIN  DE CETTE TRANCHE", "OCT+  LA COUPER EN DEUX", "OCT-  LA JOINDRE A LA PRECEDENTE", "EDIT ENCORE  ENVERS, GENRE"},
     {"ATTACK  ENTREE DE CHAQUE TRANCHE", "DECAY  TENUE, OU PLUS COURT", "LONGUEUR  QUELLE PART JOUER", "CHOKE  MONO COUPE, POLY RESONNE", "", ""},
-    {"CHANCE  UNE AUTRE TRANCHE", "REV ROLL SKIP  A QUELLE FREQUENCE", "LFO ENCORE  SAUTS, SMART, LOCK", "LOCK  LE HASARD SE REPETE", "LFO ENCORE  GENERER UN PATTERN", "OCT-  ANNULER"},
+    {"CHANCE  UNE AUTRE TRANCHE", "REV ROLL SKIP  A QUELLE FREQUENCE", "LFO ENCORE  SAUTS, SMART, LOCK", "LOCK  LE HASARD SE REPETE", "LFO 3E: BLANCHES = STYLES", "OCT-  ANNULER"},
     {"BLANCHES  16 FLEX PATTERNS", "LA MEME TOUCHE  ARRET", "MODE  LATCH / HOLD / 1 MESURE", "QUANT  DEPART: PAS TEMPS MESURE", "PROFONDEUR  DU GATE", "NOIRES  EFFETS PUNCH"},
     {"FILTER  GAUCHE BAS, DROITE HAUT", "FX ENCORE  DELAY ET PUNCH", "FX 3E: BEAT  4E: DESTROY", "TENIR UNE BLANCHE  SON EFFET", "KNOB 1  SON INTENSITE", "NOIRES  PUNCH, NOMME"},
     {"BPM SWING  (ALGO: TEMPO AUSSI)", "TEMPO  CHOP OU VARI", "METRONOME  OFF / REC / ON", "OCT+  TAPER LE TEMPO", "GLO ENCORE  HORLOGE LANGUE THEME", ""},
     {"SELECT  SLOT   KNOB 1  ACTION", "SAVE ENCORE  LE FAIRE", "BLANCHES  PATTERN 1-16", "TENIR + AUTRES  UNE CHAINE", "RESAMPLE  LA SORTIE, UN BREAK", "SAUVE TOUT SEUL A L'ARRET"},
 };
 
+/* HOME held (SHIFT): what SHIFT does here and everywhere; SELECT turns to the page's help */
+typedef struct { const char *key, *en, *fr; } sh_t;
+static const sh_t SH_ALL[12] = {
+    {"LFO", "NEW BEAT", "NOUVEAU BEAT"}, {"SEQ", "CLEAR PATTERN", "EFFACE PATTERN"},
+    {"REC", "HELD: ERASE", "TENU: GOMME"}, {"PRE", "COPY TO NEXT", "COPIE AU SUIVANT"},
+    {"FX", "FX OFF / BACK", "FX COUPES/RETOUR"}, {"ARP", "ALL FX OFF", "LACHE LES FX"},
+    {"BLK", "LATCH PUNCH", "VERROU PUNCH"}, {"PLAY", "STOP ALL", "TOUT ARRETER"},
+    {"ALG", "TEMPO BY 0.1", "TEMPO AU 0.1"}, {"SAVE", "SAVE NOW", "SAUVER"},
+    {"GLO", "METRONOME", "METRONOME"}, {"SEL", "THE HELP", "L'AIDE"}};
 static void draw_help(void)
 {
     uint32_t i;
     g_rect(0, g_y0, 240, BAND_H, C_BG);
-    if (g_vis(0, 30)) {
-        g_round(0, 4, 240, 24, C_ACC);
-        g_text(&FONT_BM, 8, 7, PAGE_NAME[page], C_BG);
-        g_textr(&FONT_PX, 232, 13, TR("AIDE  HOME TENU", "HELP  HOME HELD"), C_BG);
+    if (shift_tab) {                            /* the page's help */
+        if (g_vis(0, 30)) {
+            g_round(0, 4, 240, 24, C_ACC);
+            g_text(&FONT_BM, 8, 7, PAGE_NAME[page], C_BG);
+            g_textr(&FONT_PX, 232, 13, TR("AIDE  SELECT: SHIFT", "HELP  SELECT: SHIFT"), C_BG);
+        }
+        for (i = 0; i < 6u; i++) {
+            const char *s = lang ? HELP_EN[page][i] : HELP_FR[page][i];
+            if (!s[0]) continue;
+            g_rect(8, 42 + (int32_t)i * 22, 3, 13, i % 2u ? C_ACC2 : C_ACC);
+            g_text(&FONT_BS, 16, 41 + (int32_t)i * 22, s, i % 2u ? C_SUB : C_TXT);
+        }
+        if (g_vis(176, 64)) {                   /* every control on this page, as the strip says */
+            static const char *const KEY[8] = {"SEL", "ALG", "PRE", "OCT-", "OCT+", "WHITE", "BLACK", "REC"};
+            for (i = 0; i < H_N; i++) {
+                int32_t x = 8 + (int32_t)(i % 2u) * 116, y = 178 + (int32_t)(i / 2u) * 14;
+                int32_t e = g_text(&FONT_PX, x, y, KEY[i], C_ACC);
+                g_text(&FONT_PX, e + 5, y, hint(i), C_TXT);
+            }
+        }
+        return;
     }
-    for (i = 0; i < 6u; i++) {
-        const char *s = lang ? HELP_EN[page][i] : HELP_FR[page][i];
-        if (!s[0]) continue;
-        g_rect(8, 42 + (int32_t)i * 22, 3, 13, i % 2u ? C_ACC2 : C_ACC);
-        g_text(&FONT_BS, 16, 41 + (int32_t)i * 22, s, i % 2u ? C_SUB : C_TXT);
+    if (g_vis(0, 30)) {                         /* SHIFT */
+        g_round(0, 4, 240, 24, C_ACC2);
+        g_text(&FONT_BM, 8, 7, "SHIFT", C_BG);
+        g_textr(&FONT_PX, 232, 13, TR("HOME TENU  SELECT: AIDE", "HOME HELD  SELECT: HELP"), C_BG);
     }
-    if (g_vis(176, 64)) {                       /* every control on this page, as the strip says */
-        static const char *const KEY[8] = {"SEL", "ALG", "PRE", "OCT-", "OCT+", "WHITE", "BLACK", "REC"};
-        for (i = 0; i < H_N; i++) {
-            int32_t x = 8 + (int32_t)(i % 2u) * 116, y = 178 + (int32_t)(i / 2u) * 14;
-            int32_t e = g_text(&FONT_PX, x, y, KEY[i], C_ACC);
-            g_text(&FONT_PX, e + 5, y, hint(i), C_TXT);
+    if (g_vis(32, 44)) {                        /* undo, redo: what they would do now */
+        char t[28];
+        int32_t y;
+        for (i = 0; i < 2u; i++) {
+            y = 34 + (int32_t)i * 20;
+            g_round(6, y, 228, 18, C_PANEL);
+            g_text(&FONT_BS, 12, y + 2, i ? "OCT+" : "OCT-", C_ACC);
+            t[0] = 0;
+            str_cat(t, i ? TR("RETABLIR ", "REDO ") : TR("ANNULER ", "UNDO "));
+            if (undo_can((int)i)) str_cat(t, lang ? U_NAME_EN[undo_next((int)i)] : U_NAME_FR[undo_next((int)i)]);
+            else str_cat(t, "-");
+            g_text(&FONT_BS, 52, y + 2, t, undo_can((int)i) ? C_TXT : C_DIMT);
+        }
+    }
+    if (g_vis(76, 42)) {                        /* this page */
+        const char *a = 0, *b2 = 0;
+        if (page == P_SEQ) { a = TR("BLANCHE  LA LONGUEUR ICI", "WHITE KEY  THE LENGTH HERE"); b2 = TR("K1 DECALE  K2 HUMAIN  K3 RATCH.  K4 MIROIR", "K1 ROTATE  K2 HUMAN  K3 RATCH.  K4 MIRROR"); }
+        else if (GL_PAGE()) a = TR("BLANCHE  VERROUILLE L'EFFET", "WHITE KEY  LATCH THE EFFECT");
+        else if (page == P_DICE && sub[P_DICE] == 2u) a = TR("SANS SHIFT: BLANCHES = STYLES", "NO SHIFT: WHITE KEYS = STYLES");
+        else a = TR("BLANCHES  COMME SANS SHIFT", "WHITE KEYS  AS WITHOUT SHIFT");
+        g_text(&FONT_PX, 8, 78, TR("SUR CETTE PAGE", "ON THIS PAGE"), C_DIMT);
+        g_text(&FONT_BS, 8, 88, a, C_TXT);
+        if (b2) g_text(&FONT_PX, 8, 104, b2, C_SUB);
+    }
+    if (g_vis(116, 124)) {                      /* everywhere */
+        g_text(&FONT_PX, 8, 118, TR("PARTOUT", "EVERYWHERE"), C_DIMT);
+        for (i = 0; i < 12u; i++) {
+            int32_t x = 6 + (int32_t)(i % 2u) * 117, y = 130 + (int32_t)(i / 2u) * 18;
+            int32_t e;
+            g_round(x, y, 111, 16, C_PANEL);
+            e = g_text(&FONT_PX, x + 4, y + 4, SH_ALL[i].key, C_ACC);
+            g_textw(&FONT_PX, e + 4, y + 4, x + 108 - (e + 4), lang ? SH_ALL[i].en : SH_ALL[i].fr, C_TXT);
         }
     }
 }
@@ -1281,27 +1396,27 @@ static void draw_help(void)
  * it is (lit among the 11, as on the keybed); while it is held, and 0.7 s after a tap */
 static void draw_punch_pop(void)
 {
-    uint32_t held = punch_keys & ((1u << NPUNCH) - 1u), i, k, n = 0;
+    uint32_t held = punch_held & ((1u << NPUNCH) - 1u), lit = (punch_held | punch_latch) & ((1u << NPUNCH) - 1u), i, k, n = 0;
     char t[28];
     if (page != P_FX || help_on || pop_k >= NPUNCH) return;
     if (!held && fm1_ms - pop_ms > 700u) return;
     if (!g_vis(58, 86)) return;
     k = pop_k;
     if (held && !(held >> k & 1u)) for (k = 0; k < NPUNCH - 1u && !(held >> k & 1u); k++) {}
-    for (i = 0; i < NPUNCH; i++) n += held >> i & 1u;
+    for (i = 0; i < NPUNCH; i++) n += lit >> i & 1u;
     g_round(8, 58, 224, 86, C_ACC);              /* the window: the signal colour round it */
     g_round(11, 61, 218, 80, C_BG);
     t[0] = 0;
     str_cat(t, TR("NOIRE ", "BLACK "));
     fmt_u(t + str_len(t), k + 1u, 0);
-    str_cat(t, "  PUNCH");
+    str_cat(t, punch_latch >> k & 1u ? TR("  PUNCH VERROUILLE", "  PUNCH LATCHED") : "  PUNCH");
     g_text(&FONT_PX, 20, 66, t, C_ACC);
     if (n > 1u) { t[0] = '+'; fmt_u(t + 1, n - 1u, 0); g_textr(&FONT_PX, 220, 66, t, C_ACC2); }
     g_textc(&FONT_BM, 120, 78, PUNCH_LONG[k], C_TXT);
     g_textc(&FONT_PX, 120, 99, lang ? PUNCH_DO_EN[k] : PUNCH_DO_FR[k], C_SUB);
     for (i = 0; i < NPUNCH; i++) {               /* the 11 black keys where they are on the keybed */
         int32_t x = 21 + (int32_t)BLACK_KEY[i] * 7;
-        uint32_t on = (held >> i & 1u) || (i == k && !held);
+        uint32_t on = (lit >> i & 1u) || (i == k && !held);
         g_rect(x, 113, 5, 20, on ? C_ACC : C_PANEL2);
     }
 }
@@ -1450,9 +1565,8 @@ static void page_set(uint32_t p)
         toast(prj.p.gate ? TR("GATE: TANT QUE TENUE", "GATE: WHILE HELD") : TR("GATE OFF", "GATE OFF"));
     }
     page = (uint8_t)p;
-    { uint32_t e; for (e = 0; e < 32u; e++) if ((beat_keys >> e & 1u) && (!GL_PAGE() || e / 16u != GL_BASE() / 16u)) bt_key(e, 0); }   /* (let go with the page) */
+    { uint32_t e; for (e = 0; e < 32u; e++) if ((beat_keys >> e & 1u) && !(beat_latch >> e & 1u) && (!GL_PAGE() || e / 16u != GL_BASE() / 16u)) bt_key(e, 0); }   /* (let go with the page, unless latched) */
     held_step = -1;
-    gen_kept = 0;
     save_arm = 0;
 }
 
@@ -1462,12 +1576,34 @@ static void transport(uint32_t play)
     if (!play && sq_play) { ev_push(EV_STOP, 0, 0, 0); midi_send(0xFC, 0, 0); }
 }
 
+/* a new beat from the generator: the style on GENERATE (ORIGINAL: one at random), the next roll of its dice */
+static void new_beat(uint32_t style, uint32_t again)
+{
+    params_t *p = &prj.p;
+    pat_t *pt = cur_pat();
+    char t[28];
+    if (style >= GS_N) style = p->g_style % GS_N;
+    if (style == 0u && !again) style = 1u + grand() % (GS_N - 1u);
+    if (again || style == p->g_style) p->g_roll = (uint8_t)(p->g_roll + 1u);
+    p->g_style = (uint8_t)style;
+    undo_mark(UK_PAT, prj.cur_pat, U_GEN, 0);
+    gen_pattern(pt, pt->brk, p->g_style, p->g_roll, p->g_dens, p->g_var);
+    touch();
+    t[0] = 0;
+    str_cat(t, GEN_STYLE[p->g_style % GS_N]);
+    str_cat(t, " #");
+    fmt_u(t + str_len(t), p->g_roll, 0);
+    toast(t);
+}
+
 static void key_down(uint32_t key)
 {
     int32_t w = key_white[key], bk = key_black[key];
     pat_t *pt = cur_pat();
-    uint32_t b = cur_brk(), n = sl_count(b);
+    uint32_t b = cur_brk(), n = sl_count(b), sh = shift_now();
     if (bk >= 0) {                              /* a black key: a punch effect (or the held step's lock) */
+        uint32_t bit = 1u << bk;
+        char t[28];
         if (page == P_SEQ && held_step >= 0) {
             step_t *st = &pt->st[(uint32_t)held_step % NSTEP];
             st->fx = st->fx == (uint8_t)(bk + 1) ? 0 : (uint8_t)(bk + 1);
@@ -1476,15 +1612,42 @@ static void key_down(uint32_t key)
             touch();
             return;
         }
-        punch_keys |= 1u << bk;
+        t[0] = 0;
+        str_cat(t, PUNCH_LONG[bk]);
+        if (sh) {                               /* SHIFT: latched (again: let go) */
+            punch_latch ^= bit;
+            shift_act();
+            str_cat(t, punch_latch & bit ? TR(" VERROU", " LATCHED") : " OFF");
+            toast(t);
+        } else if (punch_latch & bit) {         /* a latched one tapped: let go */
+            punch_latch &= ~bit;
+            key_unlatch |= 1u << key;
+            str_cat(t, " OFF");
+            toast(t);
+        } else {
+            punch_held |= bit;
+        }
+        punch_sync();
         pop_k = (uint8_t)bk;
         pop_ms = fm1_ms;
         return;
     }
     if (w < 0) return;
-    if (GL_PAGE()) {                            /* BEAT, DESTROY: held, it plays (the last pressed) */
+    if (GL_PAGE()) {                            /* BEAT, DESTROY: held, it plays (the last pressed); SHIFT: latched */
         uint32_t e = GL_BASE() + (uint32_t)w;
+        char t[28];
         beat_sel = (uint8_t)e;
+        t[0] = 0;
+        str_cat(t, BEAT_LONG[e]);
+        if (sh || (beat_latch >> e & 1u)) {
+            beat_latch ^= 1u << e;
+            if (sh) shift_act();
+            else key_unlatch |= 1u << key;
+            bt_key(e, beat_latch >> e & 1u);
+            str_cat(t, beat_latch >> e & 1u ? TR(" VERROU", " LATCHED") : " OFF");
+            toast(t);
+            return;
+        }
         bt_key(e, 1);
         if (!sq_play) toast(BEAT_LONG[e]);
         return;
@@ -1492,7 +1655,21 @@ static void key_down(uint32_t key)
     switch (page) {
     case P_SEQ: {
         uint32_t s = seq_page * 16u + (uint32_t)w;
+        if (sh) {                               /* SHIFT: the pattern ends on this step */
+            char t[20];
+            shift_act();
+            undo_mark(UK_PAT, prj.cur_pat, U_LEN, 0);
+            pt->len = (uint8_t)(s + 1u);
+            pt->autog = 0;
+            touch();
+            t[0] = 0;
+            str_cat(t, TR("LONGUEUR ", "LENGTH "));
+            fmt_u(t + str_len(t), s + 1u, 0);
+            toast(t);
+            return;
+        }
         if (s >= pat_len(pt)) return;
+        undo_mark(UK_PAT, prj.cur_pat, U_STEP, s);
         held_step = (int8_t)s;
         held_used = 0;
         if (!pt->st[s].sl) {                    /* an empty step: the brush, at once */
@@ -1508,6 +1685,12 @@ static void key_down(uint32_t key)
         }
         return;
     }
+    case P_DICE:                                /* GENERATE: a white key, a style (the same again: another roll) */
+        if (sub[P_DICE] == 2u) {
+            if ((uint32_t)w < GS_N) new_beat((uint32_t)w, (uint32_t)w == prj.p.g_style);
+            return;
+        }
+        goto slices;
     case P_FLEX: {
         uint32_t f = (uint32_t)w;
         if (prj.p.fl_mode == 0u && (flex_sel == f || (flex_on == f && flex_sel >= NFLEX))) flex_sel = 0xFF;   /* LATCH: again = off */
@@ -1529,7 +1712,8 @@ static void key_down(uint32_t key)
         else prj.cur_pat = (uint8_t)k;
         return;
     }
-    default: {
+    default:
+    slices: {
         uint32_t k = bank16 * 16u + (uint32_t)w;
         if (k >= n) return;
         if (page == P_CHOP) chop_k = (uint8_t)k;
@@ -1545,10 +1729,11 @@ static void key_up(uint32_t key)
 {
     int32_t w = key_white[key], bk = key_black[key];
     pat_t *pt = cur_pat();
-    if (bk >= 0) { punch_keys &= ~(1u << bk); return; }
+    if (key_unlatch >> key & 1u) { key_unlatch &= ~(1u << key); return; }   /* (its press let a latch go) */
+    if (bk >= 0) { punch_held &= ~(1u << bk); punch_sync(); return; }
     if (w < 0) return;
-    if (beat_keys >> w & 1u) bt_key((uint32_t)w, 0);
-    if (beat_keys >> (16u + (uint32_t)w) & 1u) bt_key(16u + (uint32_t)w, 0);
+    if ((beat_keys >> w & 1u) && !(beat_latch >> w & 1u)) bt_key((uint32_t)w, 0);
+    if ((beat_keys >> (16u + (uint32_t)w) & 1u) && !(beat_latch >> (16u + (uint32_t)w) & 1u)) bt_key(16u + (uint32_t)w, 0);
     if (page == P_SEQ && held_step >= 0 && (uint32_t)held_step == seq_page * 16u + (uint32_t)w) {
         if (!held_used) {                       /* a tap on a full step: cleared */
             pt->st[(uint32_t)held_step % NSTEP].sl = 0;
@@ -1563,6 +1748,51 @@ static void key_up(uint32_t key)
         if (prj.nchain <= 1u) prj.nchain = 0;
     }
     if (key_live[key]) { ev_push(EV_SLICE_OFF, key, 0, 0); key_live[key] = 0; }
+}
+
+/* SHIFT's buttons */
+static void clear_pattern(void)
+{
+    pat_t *pt = cur_pat();
+    undo_mark(UK_PAT, prj.cur_pat, U_CLEAR, undo_tag());
+    memset(pt->st, 0, sizeof pt->st);
+    pt->autog = 0;
+    touch();
+    toast(TR("EFFACE  (SHIFT+OCT- ANNULE)", "CLEARED (SHIFT+OCT-: UNDO)"));
+}
+static void fx_all_off(void)                    /* every effect let go: latches, flex, the keys held */
+{
+    uint32_t e;
+    for (e = 0; e < DD_N; e++) if (beat_keys >> e & 1u) bt_key(e, 0);
+    beat_latch = 0;
+    punch_latch = punch_held = 0;
+    punch_sync();
+    flex_sel = 0xFF;
+    toast(TR("EFFETS LACHES", "EFFECTS OFF"));
+}
+static void dry_toggle(void)                    /* the master's effects off, and back as they were */
+{
+    params_t *p = &prj.p;
+    uint8_t *v[6] = {&p->filter, &p->reso, &p->drive, &p->crush, &p->dly_mix, &p->punch};
+    static const uint8_t DRY[6] = {64, 0, 0, 0, 0, 0};
+    uint32_t i;
+    if (!fx_dry) {
+        for (i = 0; i < 6u; i++) { dry_keep[i] = *v[i]; *v[i] = DRY[i]; }
+        fx_dry = 1;
+        toast(TR("FX COUPES (SHIFT+FX: RETOUR)", "FX OFF (SHIFT+FX: BACK)"));
+    } else {
+        for (i = 0; i < 6u; i++) if (*v[i] == DRY[i]) *v[i] = dry_keep[i];   /* (a knob turned meanwhile wins) */
+        fx_dry = 0;
+        toast(TR("FX RETOUR", "FX BACK"));
+    }
+    touch();
+}
+static void erase_set(uint32_t on)              /* SHIFT + REC held, playing: the steps going by are cleared */
+{
+    if (on && !sq_play) { toast(TR("LANCE D'ABORD (PLAY)", "PLAY FIRST")); return; }
+    if (on && !sq_erase) { undo_mark(UK_PAT, prj.cur_pat, U_ERASE, undo_tag()); toast(TR("GOMME", "ERASING")); }
+    sq_erase = on;
+    if (on) touch();
 }
 
 static void input(void)
@@ -1581,22 +1811,43 @@ static void input(void)
         if ((up >> i & 1u) || ((ne >> i & 1u) && !(notes >> i & 1u))) key_up(i);
     }
     notes_prev = notes;
-    /* buttons */
-    if (pr >> BTN_HOME & 1u) home_ms = fm1_ms;
-    if ((fm1_in.buttons >> BTN_HOME & 1u) && fm1_ms - home_ms > 380u) help_on = 1;
+    /* buttons. HOME is SHIFT: held, the overlay lists what it does (until something is done with it); a tap: PLAY */
+    if (pr >> BTN_HOME & 1u) { home_ms = fm1_ms; shift_used = 0; shift_tab = 0; }
+    if (shift_now() && !shift_used && fm1_ms - home_ms > 300u) help_on = 1;
     if (rel >> BTN_HOME & 1u) {
-        if (!help_on) page_set(P_PLAY);
+        if (!help_on && !shift_used) page_set(P_PLAY);
         help_on = 0;
+        if (sq_erase) erase_set(0);
     }
-    if ((pr >> BTN_PLAY & 1u) && (fm1_in.buttons >> BTN_HOME & 1u)) {   /* HOME + PLAY: panic */
-        ev_push(EV_PANIC, 0, 0, 0);
-        midi_send(0xFC, 0, 0);
-        punch_keys = 0;
-        flex_sel = 0xFF;
-        help_on = 0;
-        home_ms = fm1_ms + 100000u;
-        toast(TR("TOUT ARRETE", "ALL STOPPED"));
-        pr &= ~(1u << BTN_PLAY);
+    if ((rel >> BTN_REC & 1u) && sq_erase) erase_set(0);
+    if (shift_now()) {                          /* SHIFT + a button: its second job */
+        uint32_t used = pr & (1u << BTN_PLAY | 1u << BTN_OCT_DOWN | 1u << BTN_OCT_UP | 1u << BTN_LFO | 1u << BTN_SEQ |
+                              1u << BTN_FX | 1u << BTN_ARP | 1u << BTN_SAVE | 1u << BTN_GLO | 1u << BTN_REC);
+        if (pr >> BTN_PLAY & 1u) {              /* everything stops */
+            ev_push(EV_PANIC, 0, 0, 0);
+            midi_send(0xFC, 0, 0);
+            fx_all_off();
+            sq_erase = 0;
+            toast(TR("TOUT ARRETE", "ALL STOPPED"));
+        }
+        if (pr >> BTN_OCT_DOWN & 1u) do_undo(0);
+        if (pr >> BTN_OCT_UP & 1u) do_undo(1);
+        if (pr >> BTN_LFO & 1u) new_beat(0xFF, 0);
+        if (pr >> BTN_SEQ & 1u) clear_pattern();
+        if (pr >> BTN_FX & 1u) dry_toggle();
+        if (pr >> BTN_ARP & 1u) fx_all_off();
+        if (pr >> BTN_SAVE & 1u) {
+            if (sq_play) toast(TR("STOP D'ABORD", "STOP FIRST"));
+            else { prj.bank_crc = bank_crc; toast(prj_save(save_slot) ? TR("ERREUR FLASH", "FLASH ERROR") : TR("SAUVE !", "SAVED !")); }
+        }
+        if (pr >> BTN_GLO & 1u) {
+            prj.p.metro = (uint8_t)((prj.p.metro + 1u) % 3u);
+            touch();
+            toast(prj.p.metro == 0u ? "METRO OFF" : prj.p.metro == 1u ? TR("METRO: EN ENREG.", "METRO: WHEN REC") : "METRO ON");
+        }
+        if (pr >> BTN_REC & 1u) erase_set(1);
+        if (pr & ~(1u << BTN_HOME)) shift_act();
+        pr &= ~used;                            /* (the others do their own job) */
     }
     for (i = 1; i < P_N; i++) if (pr >> PAGE_BTN[i] & 1u) {
         if (i == P_SAVE && page == P_SAVE) save_do();
@@ -1609,20 +1860,20 @@ static void input(void)
     if (pr >> BTN_REC & 1u) {
         if (!sq_play) { sq_rec = 1; transport(1); }
         else sq_rec = !sq_rec;
-        if (sq_rec) toast(TR("ENREGISTRE", "RECORDING"));
+        if (sq_rec) { undo_mark(UK_PAT, prj.cur_pat, U_REC, undo_tag()); toast(TR("ENREGISTRE", "RECORDING")); }
     }
     if (pr >> BTN_OCT_DOWN & 1u) {
         switch (page) {
         case P_SEQ: if (seq_page) seq_page--; break;
-        case P_CHOP: if (slice_join(cur_brk(), chop_k)) { if (chop_k) chop_k--; toast(TR("JOINT", "JOINED")); } break;
-        case P_DICE: case P_SAVE: toast(undo_do() ? TR("ANNULE", "UNDONE") : TR("RIEN A ANNULER", "NOTHING TO UNDO")); break;
+        case P_CHOP: undo_mark(UK_SC, cur_brk(), U_CHOP, undo_tag()); if (slice_join(cur_brk(), chop_k)) { if (chop_k) chop_k--; toast(TR("JOINT", "JOINED")); } break;
+        case P_DICE: case P_SAVE: do_undo(0); break;
         default: bank16 = 0; break;
         }
     }
     if (pr >> BTN_OCT_UP & 1u) {
         switch (page) {
         case P_SEQ: if ((seq_page + 1u) * 16u < pat_len(cur_pat())) seq_page++; break;
-        case P_CHOP: if (slice_split(cur_brk(), chop_k)) toast(TR("COUPE", "SPLIT")); break;
+        case P_CHOP: undo_mark(UK_SC, cur_brk(), U_CHOP, undo_tag()); if (slice_split(cur_brk(), chop_k)) toast(TR("COUPE", "SPLIT")); break;
         case P_SAVE: prj.nchain = 0; toast(TR("SANS CHAINE", "NO CHAIN")); break;
         case P_GLOBAL: {                        /* tap tempo */
             if (tap_n && fm1_ms - tap_ms[(tap_n - 1u) & 3u] > 2000u) tap_n = 0;
@@ -1639,23 +1890,39 @@ static void input(void)
     }
     /* encoders */
     if ((d = fm1_enc_take(ENC_SELECT)) != 0) {
-        switch (page) {
+        if (shift_now()) {                      /* SHIFT + SELECT: the overlay's other tab (SHIFT, the page's help) */
+            shift_tab ^= 1u;
+            shift_used = 1;
+            help_on = 1;
+        } else switch (page) {
         case P_SEQ: brush = (uint8_t)clampi((int32_t)brush + d, 1, (int32_t)(sl_count(cur_brk()) ? sl_count(cur_brk()) : 1u)); break;
         case P_CHOP: chop_k = (uint8_t)clampi((int32_t)chop_k + d, 0, (int32_t)sl_count(cur_brk()) - 1); break;
         case P_SAVE: save_slot = (uint8_t)clampi((int32_t)save_slot + d, 0, NSLOT - 1); save_arm = 0; break;
         case P_FLEX: flex_sel = (uint32_t)clampi(flex_sel < NFLEX ? (int32_t)flex_sel + d : 0, 0, NFLEX - 1); break;
-        default: brk_choose(d > 0 ? 1 : -1); break;
+        default: undo_mark(UK_PAT, prj.cur_pat, U_BREAK, 0); brk_choose(d > 0 ? 1 : -1); break;
         }
     }
-    if ((d = fm1_enc_take(ENC_ALGORITHM)) != 0) { bpm10_set((uint32_t)clampi((int32_t)bpm10() + accel(d) * 10, 400, 3000)); touch(); }
+    if ((d = fm1_enc_take(ENC_ALGORITHM)) != 0) {   /* the tempo; SHIFT: by 0.1 */
+        if (shift_now()) shift_act();
+        bpm10_set((uint32_t)clampi((int32_t)bpm10() + (shift_now() ? d : accel(d) * 10), 400, 3000));
+        touch();
+    }
     if ((d = fm1_enc_take(ENC_PRESETS)) != 0) {
         int32_t base = pat_next < NPAT ? (int32_t)pat_next : (int32_t)prj.cur_pat, np = clampi(base + d, 0, NPAT - 1);
-        char t[16];
+        char t[24];
+        uint32_t copied = 0;
+        if (shift_now() && np != (int32_t)prj.cur_pat) {   /* SHIFT: this pattern copied there, and on to it */
+            shift_act();
+            copied = 1;
+            undo_mark(UK_PAT, (uint32_t)np, U_COPY, undo_tag());
+            prj.pat[np] = *cur_pat();
+            touch();
+        }
         if (sq_play) pat_next = (uint32_t)np;
         else prj.cur_pat = (uint8_t)np;
         prj.nchain = 0;
         t[0] = 0;
-        str_cat(t, "PATTERN ");
+        str_cat(t, copied ? TR("COPIE VERS ", "COPIED TO ") : "PATTERN ");
         fmt_u(t + str_len(t), (uint32_t)np + 1u, 0);
         toast(t);
     }

@@ -7,7 +7,7 @@
 
 **Breakbeat, breakcore, IDM sur le M-VAVE FM-1.** Découpe n'importe quelle boucle sur ses frappes, séquence-la
 sur 64 pas avec ratchets jusqu'à ×16, conditions et verrous d'effets, puis drille-la, détruis-la et
-rééchantillonne-la. Libre et open source (GPL-3.0). *Version 0.2 **BÊTA** : compilée et vérifiée pour le FM-1
+rééchantillonne-la. Libre et open source (GPL-3.0). *Version 0.3 **BÊTA** : compilée et vérifiée pour le FM-1
 (taille, mémoire, mise à jour, des milliers de sessions aléatoires sous sanitizers), pas encore jouée sur le
 matériel ; dis-moi ce que tu vois (onglet Issues).*
 
@@ -27,7 +27,8 @@ matériel ; dis-moi ce que tu vois (onglet Issues).*
 5. **Générateurs** : DRILL, BREAKCORE, IDM, jungle, half time, boom bap, 2-step, glitch, build-up ; **dés** (libres ou verrouillés).
 6. **RESAMPLE** sur le FM-1 : la sortie, effets compris, enregistrée dans un nouveau break, découpé et classé.
 7. **Master** : filtre (passe-bas à gauche, passe-haut à droite, propre au milieu), résonance, drive, crush, delay calé sur le tempo, compresseur.
-8. **Il dit quoi fait quoi** : un bandeau au-dessus des knobs dit ce que font SELECT, OCT et les touches sur chaque page ; HOME tenu liste toutes les commandes. 5 thèmes. Français et anglais.
+8. **SHIFT et annuler** : HOME tenu, c'est SHIFT, et l'écran liste ce qu'il fait : un nouveau beat (SHIFT + LFO), effacer le pattern, gommer pendant la lecture, copier le pattern dans le suivant, verrouiller un effet punch ou glitch, couper les FX et les remettre, tout arrêter ; **16 modifications d'annuler et rétablir** (SHIFT + OCT− / OCT+). Sur GÉNÉRER, les touches blanches sont les 11 styles. Rien qui vide un pattern n'est à un seul appui.
+9. **Il dit quoi fait quoi** : un bandeau au-dessus des knobs dit ce que font SELECT, OCT et les touches sur chaque page, SHIFT tenu ou non ; chaque knob montre son nom et sa valeur. 5 thèmes. Français et anglais.
 
 ## Installer
 

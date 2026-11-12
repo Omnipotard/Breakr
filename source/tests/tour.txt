@@ -47,7 +47,7 @@
 11400 btn 9
 11800 shot 16-save
 11900 press 8
-12500 shot 17-help
+12500 shot 17-shift
 12600 release 8
 12700 lang 0
 13000 btn 8
@@ -96,4 +96,31 @@
 20100 lang 0
 20200 btn 8
 20600 shot 29-play-fr
-21000 end
+20700 lang 1
+20800 btn 11
+20900 press 8
+21000 enc 2 1
+21300 shot 31-shift-steps
+21400 release 8
+21500 press 8
+21600 enc 0 1
+22000 shot 32-shift-help
+22100 release 8
+22200 press 8
+22300 btn 0
+22500 shot 33-shift-undo
+22600 release 8
+22700 btn 5
+22800 keys 0x10
+22860 keys 0
+23200 shot 34-generate-keys
+23300 btn 2
+23400 press 8
+23500 keys 0x1
+23560 keys 0
+23600 release 8
+24000 shot 35-latch
+24100 press 8
+24200 btn 10
+24300 release 8
+24500 end

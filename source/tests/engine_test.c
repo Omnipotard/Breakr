@@ -326,6 +326,116 @@ static void t_effects(void)
     printf("effects   %u punch effects, %u flex patterns, 40 and 300 BPM, knobs at their ends: ran\n", NPUNCH, NFLEX);
 }
 
+/* clicks: a one-sample jump much bigger than the slope around it (channel L of an interleaved render) */
+static uint32_t clicks(const int32_t *o, uint32_t a, uint32_t b)
+{
+    uint32_t n, c = 0;
+    for (n = a + 20u; n + 20u < b; n++) {
+        int32_t d = abs(o[2u * n] - o[2u * n - 2u]), j;
+        double m = 0;
+        if (d < 2500) continue;
+        for (j = 2; j <= 16; j++) m += abs(o[2u * (n - j)] - o[2u * (n - j - 1)]) + abs(o[2u * (n + j)] - o[2u * (n + j - 1)]);
+        if (d > 7.0 * m / 30.0 + 600.0) { c++; n += 32u; }
+    }
+    return c;
+}
+
+/* the glitch effects that are not meant to be digital (all but GLITCH, FUZZ, RANDOMIZER, TOTAL CHAOS): no click,
+ * pressed and let go off the grid; a repeat over a rest of the pattern plays the slice that rings there */
+static void t_clean(void)
+{
+    static const uint8_t INT[3] = {10, 50, 90};
+    uint32_t e, ii, i, worst = 0, bad = 0, bar = 44100u * 60u * 4u / 140u, pre = (bar + 3001u) & ~255u, len = (2u * bar + 1777u) & ~255u;
+    for (e = 0; e < DD_N; e++) {
+        if (e == DD_GLITCH || e == DD_FUZZ || e == DD_RAND || e == DD_TOTAL) continue;
+        for (ii = 0; ii < 3u; ii++) {
+            int32_t *a, *b, *c, *o;
+            uint32_t n;
+            boot();
+            bpm10_set(1400);
+            for (i = 0; i < DD_N; i++) prj.p.bt_int[i] = INT[ii];
+            ev_push(EV_PLAY, 0, 0, 0);
+            a = render(pre);
+            bt_key(e, 1);
+            b = render(len);
+            bt_key(e, 0);
+            c = render(22016u);
+            o = malloc(sizeof *o * 2u * (pre + len + 22016u));
+            memcpy(o, a, sizeof *o * 2u * pre);
+            memcpy(o + 2u * pre, b, sizeof *o * 2u * len);
+            memcpy(o + 2u * (pre + len), c, sizeof *o * 2u * 22016u);
+            n = clicks(o, pre - 2000u, pre + len + 4000u);
+            if (n > worst) worst = n;
+            if (n > 1u) { bad++; printf("click     %-12s %2u%%: %u\n", BEAT_LONG[e], INT[ii], n); }   /* (one: a sharp hit can pass for one) */
+            free(a); free(b); free(c); free(o);
+        }
+    }
+    CHECK(bad == 0, "%u glitch effect settings click", bad);
+    {   /* REPEAT 1/16 over a rest: the slice that rings there, again (not silence) */
+        const pat_t *pt;
+        uint32_t step = 44100u * 60u / 1420u / 4u, r = 0, k;
+        double wet = 0, dry = 0;
+        int32_t *d, *w;
+        boot();
+        bpm10_set(1420);
+        pt = cur_pat();
+        for (k = 2; k < pat_len(pt); k++) if (!pt->st[k].sl && pt->st[k - 1u].sl) { r = k; break; }
+        CHECK(r != 0, "no rest in the break in order");
+        ev_push(EV_PLAY, 0, 0, 0);
+        d = render(step * (r + 6u));
+        boot();
+        bpm10_set(1420);
+        ev_push(EV_PLAY, 0, 0, 0);
+        w = render(step * r - step / 2u);
+        punch_keys = 1u << PX_RPT16;
+        free(w);
+        w = render(step * 6u);
+        punch_keys = 0;
+        for (i = step / 2u; i < step * 6u; i++) wet += (double)w[2u * i] * w[2u * i];
+        for (i = step * r; i < step * (r + 1u); i++) dry += (double)d[2u * i] * d[2u * i] * 5.5;
+        printf("clean     glitch effects held off the grid: %u with clicks (worst %u); REPEAT 1/16 over a rest: %.0f%% of its step\n", bad, worst, 100.0 * sqrt(wet / (dry + 1.0)));
+        CHECK(wet > dry * 0.25, "REPEAT 1/16 over a rest is near silence");
+        free(d); free(w);
+    }
+}
+
+/* undo: 16 edits back, redo, one entry for an edit going on, a slicing put back */
+static void t_undo(void)
+{
+    uint32_t i, ok = 1;
+    pat_t *p;
+    boot();
+    undo_reset();
+    p = &prj.pat[0];
+    fm1_ms = 1000;
+    undo_mark(UK_PAT, 0, U_STEP, 3); p->st[3].sl = 9;
+    fm1_ms = 1200;
+    undo_mark(UK_PAT, 0, U_STEP, 3); p->st[3].pitch = 5;            /* (the same step, held: one entry) */
+    fm1_ms = 5000;
+    undo_mark(UK_PAT, 0, U_CLEAR, undo_tag()); memset(p->st, 0, sizeof p->st);
+    CHECK(undo_swap(0) == U_CLEAR && p->st[3].sl == 9 && p->st[3].pitch == 5, "undo: the clear is not undone");
+    CHECK(undo_swap(0) == U_STEP && p->st[3].pitch == 0, "undo: the step edit is not one entry");
+    CHECK(undo_swap(0) == -1, "undo: more than was done");
+    CHECK(undo_swap(1) == U_STEP && p->st[3].sl == 9 && p->st[3].pitch == 5, "redo: the step");
+    CHECK(undo_swap(1) == U_CLEAR && p->st[3].sl == 0, "redo: the clear");
+    CHECK(undo_swap(1) == -1, "redo: more than was undone");
+    undo_reset();
+    for (i = 0; i < 20u; i++) { fm1_ms = 10000u + i * 2000u; undo_mark(UK_PAT, 0, U_LEN, 0); p->len = (uint8_t)(i + 1u); }
+    for (i = 0; i < 16u; i++) ok &= undo_swap(0) == U_LEN;
+    CHECK(ok && p->len == 4u && undo_swap(0) == -1, "undo: 16 back, the oldest dropped (len %u)", p->len);
+    undo_reset();
+    {   /* a slicing: moved, then put back */
+        uint32_t b = 0, was;
+        slicing_t *sc = slicing_own(b);
+        was = sc->sl[2];
+        undo_mark(UK_SC, b, U_CHOP, undo_tag());
+        slice_move(b, 2, 300);
+        CHECK(sc->sl[2] != was, "undo: the slice did not move");
+        CHECK(undo_swap(0) == U_CHOP && prj.sc[b].sl[2] == was, "undo: the slice is not back");
+    }
+    printf("undo      16 edits back, redo, an edit going on is one, a slicing put back: %s\n", fails ? "see above" : "ok");
+}
+
 static void t_slicing(void)
 {
     uint32_t b, tot_hit = 0, tot_true = 0, tot_found = 0, cls_ok = 0, cls_n = 0;
@@ -504,6 +614,8 @@ int main(void)
     t_effects();
     t_slicing();
     t_filter();
+    t_clean();
+    t_undo();
     t_steps();
     t_generators();
     printf(fails ? "\n%d CHECK(S) FAILED\n" : "\nALL ENGINE CHECKS PASSED\n", fails);

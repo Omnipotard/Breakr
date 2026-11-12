@@ -18,7 +18,8 @@
  *   PITCH MAD     a pitch shift that moves each 16th: a staircase up (low), random jumps (middle), a dive (high)
  *   GATE X        a pattern of silences each bar, 16ths or 32nds, more holes with INTENSITY
  *   FILTER CHAOS  a resonant low-pass jumping to a random cutoff each 16th, resonance and range with INTENSITY
- *   BEAT REPEAT   the last beat, 1/2 or 1/4 repeated, fading; past 70 % each repeat half as long (a roll)
+ *   BEAT REPEAT   the last beat, 1/2 or 1/4 of the grid repeated in time with it, fading a little; past 70 % each
+ *                 repeat half as long (a roll)
  *   BEAT SKIP     16ths dropped, or past 50 % replaced by the one before
  *   MICRO STUTTER 50 .. 10 ms grains of the last instant, a new one each 16th
  *   TIME STRETCH  the groove slowed (3/4 .. 1/4 speed) without changing its pitch (two overlapping grains)
@@ -94,6 +95,9 @@ static struct {
                                                   * place (Q15); the jump's declick and the last output */
     uint8_t op, arg, open, newop, qi, from8, to8;
     uint32_t fmul;                               /* STUT: 13000 / L, Q8 (once a block: no divide a sample) */
+    int32_t fz;                                  /* FUZZ: its makeup, Q8 (once a block) */
+    uint8_t jump;                                /* a segment replaced mid-way: the next sample declicked */
+    int32_t jl, jr, jll, jlr;                    /* .. the offsets left, the last output */
 } kd = {.cur = -1, .sub = -1, .rnd = 0x51A3E1B7u};
 
 static int32_t bclamp(int32_t v, int32_t lo, int32_t hi) { return v < lo ? lo : v > hi ? hi : v; }
@@ -166,6 +170,12 @@ static int32_t kb_cart(int32_t m, int32_t v)
     kd.lpy += (((m * 16 - kd.lpy) >> 4) * (a >> 3)) >> 8;   /* (lpy: Q19) */
     g = v > 36000 ? 36000 : v;
     return ((kd.lpy >> 8) * (g >> 3)) >> 8;
+}
+/* where the hand has the record (Q15 frames from the cue): from8 to to8 (eighths of the stroke's depth D), sm of
+ * the way (Q15). Exact: a stroke ends where the next one starts (no burst of speed between two) */
+static int32_t kb_place(uint32_t from8, uint32_t to8, uint32_t sm)
+{
+    return (int32_t)(((int64_t)from8 * kd.D * 32768 + (int64_t)((int32_t)to8 - (int32_t)from8) * kd.D * (int32_t)sm) >> 3);
 }
 /* the last attack in the ring's last beat: where a DJ would put the needle */
 static uint32_t kb_cue(uint32_t base)
@@ -365,6 +375,7 @@ static void beat_slot(uint32_t s, uint32_t base)
         kd.from8 = kd.to8;                       /* (from where the last stroke left the record) */
         kd.to8 = (uint8_t)(KB_PAT[arg % SP_N][0] >> 1);
         kd.open = KB_PAT[arg % SP_N][0] & 1u;
+        kd.ps = kb_place(kd.from8, kd.from8, 0);   /* (the hand starts still: no burst of speed) */
         break;
     default:
         break;
@@ -420,9 +431,9 @@ static void beat_sample(int32_t x, int32_t y, uint32_t idx, int32_t *wl, int32_t
     }
     case BO_SCR: {                               /* the hand: a smooth stroke to the next place each quarter */
         uint32_t u = kd.u24 >> 9, sm = (((u * u) >> 15) * ((3u << 15) - 2u * u)) >> 15;   /* smoothstep, Q15 */
-        int32_t a = (int32_t)(kd.from8 * kd.D / 8u), d = ((int32_t)kd.to8 - (int32_t)kd.from8) * (int32_t)kd.D / 8, off, v;
+        int32_t off, v;
         uint32_t ri;
-        off = a * 32768 + d * (int32_t)sm;
+        off = kb_place(kd.from8, kd.to8, sm);
         v = off - kd.ps;
         kd.ps = off;
         ri = kd.rec + (uint32_t)(off >> 15);
@@ -461,7 +472,7 @@ static int32_t sine_q(uint32_t ph)
 {
     int32_t x = ((int32_t)(ph >> 17) - 16384) * 2, s;   /* -1..1, Q15 */
     s = x * 4 - ((x * (x < 0 ? -x : x)) >> 13);
-    return s > 32767 ? 32767 : s < -32767 ? -32767 : -s;
+    return s > 32767 ? -32767 : s < -32767 ? 32767 : -s;   /* (the crests clamped on the same side: no flip) */
 }
 
 /* the BEAT program (or SCRATCH) e taken over at ring index base: its record (the last attack: kb_cue) and seed */
@@ -516,8 +527,8 @@ static void dd_engage(int32_t e, uint32_t base)
     }
     case DD_BREP:
         L = dd_cap(beat >> (I * 3u / 101u));
-        kd.k = 0;
-        kd.S = base - L;                         /* what just played, again */
+        kd.k = pos % L;
+        kd.S = base - kd.k - L;                  /* what just played, again: the last whole segment of the grid */
         kd.L = kd.L0 = L;
         kd.own = 1;
         break;
@@ -567,6 +578,7 @@ static void dd_engage(int32_t e, uint32_t base)
 static void dd_tick(uint32_t base, uint32_t s16)
 {
     uint32_t I = dd_int(), r = kg_rand(&kd.rnd), step = dd_beat() / 4u;
+    kd.jump = 1;
     if (kd.cur == DD_RAND || kd.cur == DD_TOTAL) {   /* a new effect each 16th */
         dd_engage((int32_t)(r % 14u), base);     /* (any of the first 14) */
         kd.mode = (uint8_t)(kd.cur == DD_TOTAL && (r >> 8) % 3u == 0u);   /* TOTAL: a ring modulator on top */
@@ -627,6 +639,10 @@ static void dd_sample(int32_t x, int32_t y, uint32_t idx, int32_t *wl, int32_t *
         uint32_t p = kd.off + kd.k;
         if (p >= kd.L) p -= kd.L;
         m = dd_declick(ring_raw(kd.S + (kd.rev ? kd.L - 1u - p : p)), kd.k, kd.L);
+        if (kd.off) {                            /* (where the fragment wraps inside the pass: faded there too) */
+            uint32_t wp = kd.L - kd.off, dist = kd.k >= wp ? kd.k - wp : wp - kd.k;
+            if (dist < 64u) m = (m * (int32_t)dist) >> 6;
+        }
         if (++kd.k >= kd.L) {
             uint32_t r = kg_rand(&kd.rnd);
             kd.k = 0;
@@ -650,8 +666,8 @@ static void dd_sample(int32_t x, int32_t y, uint32_t idx, int32_t *wl, int32_t *
                 uint32_t r = kg_rand(&kd.rnd) % 3u;
                 kd.L = dd_cap(kd.L0 >> r);
             } else if (kd.sub == DD_BREP) {
-                kd.rep = kd.rep * (int32_t)(500u - I) / 500;
-                if (kd.rep < 16384) kd.rep = 16384;   /* (never below half) */
+                kd.rep = kd.rep * (int32_t)(1000u - I) / 1000;
+                if (kd.rep < 24576) kd.rep = 24576;   /* (never below 3/4: a repeat stays a beat) */
                 if (I > 70u && kd.L > kd.L0 / 8u) kd.L = dd_cap(kd.L / 2u);
             }
         }
@@ -668,7 +684,7 @@ static void dd_sample(int32_t x, int32_t y, uint32_t idx, int32_t *wl, int32_t *
         return;
     case DD_PITCH: {                             /* two taps sliding through a delay, crossfaded */
         uint32_t W16 = DD_W << 16, pa = kd.pp, pb = (kd.pp + W16 / 2u) % W16;
-        int32_t a = ring_raw(idx - 64u - (pa >> 16)), b = ring_raw(idx - 64u - (pb >> 16));
+        int32_t a = dd_rd(idx - 65u - (pa >> 16), (int32_t)(65535u - (pa & 0xFFFFu))), b = dd_rd(idx - 65u - (pb >> 16), (int32_t)(65535u - (pb & 0xFFFFu)));
         int32_t wa = (int32_t)((pa >> 16) < DD_W / 2u ? (pa >> 16) : DD_W - (pa >> 16));
         m = (a * wa + b * ((int32_t)DD_W / 2 - wa)) >> 10;   /* / (DD_W / 2) */
         kd.pp = (uint32_t)(((int32_t)kd.pp + (65536 - kd.ratio)) % (int32_t)W16 + (int32_t)W16) % W16;
@@ -719,7 +735,7 @@ static void dd_sample(int32_t x, int32_t y, uint32_t idx, int32_t *wl, int32_t *
             int32_t u = (bclamp(v[j], -65535, 65535) * d) >> 4;
             if (u > 12000) u = 12000 + ((u - 12000) >> 3);
             if (u < -12000) u = -12000 + ((u + 12000) >> 3);
-            v[j] = bclamp(u, -18000, 18000) * 5 / 4;
+            v[j] = (bclamp(u, -18000, 18000) * kd.fz) >> 8;
         }
         *wl = v[0], *wr = v[1];
         return;
@@ -763,24 +779,31 @@ static void bt_process(int32_t *l, int32_t *r, uint32_t n)
 {
     uint32_t i, base, s16, I;
     int32_t want = bt_want();
-    for (i = 0; i < n; i++, bt_w++)              /* the ring: the dry mix, mono (a held record kept) */
+    base = bt_w;                                 /* (this block's first sample, about to be written) */
+    if (kd.cur >= 0 || want >= 0) {
+        if (kd.cur < 0) {                        /* a new one */
+            kd.cur = (int8_t)want;
+            kd.g = 0;
+            kd.t = 0;
+            kd.jl = kd.jr = 0;
+            kd.jll = l[0], kd.jlr = r[0];
+            kd.s16 = 0xFFFFFFFFu;
+            dd_engage(want == DD_RAND || want == DD_TOTAL ? DD_STUT : want, base);
+        }
+        s16 = sq_play ? fx_tick0 / (PPQN / 4u) : kd.t / (dd_beat() / 4u + 1u);
+        if (s16 != kd.s16) {
+            kd.s16 = s16;
+            dd_tick(base, s16);
+        }
+    }
+    /* the ring: the dry mix, mono, written once the 16th is set up: a record taken now holds this block's sound,
+     * not what an older record kept the writer from (a held record is kept) */
+    for (i = 0; i < n; i++, bt_w++)
         if (!bt_owns(bt_w)) bt_ring[bt_w & (BT_RN - 1u)] = (int16_t)bclamp((l[i] + r[i]) >> 1, -32767, 32767);
-    base = bt_w - n;
-    if (kd.cur < 0 && want < 0) return;
-    if (kd.cur < 0) {                            /* a new one */
-        kd.cur = (int8_t)want;
-        kd.g = 0;
-        kd.t = 0;
-        kd.s16 = 0xFFFFFFFFu;
-        dd_engage(want == DD_RAND || want == DD_TOTAL ? DD_STUT : want, base);
-    }
-    s16 = sq_play ? fx_tick0 / (PPQN / 4u) : kd.t / (dd_beat() / 4u + 1u);
-    if (s16 != kd.s16) {
-        kd.s16 = s16;
-        dd_tick(base, s16);
-    }
+    if (kd.cur < 0) return;
     I = dd_int();
     kd.fmul = kd.L ? (13000u << 8) / kd.L : 0u;
+    kd.fz = (int32_t)(320u * 220u / (220u + 16u + I * 224u / 100u));   /* x1: 1.17, x15: 0.6 */
     if (kd.sub == DD_GATE) {                     /* the slot of the bar: open or shut */
         uint32_t per = I > 50u ? 32u : 16u, slot = dd_barpos() * per / (dd_beat() * 4u + 1u);
         if (slot < kd.i32 || kd.i32 == 0xFFFFFFFFu) {   /* a new bar: a new pattern */
@@ -808,6 +831,12 @@ static void bt_process(int32_t *l, int32_t *r, uint32_t n)
             kd.gg += gt > kd.gg ? (gt - kd.gg > 512 ? 512 : gt - kd.gg) : -(kd.gg - gt > 512 ? 512 : kd.gg - gt);
         }
         dd_sample(x, y, base + i, &wl, &wr);
+        if (!dd_isop(kd.sub)) {                  /* (the programs declick their own switches) */
+            if (kd.jump) { kd.jump = 0; kd.jl = kd.jll - wl; kd.jr = kd.jlr - wr; }
+            wl += kd.jl, wr += kd.jr;
+            kd.jl -= kd.jl >> 5, kd.jr -= kd.jr >> 5;
+            kd.jll = wl, kd.jlr = wr;
+        }
         if (kd.cur == DD_TOTAL) {                /* TOTAL: crushed, sometimes ring modulated */
             int32_t mk = -(1 << (3 + (int32_t)I / 14));
             wl &= mk, wr &= mk;

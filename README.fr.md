@@ -15,7 +15,7 @@ matériel ; dis-moi ce que tu vois (onglet Issues).*
 |---|---|
 | 🎛 **Essayer** (navigateur) | [`emulator/index.html`](emulator/index.html) |
 | ⬇️ **Installer** sur le FM-1 | [`installer.html`](installer.html) (Chrome ou Edge, USB) · ou `INSTALL-Windows.bat` / `INSTALL-Mac.command` / `INSTALL-Linux.sh` |
-| 🥁 **Tes breaks** | [`editor/index.html`](editor/index.html) (ordinateur ou téléphone Android, sans appli) · ou **SAVE › RESAMPLE** sur le FM-1 |
+| 🥁 **Tes breaks** | [`editor/index.html`](editor/index.html) (ordinateur ou téléphone Android, sans appli) · ou **SAVE › RESAMPLE** sur le FM-1 · ou dépose une boucle sur l'émulateur |
 | 📖 **Manuel** | [`manual.html`](manual.html#fr) |
 
 ## Ce qu'il fait

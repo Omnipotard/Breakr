@@ -14,7 +14,7 @@ random sessions under sanitizers), not yet played on the hardware; tell me what 
 |---|---|
 | 🎛 **Try it** (browser) | [`emulator/index.html`](emulator/index.html) |
 | ⬇️ **Install** on the FM-1 | [`installer.html`](installer.html) (Chrome or Edge, USB) · or `INSTALL-Windows.bat` / `INSTALL-Mac.command` / `INSTALL-Linux.sh` |
-| 🥁 **Your breaks** | [`editor/index.html`](editor/index.html) (computer or Android phone, no app) · or **SAVE › RESAMPLE** on the FM-1 |
+| 🥁 **Your breaks** | [`editor/index.html`](editor/index.html) (computer or Android phone, no app) · or **SAVE › RESAMPLE** on the FM-1 · or drop a loop on the emulator |
 | 📖 **Manual** | [`manual.html`](manual.html) |
 | 🏠 **Home page** | [`index.html`](index.html) (GitHub Pages: <https://omnipotard.github.io/Breakr/>) |
 

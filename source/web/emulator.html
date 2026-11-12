@@ -288,6 +288,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: var(--panel); paddi
     <p class="pmsg" id="bank-msg" role="status"></p>
     <div class="bacts">
       <a class="sbtn hot" href="../editor/" data-t="b.editor"></a>
+      <label class="sbtn"><span data-t="b.addloop"></span><input type="file" class="vh" id="loop-file" accept="audio/*,.wav,.mp3,.aif,.aiff,.flac,.ogg,.m4a" multiple></label>
       <label class="sbtn"><span data-t="b.load"></span><input type="file" class="vh" id="bank-file" accept=".brkbank,application/octet-stream"></label>
       <button type="button" class="sbtn" id="bank-erase" data-t="b.erase"></button>
     </div>
@@ -398,6 +399,18 @@ kbd { font-family: var(--mono); font-size: 12px; background: var(--panel); paddi
       } catch (e) { this.emit({t: "bank", ok: false, msg: String(e && e.message || e)}); }
       this.bankList();
     }
+    async addBank(file) {                        /* loops dropped on the page: added after the breaks already there */
+      try {
+        const add = BRK.readBankFile(file);
+        let cur = [];
+        try { cur = await BRK.readBank(this.tr); } catch (e) { cur = []; }
+        if (cur.length + add.length > BRK.MAX_BREAKS) throw new Error("8 breaks at most");
+        const all = cur.concat(add);
+        await BRK.upload(this.tr, BRK.buildBank(all));
+        this.emit({t: "bank", ok: true, n: all.length, added: add.length});
+      } catch (e) { this.emit({t: "bank", ok: false, msg: String(e && e.message || e), added: 1}); }
+      this.bankList();
+    }
     async eraseBank() {
       try { await BRK.erase(this.tr); this.emit({t: "bank", ok: true, n: 0}); }
       catch (e) { this.emit({t: "bank", ok: false, msg: String(e && e.message || e)}); }
@@ -412,6 +425,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: var(--panel); paddi
       else if (d.t === "midi") x.breakr_midi(d.st, d.d1, d.d2);
       else if (d.t === "lang") x.breakr_lang(d.v | 0);
       else if (d.t === "bank") this.putBank(d.data);
+      else if (d.t === "addbank") this.addBank(d.data);
       else if (d.t === "erase") this.eraseBank();
       else if (d.t === "projects") this.putProjects(d.data);
       else if (d.t === "getstore") this.sendStore(true);
@@ -519,7 +533,15 @@ kbd { font-family: var(--mono); font-size: 12px; background: var(--panel); paddi
       "tt.12": "PLAY starts and stops the pattern.",
       "tt.13": "REC records what you play on the keys into the pattern.",
       "b.h": "The breaks",
-      "b.how": "Eight factory breaks are built in. Your own (up to 8, about 22 seconds in all) are made in the <b>break editor</b>: import a loop, cut it, then send the bank to your FM-1 or open it here. They are kept in this browser with your projects.",
+      "b.how": "Eight factory breaks are built in. Your own (up to 8, about 22 seconds in all) are made in the <b>break editor</b>: import a loop, cut it, then send the bank to your FM-1 or open it here. Quicker: <b>drop a loop</b> (WAV, MP3, AIFF…) on this page, it is cut on its hits and added to yours. They are kept in this browser with your projects.",
+      "b.addloop": "Add a loop (WAV, MP3…)",
+      "b.reading": "Reading {f}…",
+      "b.noread": "This browser cannot read {f} as sound.",
+      "b.offloop": "Power on first, then add the loop again.",
+      "b.added": "Added. Your breaks: {n}; turn SELECT past the 8 factory ones.",
+      "b.max": "Not added: you already have 8 breaks. Remove one in the break editor.",
+      "b.cap": "Not added: no room left (about 22 s in all). Shorten it in the break editor, or save it at 16 kHz there.",
+      "b.cant": "Not added: {m}",
       "b.editor": "Open the break editor",
       "b.load": "Load a bank (.brkbank)",
       "b.erase": "Remove my breaks",
@@ -587,9 +609,17 @@ kbd { font-family: var(--mono); font-size: 12px; background: var(--panel); paddi
       "tt.12": "PLAY lance et arrête le pattern.",
       "tt.13": "REC enregistre dans le pattern ce que tu joues sur les touches.",
       "b.h": "Les breaks",
-      "b.how": "Huit breaks d’usine sont intégrés. Les tiens (8 au plus, environ 22 secondes en tout) se font dans l’<b>éditeur de breaks</b> : importe une boucle, découpe-la, puis envoie la banque à ton FM-1 ou ouvre-la ici. Ils sont gardés dans ce navigateur avec tes projets.",
+      "b.how": "Huit breaks d’usine sont intégrés. Les tiens (8 au plus, environ 22 secondes en tout) se font dans l’<b>éditeur de breaks</b> : importe une boucle, découpe-la, puis envoie la banque à ton FM-1 ou ouvre-la ici. Plus rapide : <b>dépose une boucle</b> (WAV, MP3, AIFF…) sur cette page, elle est découpée sur ses frappes et ajoutée aux tiens. Ils sont gardés dans ce navigateur avec tes projets.",
       "b.editor": "Ouvrir l’éditeur de breaks",
       "b.load": "Charger une banque (.brkbank)",
+      "b.addloop": "Ajouter une boucle (WAV, MP3…)",
+      "b.reading": "Lecture de {f}…",
+      "b.noread": "Ce navigateur ne sait pas lire {f} comme un son.",
+      "b.offloop": "Allume d’abord, puis ajoute la boucle à nouveau.",
+      "b.added": "Ajouté. Tes breaks : {n} ; tourne SELECT après les 8 d’usine.",
+      "b.max": "Pas ajouté : tu as déjà 8 breaks. Retires-en un dans l’éditeur de breaks.",
+      "b.cap": "Pas ajouté : plus de place (environ 22 s en tout). Raccourcis-la dans l’éditeur de breaks, ou enregistre-la en 16 kHz.",
+      "b.cant": "Pas ajouté : {m}",
       "b.erase": "Retirer mes breaks",
       "b.empty": "vide",
       "b.factory": "usine",
@@ -979,8 +1009,10 @@ kbd { font-family: var(--mono); font-size: 12px; background: var(--panel); paddi
     });
   }
   function onBank(d) {
-    if (d.ok) bankMsg(d.n ? T("b.sent", {n: d.n}) : T("b.none"), "ok");
-    else bankMsg(/busy/.test(d.msg) ? T("b.busy") : T("b.bad", {m: d.msg}), "err");
+    if (d.ok) bankMsg(d.added ? T("b.added", {n: d.n}) : d.n ? T("b.sent", {n: d.n}) : T("b.none"), "ok");
+    else if (/busy/.test(d.msg)) bankMsg(T("b.busy"), "err");
+    else if (d.added) bankMsg(/8 breaks/.test(d.msg) ? T("b.max") : /at most|too big/.test(d.msg) ? T("b.cap") : T("b.cant", {m: d.msg}), "err");
+    else bankMsg(T("b.bad", {m: d.msg}), "err");
   }
   async function loadBank(u8) {
     if (!running) { ls.set(LS_PENDING, b64enc(u8)); bankMsg(T("b.off")); return; }
@@ -995,14 +1027,54 @@ kbd { font-family: var(--mono); font-size: 12px; background: var(--panel); paddi
   });
   $("bank-erase").addEventListener("click", async () => { if (!running) { bankMsg(T("b.off")); return; } await stopFirst(); send({t: "erase"}); });
 
-  /* drag and drop: a .brkbank (the breaks) or a .breakr (the projects), anywhere */
+  /* a loop (WAV, MP3, AIFF…): cut on its hits as the break editor does it (22 kHz, sensitivity 6), then added */
+  const isLoop = (f) => /\.(wav|wave|mp3|aif|aiff|aifc|flac|ogg|oga|opus|m4a|aac|webm)$/i.test(f.name) ||
+    (/^audio\//.test(f.type || "") && !/\.(brkbank|breakr)$/i.test(f.name));
+  function loopBreak(name, f32, srcRate) {
+    const RATE = 22050;
+    let peak = 1e-9, i = 0;
+    for (let k = 0; k < f32.length; k++) peak = Math.max(peak, Math.abs(f32[k]));
+    while (i < f32.length && Math.abs(f32[i]) < peak * 0.004) i++;      /* the silence before the first hit */
+    const pcm = BRK.toInt16(BRK.resample(f32.subarray(Math.max(0, i - 32)), srcRate, RATE));
+    const sec = pcm.length / RATE, bars = BRK.guessBars(sec), an = BRK.analyse(pcm, RATE);
+    let sl = BRK.onsets(pcm, RATE, 6, an).slice(0, 32);
+    sl = Array.from(new Set([0].concat(sl))).sort((x, y) => x - y).slice(0, 32);
+    const nm = (name || "BREAK").toUpperCase().replace(/[^ -_]/g, "").replace(/\s+/g, " ").trim().slice(0, 15) || "BREAK";
+    return {name: nm, rate: RATE, frames: pcm.length, data: BRK.imaEncode(pcm), bars, bpm10: Math.round(bars * 2400 / sec), sl, cls: BRK.classify(sl, an)};
+  }
+  async function addLoops(files) {
+    if (!running || !audio) { bankMsg(T("b.offloop"), "err"); return; }
+    const got = [];
+    for (const f of files) {
+      bankMsg(T("b.reading", {f: f.name}));
+      try {
+        const d = await BRK.decodeFile(f, audio);
+        got.push(loopBreak(d.name, d.pcm, d.rate));
+      } catch (e) { bankMsg(T("b.noread", {f: f.name}), "err"); return; }
+    }
+    if (!got.length) return;
+    let file;
+    try { file = BRK.bankFile(BRK.buildBank(got)); } catch (e) { bankMsg(/8 breaks/.test(e.message) ? T("b.max") : T("b.cap"), "err"); return; }
+    await stopFirst();
+    send({t: "addbank", data: file});
+  }
+  $("loop-file").addEventListener("change", (e) => {
+    const fs = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (fs.length) addLoops(fs);
+  });
+
+  /* drag and drop, anywhere: loops, a .brkbank (the breaks) or a .breakr (the projects) */
   const hasFiles = (e) => e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], "Files") >= 0;
   window.addEventListener("dragover", (e) => { if (hasFiles(e)) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } });
   window.addEventListener("drop", async (e) => {
     if (!hasFiles(e)) return;
     e.preventDefault();
-    const f = e.dataTransfer.files && e.dataTransfer.files[0];
-    if (!f) return;
+    const fs = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
+    if (!fs.length) return;
+    const loops = fs.filter(isLoop);
+    if (loops.length) { addLoops(loops); return; }
+    const f = fs[0];
     if (/\.breakr$/i.test(f.name)) importProjects(f);
     else loadBank(new Uint8Array(await f.arrayBuffer()));
   });
